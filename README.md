@@ -1,6 +1,6 @@
 # simMC 工具组 / simMC Tool Set
 
-面向 simMC 玩家的离线便携工具集合。每个工具使用独立公开仓库；Windows 与 Android 的同版本文件放在同一个 GitHub Release，历史版本继续保留。
+面向 simMC 玩家的离线便携工具集合。每个工具使用独立公开仓库；Windows 与 Android 的同版本文件放在同一个 GitHub Release，历史版本保留。
 
 ## 最新版直接下载
 
