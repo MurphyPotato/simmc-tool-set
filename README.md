@@ -7,7 +7,7 @@ MurphyPotato 制作 · 非官方玩家工具组。
 
 | 工具 | 功能 | Windows | Android | 源码与说明 |
 | --- | --- | --- | --- | --- |
-| 旅行猎手饰品对比工具 v4 | 饰品 OCR、人工复核、仓库管理、剑/弓最优配装 | [下载 Windows ZIP](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v4/travel-hunter-accessory-tool-v4-win.zip) | [下载 Android APK](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v4/travel-hunter-accessory-tool-v4-android-debug.apk) | [工具仓库](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool) · [v4 Release](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/tag/v4) |
+| 旅行猎手饰品对比工具 v5 | 饰品 OCR、人工复核、仓库管理、剑/弓最优配装 | [下载 Windows ZIP](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v5/travel-hunter-accessory-tool-v5-win.zip) | [下载 Android APK](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v5/travel-hunter-accessory-tool-v5-android.apk) | [工具仓库](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool) · [v5 Release](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/tag/v5) |
 | 奥术卷轴计算器 v1.1.0 | 卷轴材料配比、全局排除材料与轮换方案 | [下载 Windows ZIP](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/download/v1.1.0/aoshu-scroll-calculator-v1.1.0-win.zip) | [下载 Android APK](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/download/v1.1.0/aoshu-scroll-calculator-v1.1.0-android-debug.apk) | [工具仓库](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator) · [v1.1.0 Release](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/tag/v1.1.0) |
 
 ## Windows 安装
@@ -25,7 +25,7 @@ Windows 包自带便携 Node 运行时，不需要安装 Node、npm 或开发工
 2. 红米 K50 / 澎湃 OS 等设备按系统提示，为下载 APK 的浏览器或文件管理器允许“安装未知应用”。
 3. 安装后直接打开工具。当前 APK 均不申请联网权限。
 
-Android 附件目前是项目自带 debug 签名的离线 APK。更新同一工具时应直接覆盖安装，不要混用来源不明的重签名 APK。
+旅行猎手 v5 使用长期生产签名；历史 v2/v4 debug 版需要先卸载再安装 v5。奥术卷轴 v1.1.0 目前仍为项目自带 debug 签名。不要混用来源不明的重签名 APK。
 
 ## 隐私与离线边界
 
@@ -33,7 +33,7 @@ MurphyPotato 制作的非官方玩家工具。玩家发行包运行时不收集�
 
 Windows 仅使用 `127.0.0.1` 本机服务，Android 不申请联网权限。操作系统、浏览器及用户自行启用的系统备份行为由用户设备设置决定，不属于工具主动通信。源码构建过程可能联网下载公开依赖。
 
-当前公开稳定下载仍为旅行猎手 v4 和奥术卷轴 v1.1.0；正在复测的 v5 / v1.1.1 候选不会以公开 Prerelease 形式提前替换这些链接。
+当前公开稳定下载为旅行猎手 v5 和奥术卷轴 v1.1.0。
 
 ## 安全校验
 
