@@ -5,12 +5,12 @@ MurphyPotato 制作 · 非官方玩家工具组。
 
 ## 最新版直接下载
 
-| 工具 | 功能 | Windows | Android | Fabric | 源码与说明 |
+| 工具 | 功能 | Windows | Android | Fabric (推荐) | 源码与说明 |
 | --- | --- | --- | --- | --- | --- |
-| 旅行猎手饰品对比工具 | 饰品识别、人工复核、仓库管理、剑/弓最优配装 | [下载 Windows v5 ZIP](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v5/travel-hunter-accessory-tool-v5-win.zip) | [下载 Android v5 APK](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v5/travel-hunter-accessory-tool-v5-android.apk) | [下载 1.21.8 v6 JAR](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v6-fabric-mc1.21.8/travel-hunter-accessory-tool-v6-fabric-mc1.21.8.jar) | [工具仓库](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool) · [Fabric v6](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/tag/v6-fabric-mc1.21.8) · [v5 Web](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/tag/v5) |
+| 旅行猎手饰品对比工具 | 饰品识别、人工复核、仓库管理、剑/弓最优配装 | [下载 Windows v5 ZIP](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v5/travel-hunter-accessory-tool-v5-win.zip) | [下载 Android v5 APK](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v5/travel-hunter-accessory-tool-v5-android.apk) | [下载 1.21.8 v6 JAR (推荐)](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v6-fabric-mc1.21.8/travel-hunter-accessory-tool-v6-fabric-mc1.21.8.jar) | [工具仓库](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool) · [Fabric v6](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/tag/v6-fabric-mc1.21.8) · [v5 Web](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/tag/v5) |
 | 奥术卷轴计算器 v1.1.0 | 卷轴材料配比、全局排除材料与轮换方案 | [下载 Windows ZIP](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/download/v1.1.0/aoshu-scroll-calculator-v1.1.0-win.zip) | [下载 Android APK](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/download/v1.1.0/aoshu-scroll-calculator-v1.1.0-android-debug.apk) | [下载 1.21.8 RC1 JAR](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/download/v1.1.1-fabric-mc1.21.8-rc1/aoshu-scroll-calculator-v1.1.1-fabric-mc1.21.8-rc1.jar) | [工具仓库](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator) · [v1.1.0 Release](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/tag/v1.1.0) · [Fabric RC1](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/tag/v1.1.1-fabric-mc1.21.8-rc1) |
 
-## Fabric 安装
+## Fabric 安装 (推荐)
 
 1. 准备 Minecraft 1.21.8、Java 21、Fabric Loader 0.17.3 或更高版本，以及 Fabric API 0.136.1+1.21.8 或兼容版本。
 2. 点击表格中的 Fabric 下载链接，将 JAR 放入对应游戏实例的 `.minecraft/mods` 文件夹。
