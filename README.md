@@ -7,7 +7,7 @@ MurphyPotato 制作 · 非官方玩家工具组。
 
 | 工具 | 功能 | Windows | Android | Fabric | 源码与说明 |
 | --- | --- | --- | --- | --- | --- |
-| 旅行猎手饰品对比工具 v5 | 饰品识别、人工复核、仓库管理、剑/弓最优配装 | [下载 Windows ZIP](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v5/travel-hunter-accessory-tool-v5-win.zip) | [下载 Android APK](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v5/travel-hunter-accessory-tool-v5-android.apk) | [下载 1.21.8 RC6 JAR](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v5-fabric-mc1.21.8-rc6/travel-hunter-accessory-tool-v5-fabric-mc1.21.8-rc6.jar) | [工具仓库](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool) · [v5 Web](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/tag/v5) · [Fabric RC6](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/tag/v5-fabric-mc1.21.8-rc6) |
+| 旅行猎手饰品对比工具 v5 | 饰品识别、人工复核、仓库管理、剑/弓最优配装 | [下载 Windows ZIP](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v5/travel-hunter-accessory-tool-v5-win.zip) | [下载 Android APK](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v5/travel-hunter-accessory-tool-v5-android.apk) | [下载 1.21.8 正式版 JAR](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v5-fabric-mc1.21.8/travel-hunter-accessory-tool-v5-fabric-mc1.21.8.jar) | [工具仓库](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool) · [Fabric v5](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/tag/v5-fabric-mc1.21.8) · [v5 Web](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/tag/v5) |
 | 奥术卷轴计算器 v1.1.0 | 卷轴材料配比、全局排除材料与轮换方案 | [下载 Windows ZIP](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/download/v1.1.0/aoshu-scroll-calculator-v1.1.0-win.zip) | [下载 Android APK](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/download/v1.1.0/aoshu-scroll-calculator-v1.1.0-android-debug.apk) | [下载 1.21.8 RC1 JAR](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/download/v1.1.1-fabric-mc1.21.8-rc1/aoshu-scroll-calculator-v1.1.1-fabric-mc1.21.8-rc1.jar) | [工具仓库](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator) · [v1.1.0 Release](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/tag/v1.1.0) · [Fabric RC1](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/tag/v1.1.1-fabric-mc1.21.8-rc1) |
 
 ## Windows 安装
@@ -33,9 +33,9 @@ MurphyPotato 制作的非官方玩家工具。玩家发行包运行时不收集�
 
 Windows 仅使用 `127.0.0.1` 本机服务，Android 不申请联网权限。操作系统、浏览器及用户自行启用的系统备份行为由用户设备设置决定，不属于工具主动通信。源码构建过程可能联网下载公开依赖。
 
-当前公开稳定下载为旅行猎手 v5 和奥术卷轴 v1.1.0。
+当前公开稳定下载为旅行猎手 Fabric v5、旅行猎手 Windows/Android v5 和奥术卷轴 v1.1.0。
 
-旅行猎手 Fabric 1.21.8 RC6 是较大规模内部测试中的 Prerelease，不会替换上述 Windows/Android 稳定版。进入世界后可在背包或饰品容器按主键盘数字行 `0` 打开，按键可在原生控制设置中修改。
+旅行猎手 Fabric v5 适用于 Minecraft 1.21.8，是当前推荐入口。进入世界后可在背包或饰品容器按主键盘数字行 `0` 打开，按键可在原生控制设置中修改；Windows/Android v5 继续保留为兼容下载。
 
 ## 安全校验
 
