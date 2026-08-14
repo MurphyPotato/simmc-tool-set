@@ -19,7 +19,7 @@ import java.text.Collator;
 import java.util.Locale;
 
 public record GameData(List<ScrollRecipe> recipes, List<Material> materials, Map<String, Integer> nameSortRanks) {
-    public static final String RESOURCE = "/assets/simmc_arcane_scroll_calculator/data/game-data-v1.1.1.json";
+    public static final String RESOURCE = "/assets/simmc_tool_set/scroll-data/game-data-v1.1.1.json";
     public static final String SCHEMA = "simmc-arcane-scroll-calculator:v1.1.1/game-data";
 
     public GameData {
