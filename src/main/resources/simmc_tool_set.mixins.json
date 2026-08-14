@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.murphypotato.simmctoolset.mixins",
+  "plugin": "com.murphypotato.simmctoolset.map.ToolSetMapMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "client.KeyboardMixin",
+    "client.MouseMixin",
+    "accessory.HandledScreenAccessor",
+    "map.MixinGuiMap",
+    "map.MixinMinimapModuleRenderer"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

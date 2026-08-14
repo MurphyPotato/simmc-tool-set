@@ -1,2 +1,8 @@
 .DS_Store
 Thumbs.db
+libs/
+run/
+build/
+.gradle/
+.gradle-local/
+.xaero-empty/

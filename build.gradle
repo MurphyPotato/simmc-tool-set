@@ -1,0 +1,133 @@
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+
+plugins {
+    id "fabric-loom" version "${loom_version}"
+    id "maven-publish"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+}
+
+def xaeroLibDir = file(findProperty("xaero_lib_dir") ?: "libs")
+def optionalLocalMod = { String displayName, String pattern ->
+    def matches = (xaeroLibDir.listFiles() ?: [] as File[])
+        .findAll { it.isFile() && it.name ==~ pattern }
+        .sort { it.name }
+    if (matches.size() > 1) {
+        throw new GradleException("Expected at most one ${displayName} JAR in libs/, found ${matches.size()}: ${matches*.name}")
+    }
+    matches ? matches[0] : null
+}
+
+def xaeroWorldMapJar = optionalLocalMod(
+    "Xaero World Map 1.39.13 for Fabric 1.21.8",
+    /(?i)^XaerosWorldMap_1\.39\.13_Fabric_1\.21\.8\.jar$/
+)
+def xaeroMinimapJar = optionalLocalMod(
+    "Xaero Minimap 25.2.16 for Fabric 1.21.8",
+    /(?i)^Xaeros_Minimap_25\.2\.16_Fabric_1\.21\.8\.jar$/
+)
+def xaeroMapAvailable = xaeroWorldMapJar != null && xaeroMinimapJar != null
+def modMenuJar = optionalLocalMod(
+    "Mod Menu",
+    /(?i)^(?:\[[^\]]+\] )?modmenu-.*\.jar$/
+)
+
+if (!xaeroMapAvailable) {
+    logger.lifecycle("Xaero JARs not both present in ${xaeroLibDir}: building without the optional map implementation")
+    sourceSets.main.java.exclude("com/murphypotato/simmctoolset/internal/map/**")
+} else {
+    logger.lifecycle("Xaero map implementation enabled from ${xaeroLibDir}/${xaeroWorldMapJar.name} and ${xaeroLibDir}/${xaeroMinimapJar.name}")
+    if (modMenuJar == null) {
+        sourceSets.main.java.exclude("com/murphypotato/simmctoolset/internal/map/gui/SimmcMapModMenuIntegration.java")
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    implementation "com.google.code.gson:gson:2.11.0"
+
+    // Xaero stays outside this JAR. It is required only to compile and to run the map module.
+    if (xaeroMapAvailable) {
+        implementation include("org.jsoup:jsoup:1.18.3")
+        modCompileOnly files(xaeroWorldMapJar)
+        modCompileOnly files(xaeroMinimapJar)
+        modLocalRuntime files(xaeroWorldMapJar)
+        modLocalRuntime files(xaeroMinimapJar)
+        if (modMenuJar != null) {
+            modCompileOnly files(modMenuJar)
+            modLocalRuntime files(modMenuJar)
+        }
+    }
+
+    testImplementation "org.junit.jupiter:junit-jupiter:5.11.4"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.11.4"
+}
+
+processResources {
+    inputs.property "version", project.version
+    inputs.property "xaeroMapAvailable", xaeroMapAvailable
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+    doLast {
+        def encoded = file("src/main/resources/assets/simmc_tool_set/generic-fallback.png.base64").text.trim()
+        def png = new File(destinationDir, "assets/simmc_tool_set/generic-fallback.png")
+        png.parentFile.mkdirs()
+        png.bytes = Base64.decoder.decode(encoded)
+        new File(destinationDir, "assets/simmc_tool_set/generic-fallback.png.base64").delete()
+        if (!xaeroMapAvailable) {
+            def mixinFile = new File(destinationDir, "simmc_tool_set.mixins.json")
+            def mixins = new JsonSlurper().parse(mixinFile)
+            mixins.client = mixins.client.findAll { !it.startsWith("map.") }
+            mixinFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(mixins)) + System.lineSeparator()
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+    options.release = 21
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.withType(Jar).configureEach {
+    from("LICENSE") {
+        rename { "LICENSE_simmc-tool-set" }
+    }
+    from("THIRD_PARTY_NOTICES.md")
+}
+
+tasks.register("checkXaeroBuildConfiguration") {
+    group = "verification"
+    description = "Reports whether the optional Xaero map implementation will be compiled."
+    doLast {
+        if (xaeroMapAvailable) {
+            logger.lifecycle("Xaero map build: ENABLED")
+        } else {
+            logger.lifecycle("Xaero map build: DISABLED (non-map modules remain buildable)")
+        }
+    }
+}
