@@ -9,6 +9,9 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /** Prefix routing intentionally consumes only a recognized second keyboard key. */
 public final class ToolSetKeyRouter {
     private static final long PREFIX_WINDOW_MILLIS = 750;
@@ -126,9 +129,62 @@ public final class ToolSetKeyRouter {
 
     private static boolean textEntryActive(Screen screen) {
         if (screen == null) return false;
+        if (screen instanceof ToolSetHotkeyScreen) return true;
         Element focused = screen.getFocused();
         if (focused instanceof TextFieldWidget) return true;
         String name = screen.getClass().getName();
         return name.endsWith("ChatScreen") || name.endsWith("BookEditScreen") || name.endsWith("SignEditScreen");
+    }
+
+    public record BindingEntry(String id, String label, String description, KeyBinding binding) {
+    }
+
+    public static List<BindingEntry> bindings() {
+        List<BindingEntry> result = new ArrayList<>();
+        if (prefix == null) return result;
+        result.add(new BindingEntry("prefix", "组合键前缀", "按住后再按功能键；单独松开打开本页", prefix));
+        result.add(new BindingEntry("arcane_hud", "奥术 HUD", "打开奥术 HUD 状态页", arcaneHud));
+        result.add(new BindingEntry("scroll", "卷轴计算", "打开卷轴材料计算器", scroll));
+        result.add(new BindingEntry("accessory", "饰品配装", "打开饰品扫描与配装工具", accessory));
+        result.add(new BindingEntry("brewing", "发酵与厨具", "打开发酵和厨具助手设置", brewing));
+        result.add(new BindingEntry("map", "SIMMC 网页地图", "打开地图状态与覆盖设置", map));
+        result.add(new BindingEntry("diagnostics", "诊断与日志", "打开本地诊断记录", diagnostics));
+        result.add(new BindingEntry("accessory_direct", "饰品工具直达", "不使用组合前缀，直接打开饰品工具", accessoryDirect));
+        return List.copyOf(result);
+    }
+
+    public static boolean setBinding(BindingEntry entry, int keyCode, int scanCode) {
+        if (entry == null || entry.binding() == null) return false;
+        entry.binding().setBoundKey(InputUtil.fromKeyCode(keyCode, scanCode));
+        KeyBinding.updateKeysByCode();
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client != null && client.options != null) client.options.write();
+        DiagnosticLog.info("按键已重绑：" + entry.id() + " -> " + entry.binding().getBoundKeyLocalizedText().getString());
+        return true;
+    }
+
+    public static void unbind(BindingEntry entry) {
+        if (entry == null || entry.binding() == null) return;
+        entry.binding().setBoundKey(InputUtil.UNKNOWN_KEY);
+        KeyBinding.updateKeysByCode();
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client != null && client.options != null) client.options.write();
+        DiagnosticLog.info("按键已取消绑定：" + entry.id());
+    }
+
+    public static void resetBinding(BindingEntry entry) {
+        if (entry == null || entry.binding() == null) return;
+        entry.binding().setBoundKey(entry.binding().getDefaultKey());
+        KeyBinding.updateKeysByCode();
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client != null && client.options != null) client.options.write();
+        DiagnosticLog.info("按键已恢复默认：" + entry.id());
+    }
+
+    public static boolean conflicts(BindingEntry selected, int keyCode, int scanCode) {
+        for (BindingEntry entry : bindings()) {
+            if (entry.binding() != selected.binding() && entry.binding().matchesKey(keyCode, scanCode)) return true;
+        }
+        return false;
     }
 }

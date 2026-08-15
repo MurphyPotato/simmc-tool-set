@@ -9,11 +9,13 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.List;
+import java.util.Optional;
 
 /** Bounded local diagnostic log. Export only happens after a player click. */
 public final class DiagnosticLog {
     private static final int LIMIT = 120;
     private static final ArrayDeque<String> LINES = new ArrayDeque<>();
+    private static Path lastExport;
 
     private DiagnosticLog() {
     }
@@ -39,7 +41,12 @@ public final class DiagnosticLog {
         Files.createDirectories(directory);
         Path file = directory.resolve("diagnostic-" + Instant.now().toEpochMilli() + ".log");
         Files.write(file, LINES, StandardCharsets.UTF_8);
+        lastExport = file.toAbsolutePath().normalize();
         return file;
+    }
+
+    public static synchronized Optional<Path> lastExportPath() {
+        return Optional.ofNullable(lastExport);
     }
 
     private static void append(String level, String message, Throwable error) {

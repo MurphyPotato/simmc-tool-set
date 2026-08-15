@@ -27,17 +27,17 @@ final class ExternalScreenBridge {
 
     static String status(String modId, String displayName, String minimumVersion) {
         if (!FabricLoader.getInstance().isModLoaded(modId)) {
-            return "Using the built-in " + displayName + ".";
+            return "当前使用内置版：" + displayName + "。";
         }
         if (isAvailable(modId)) {
-            return "Using the external " + displayName + " bridge.";
+            return "当前由外置版桥接接管：" + displayName + "。";
         }
         String actual = FabricLoader.getInstance().getModContainer(modId)
                 .map(container -> container.getMetadata().getVersion().getFriendlyString())
                 .orElse("unknown");
-        return "Compatibility warning: " + displayName + " " + actual
-                + " is not fully compatible and may fail to start or crash the game. "
-                + "Use " + displayName + " " + minimumVersion + " or newer with screen_opener_v1.";
+        return "兼容性警告：" + displayName + " " + actual
+                + " 版本不完全兼容，可能启动失败并导致游戏崩溃。请使用 " + displayName + " " + minimumVersion
+                + " 或更新版本，并确认已提供 screen_opener_v1。";
     }
 
     static boolean open(String modId, Screen parent) {

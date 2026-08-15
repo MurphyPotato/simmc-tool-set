@@ -95,13 +95,13 @@ public final class MapCompatibility {
 
         public String displayName() {
             return switch (mode) {
-                case VERIFIED -> "Verified compatibility";
-                case EXPERIMENTAL -> "Experimental compatibility enabled; restart required";
-                case INCOMPATIBLE -> "Compatibility warning";
-                case MISSING_WORLD_MAP -> "Missing Xaero World Map";
-                case MISSING_MINIMAP -> "Missing Xaero Minimap";
-                case MISSING_BOTH -> "Missing Xaero World Map and Xaero Minimap";
-                case EXTERNAL_MAP -> "Standalone SIMMC Map detected; internal map is disabled";
+                case VERIFIED -> "已验证兼容";
+                case EXPERIMENTAL -> "已开启实验兼容，需重启";
+                case INCOMPATIBLE -> "兼容性警告";
+                case MISSING_WORLD_MAP -> "缺少 Xaero 世界地图";
+                case MISSING_MINIMAP -> "缺少 Xaero 小地图";
+                case MISSING_BOTH -> "缺少 Xaero 世界地图和小地图";
+                case EXTERNAL_MAP -> "检测到独立 SIMMC 地图，已关闭内置实现";
             };
         }
 

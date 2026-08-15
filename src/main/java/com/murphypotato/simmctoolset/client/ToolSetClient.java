@@ -92,7 +92,7 @@ public final class ToolSetClient implements ClientModInitializer {
     public static void openTarget(ToolSetKeyRouter.Target target, Screen parent) {
         MinecraftClient client = MinecraftClient.getInstance();
         switch (target) {
-            case HOTKEYS -> openPanel(ToolSetScreen.Panel.HOTKEYS, parent);
+            case HOTKEYS -> openHotkeys(parent);
             case ARCANE_HUD -> openPanel(ToolSetScreen.Panel.ARCANE_HUD, parent);
             case SCROLL -> openScroll(client, parent);
             case ACCESSORY -> openAccessory(client, parent);
@@ -109,6 +109,12 @@ public final class ToolSetClient implements ClientModInitializer {
             return;
         }
         client.setScreen(new ToolSetScreen(parent, panel));
+    }
+
+    public static void openHotkeys(Screen parent) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.currentScreen instanceof ToolSetHotkeyScreen) return;
+        client.setScreen(new ToolSetHotkeyScreen(parent));
     }
 
     public static void openScroll(MinecraftClient client, Screen parent) {
@@ -137,7 +143,7 @@ public final class ToolSetClient implements ClientModInitializer {
 
     public static String scrollStatus() {
         return ExternalScreenBridge.status(
-                "simmc_arcane_scroll_calculator", "Arcane scroll calculator", "2.1.0-fabric");
+                "simmc_arcane_scroll_calculator", "奥术卷轴计算器", "2.1.0-fabric");
     }
 
     public static boolean isAccessoryInternal() {
@@ -146,7 +152,18 @@ public final class ToolSetClient implements ClientModInitializer {
 
     public static String accessoryStatus() {
         return ExternalScreenBridge.status(
-                "simmc_travel_hunter_accessory_tool", "Travel Hunter accessory tool", "6.1.0-fabric");
+                "simmc_travel_hunter_accessory_tool", "旅行猎手饰品工具", "6.1.0-fabric");
+    }
+
+    public static String runtimeSummary() {
+        return "卷轴=" + (scrollInternal ? "内置" : "外置桥接")
+                + "，饰品=" + (accessoryInternal ? "内置" : "外置桥接")
+                + "，地图=" + MapCompatibility.status().displayName();
+    }
+
+    public static String mapRuntimeStatus() {
+        if (!mapInternal) return "地图实现未加载（请先安装并确认 Xaero 两个版本）";
+        return MapModule.runtimeStatus();
     }
 
     public static boolean isMapInternal() {

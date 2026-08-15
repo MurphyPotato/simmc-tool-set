@@ -111,6 +111,19 @@ java {
 
 test {
     useJUnitPlatform()
+    exclude("**/MapCompatibilitySmoke.class")
+}
+
+tasks.register("verifyMapCompatibility", JavaExec) {
+    group = "verification"
+    description = "Runs the JVM-only Xaero compatibility decision table."
+    dependsOn tasks.named("testClasses")
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = "com.murphypotato.simmctoolset.map.MapCompatibilitySmoke"
+}
+
+tasks.named("check") {
+    dependsOn tasks.named("verifyMapCompatibility")
 }
 
 tasks.withType(Jar).configureEach {

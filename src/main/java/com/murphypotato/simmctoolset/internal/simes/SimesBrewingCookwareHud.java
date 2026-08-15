@@ -13,6 +13,8 @@ import net.minecraft.util.ActionResult;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Licensed Simes-derived fermentation and cookware hints. */
 public final class SimesBrewingCookwareHud {
@@ -34,8 +36,9 @@ public final class SimesBrewingCookwareHud {
         UseBlockCallback.EVENT.register((player, world, hand, hit) -> {
             if (player != MinecraftClient.getInstance().player || !SimesFeatureController.brewingEnabled()) return ActionResult.PASS;
             String path = world.getBlockState(hit.getBlockPos()).getBlock().toString().toLowerCase();
-            if (path.contains("cook") || path.contains("pot") || path.contains("barrel") || path.contains("ferment")) {
-                cookware = "Cookware: " + path.replace("block{", "").replace("}", "");
+            if (SimesFeatureController.cookwareEnabled()
+                    && (path.contains("cook") || path.contains("pot") || path.contains("barrel") || path.contains("ferment"))) {
+                cookware = "厨具：" + path.replace("block{", "").replace("}", "");
                 lastUpdate = System.currentTimeMillis();
             }
             return ActionResult.PASS;
@@ -55,11 +58,11 @@ public final class SimesBrewingCookwareHud {
     }
 
     private static void accept(String raw) {
-        if (!SimesFeatureController.brewingEnabled() || raw == null) return;
+        if (!SimesFeatureController.fermentationEnabled() || raw == null) return;
         Matcher remaining = REMAINING.matcher(raw);
         Matcher productMatcher = PRODUCT.matcher(raw);
-        if (remaining.matches()) fermentation = "Fermentation: " + remaining.group(1).trim();
-        if (productMatcher.matches()) product = "Product: " + productMatcher.group(1).trim();
+        if (remaining.matches()) fermentation = "发酵剩余：" + remaining.group(1).trim();
+        if (productMatcher.matches()) product = "产物：" + productMatcher.group(1).trim();
         if (remaining.matches() || productMatcher.matches()) lastUpdate = System.currentTimeMillis();
     }
 
@@ -68,9 +71,28 @@ public final class SimesBrewingCookwareHud {
                 || System.currentTimeMillis() - lastUpdate > 30_000L) return;
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
-        int y = client.getWindow().getScaledHeight() - 48;
-        if (!fermentation.isEmpty()) { context.drawTextWithShadow(client.textRenderer, Text.literal(fermentation), 8, y, 0xFFFFC266); y += 11; }
-        if (!product.isEmpty()) { context.drawTextWithShadow(client.textRenderer, Text.literal(product), 8, y, 0xFFFFC266); y += 11; }
-        if (!cookware.isEmpty()) context.drawTextWithShadow(client.textRenderer, Text.literal(cookware), 8, y, 0xFF8FE8FF);
+        List<String> lines = new ArrayList<>();
+        if (SimesFeatureController.fermentationEnabled()) {
+            if (!fermentation.isEmpty()) lines.add(fermentation);
+            if (!product.isEmpty()) lines.add(product);
+        }
+        if (SimesFeatureController.cookwareEnabled() && !cookware.isEmpty()) lines.add(cookware);
+        if (lines.isEmpty()) return;
+        int maxWidth = lines.stream().mapToInt(client.textRenderer::getWidth).max().orElse(80);
+        int x = Math.max(8, client.getWindow().getScaledWidth() - maxWidth - 12);
+        int y = 8;
+        context.fill(x - 5, y - 4, x + maxWidth + 5, y + lines.size() * 11 + 3, 0xA810141B);
+        for (String line : lines) {
+            int color = line.startsWith("厨具") ? 0xFF8FE8FF : 0xFFFFC266;
+            context.drawTextWithShadow(client.textRenderer, Text.literal(line), x, y, color);
+            y += 11;
+        }
+    }
+
+    public static String statusSummary() {
+        if (lastUpdate == 0L) return "等待点击发酵桶或厨具";
+        if (System.currentTimeMillis() - lastUpdate > 30_000L) return "最近状态已过期，请重新点击目标";
+        if (!fermentation.isEmpty() || !product.isEmpty() || !cookware.isEmpty()) return "已收到最近一次目标状态";
+        return "已激活，等待服务器提示";
     }
 }

@@ -53,6 +53,7 @@ public final class SimmcMapClient {
     private static final AtomicReference<RuntimeState> RUNTIME = new AtomicReference<>();
     private static SimmcMapConfig config;
     private static Path configPath;
+    private static volatile String runtimeStatus = "等待连接 play.simmc.cn";
 
     public static void initialize() {
         if (config != null) return;
@@ -61,7 +62,9 @@ public final class SimmcMapClient {
         WORLD_MAP_UI.applyConfig(config);
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             String address = client.getCurrentServerEntry() == null ? "" : client.getCurrentServerEntry().address;
-            new ServerActivationService(config).resolveFor(address).ifPresent(profile -> startRuntime(client, profile));
+            new ServerActivationService(config).resolveFor(address).ifPresentOrElse(
+                    profile -> startRuntime(client, profile),
+                    () -> runtimeStatus = "当前服务器未启用 SIMMC 地图（仅 play.simmc.cn 或自定义服务器）");
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> stopRuntime());
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> stopRuntime());
@@ -74,6 +77,7 @@ public final class SimmcMapClient {
 
     private static void startRuntime(MinecraftClient client, ConnectionProfile profile) {
         stopRuntime();
+        runtimeStatus = "正在连接地图数据源";
         try {
             Path cache = FabricLoader.getInstance().getGameDir().resolve("simmc-tool-set-map-cache");
             HttpClient.Builder httpBuilder = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8));
@@ -90,9 +94,11 @@ public final class SimmcMapClient {
             RUNTIME.set(state);
             coordinator.restoreFromDisk();
             coordinator.startScheduling();
+            runtimeStatus = "已激活，等待地图数据";
             publishRuntime(client);
         } catch (RuntimeException failure) {
             XaeroCompatibility.disable("SIMMC 地图数据连接初始化失败", failure);
+            runtimeStatus = "地图数据源启动失败，请查看诊断日志";
             stopRuntime();
         }
     }
@@ -121,6 +127,10 @@ public final class SimmcMapClient {
                 updateWorldMapSession(new WorldMapRenderSession.SessionInput(state.profileId(), state.profile, settings, snapshot));
             }
             if (snapshot != state.lastSnapshot) { publishWorldMapSnapshot(snapshot); state.lastSnapshot = snapshot; }
+            int markerCount = snapshot == null ? 0 : snapshot.layers().stream()
+                    .mapToInt(layer -> layer.markers().size()).sum();
+            if (markerCount > 0) runtimeStatus = "已收到 " + markerCount + " 个地图标记";
+            else if (settings != null) runtimeStatus = "已连接，等待公开地图标记";
             List<OnlinePlayerEntry> players = state.coordinator.players();
             if (players != state.lastPlayers || state.playersAvailable != state.coordinator.playersAvailable()) {
                 publishOnlinePlayers(players, state.coordinator.playersAvailable()); state.lastPlayers = players; state.playersAvailable = state.coordinator.playersAvailable();
@@ -132,13 +142,17 @@ public final class SimmcMapClient {
     private static void stopRuntime() {
         RuntimeState state = RUNTIME.getAndSet(null);
         closeWorldMapSession();
-        if (state == null) return;
+        if (state == null) {
+            runtimeStatus = "未连接地图数据源";
+            return;
+        }
         try { state.coordinator.close(); } catch (RuntimeException ignored) { }
         state.scheduler.shutdownNow(); state.parser.shutdownNow();
         try { state.http.close(); } catch (RuntimeException ignored) { }
         publishOnlinePlayers(List.of(), false);
         publishWorldMapSnapshot(new MapSnapshot(List.of()));
         saveUserSettings();
+        runtimeStatus = "未连接地图数据源";
     }
 
     private static Thread daemon(Runnable action, String name) { Thread thread = new Thread(action, name); thread.setDaemon(true); return thread; }
@@ -213,7 +227,8 @@ public final class SimmcMapClient {
                                      ModuleRenderContext renderContext) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (config == null || client.player == null || client.world == null
-                || client.world.getRegistryKey() != net.minecraft.world.World.OVERWORLD) return;
+                || client.world.getRegistryKey() != net.minecraft.world.World.OVERWORLD
+                || !WORLD_MAP_UI.toolbar().worldMapEnabled()) return;
         int size = Math.max(32, renderContext.w);
         boolean circular = HudMod.INSTANCE != null && HudMod.INSTANCE.getSettings().minimapShape == 0;
         WorldMapOverlayRenderer overlay = worldMapOverlay();
@@ -279,6 +294,7 @@ public final class SimmcMapClient {
     public static boolean worldMapEnabled() { return WORLD_MAP_UI.toolbar().worldMapEnabled(); }
     public static boolean worldBackgroundEnabled() { return WORLD_MAP_UI.toolbar().worldBackgroundEnabled(); }
     public static boolean minimapBackgroundEnabled() { return WORLD_MAP_UI.toolbar().minimapBackgroundEnabled(); }
+    public static String runtimeStatus() { return runtimeStatus; }
     public static void toggleWorldMap() { WORLD_MAP_UI.toolbar().toggleWorldMap(); saveUserSettings(); }
     public static void toggleWorldBackground() { WORLD_MAP_UI.toolbar().toggleWorldBackground(); saveUserSettings(); }
     public static void toggleMinimapBackground() { WORLD_MAP_UI.toolbar().toggleMinimapBackground(); saveUserSettings(); }

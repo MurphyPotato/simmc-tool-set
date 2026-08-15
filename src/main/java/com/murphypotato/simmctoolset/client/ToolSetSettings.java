@@ -23,7 +23,15 @@ public final class ToolSetSettings {
     }
 
     public static synchronized boolean brewingEnabled() {
-        return value("brewingEnabled", true);
+        return fermentationEnabled() || cookwareEnabled();
+    }
+
+    public static synchronized boolean fermentationEnabled() {
+        return value("fermentationEnabled", true);
+    }
+
+    public static synchronized boolean cookwareEnabled() {
+        return value("cookwareEnabled", true);
     }
 
     public static synchronized boolean mapExperimentalEnabled() {
@@ -35,7 +43,16 @@ public final class ToolSetSettings {
     }
 
     public static synchronized void setBrewingEnabled(boolean enabled) {
-        set("brewingEnabled", enabled);
+        setFermentationEnabled(enabled);
+        setCookwareEnabled(enabled);
+    }
+
+    public static synchronized void setFermentationEnabled(boolean enabled) {
+        set("fermentationEnabled", enabled);
+    }
+
+    public static synchronized void setCookwareEnabled(boolean enabled) {
+        set("cookwareEnabled", enabled);
     }
 
     public static synchronized void setMapExperimentalEnabled(boolean enabled) {
@@ -63,6 +80,11 @@ public final class ToolSetSettings {
         if (!Files.isRegularFile(FILE)) return values;
         try (Reader reader = Files.newBufferedReader(FILE)) {
             values.load(reader);
+            if (!values.containsKey("fermentationEnabled") && values.containsKey("brewingEnabled")) {
+                String legacy = values.getProperty("brewingEnabled");
+                values.setProperty("fermentationEnabled", legacy);
+                values.setProperty("cookwareEnabled", legacy);
+            }
         } catch (IOException error) {
             DiagnosticLog.error("Could not read Tool Set settings", error);
         }

@@ -3,6 +3,7 @@ package com.murphypotato.simmctoolset.internal.simes;
 import com.murphypotato.simmctoolset.client.DiagnosticLog;
 import com.murphypotato.simmctoolset.client.ToolSetSettings;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 
 /**
@@ -18,6 +19,10 @@ public final class SimesFeatureController {
     }
 
     public static synchronized void initialize() {
+        if (FabricLoader.getInstance().isModLoaded("simes")) {
+            DiagnosticLog.info("检测到外置 Simes，内置 Simes 功能不初始化");
+            return;
+        }
         if (registered) return;
         registered = true;
         SimesArcaneHud.initialize();
@@ -47,5 +52,27 @@ public final class SimesFeatureController {
 
     public static boolean brewingEnabled() {
         return active() && ToolSetSettings.brewingEnabled();
+    }
+
+    public static boolean fermentationEnabled() {
+        return active() && ToolSetSettings.fermentationEnabled();
+    }
+
+    public static boolean cookwareEnabled() {
+        return active() && ToolSetSettings.cookwareEnabled();
+    }
+
+    public static String arcaneStatus() {
+        if (FabricLoader.getInstance().isModLoaded("simes")) return "检测到外置 Simes，已由外置版接管";
+        if (!active()) return "未连接目标服务器 play.simmc.cn";
+        return ToolSetSettings.arcaneHudEnabled() ? "已激活，等待服务器奥术状态" : "已连接但已关闭";
+    }
+
+    public static String brewingStatus() {
+        if (FabricLoader.getInstance().isModLoaded("simes")) return "检测到外置 Simes，已由外置版接管";
+        if (!active()) return "未连接目标服务器 play.simmc.cn";
+        return "已激活；发酵=" + (ToolSetSettings.fermentationEnabled() ? "开" : "关")
+                + "，厨具=" + (ToolSetSettings.cookwareEnabled() ? "开" : "关")
+                + "；" + SimesBrewingCookwareHud.statusSummary();
     }
 }

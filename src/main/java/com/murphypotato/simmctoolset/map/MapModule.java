@@ -55,6 +55,17 @@ public final class MapModule {
         return booleanValue("minimapBackgroundEnabled");
     }
 
+    public static String runtimeStatus() {
+        if (TYPE == null) return "地图实现不可用";
+        try {
+            Method method = TYPE.getMethod("runtimeStatus");
+            Object value = method.invoke(null);
+            return value == null ? "等待地图运行时" : value.toString();
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            return "地图运行时状态不可读";
+        }
+    }
+
     private static Class<?> findImplementation() {
         try {
             return Class.forName(IMPLEMENTATION, false, MapModule.class.getClassLoader());
