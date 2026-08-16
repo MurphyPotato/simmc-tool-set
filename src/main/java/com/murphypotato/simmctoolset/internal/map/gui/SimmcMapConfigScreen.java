@@ -11,22 +11,22 @@ public final class SimmcMapConfigScreen extends Screen {
     private final Screen parent;
 
     public SimmcMapConfigScreen(Screen parent) {
-        super(Text.translatable("simmcmap.title"));
+        super(Text.translatable("simmc_tool_set.title"));
         this.parent = parent;
     }
 
     @Override protected void init() {
         int x = width / 2 - 110;
         int y = 58;
-        addDrawableChild(toggleButton(x, y, "simmcmap.settings.world_map",
+        addDrawableChild(toggleButton(x, y, "simmc_tool_set.settings.world_map",
                 SimmcMapClient.worldMapEnabled(), SimmcMapClient::toggleWorldMap));
-        addDrawableChild(toggleButton(x, y + 26, "simmcmap.settings.world_background",
+        addDrawableChild(toggleButton(x, y + 26, "simmc_tool_set.settings.world_background",
                 SimmcMapClient.worldBackgroundEnabled(), SimmcMapClient::toggleWorldBackground));
-        addDrawableChild(toggleButton(x, y + 52, "simmcmap.settings.minimap_background",
+        addDrawableChild(toggleButton(x, y + 52, "simmc_tool_set.settings.minimap_background",
                 SimmcMapClient.minimapBackgroundEnabled(), SimmcMapClient::toggleMinimapBackground));
-        addDrawableChild(ButtonWidget.builder(Text.translatable("simmcmap.settings.refresh"), button -> {
+        addDrawableChild(ButtonWidget.builder(Text.translatable("simmc_tool_set.settings.refresh"), button -> {
             SimmcMapClient.requestRefresh();
-            button.setMessage(Text.translatable("simmcmap.status.refreshed"));
+            button.setMessage(Text.translatable("simmc_tool_set.status.refreshed"));
         }).dimensions(x, y + 88, 220, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.done"), button -> close())
                 .dimensions(x, height - 34, 220, 20).build());
@@ -46,7 +46,7 @@ public final class SimmcMapConfigScreen extends Screen {
     @Override public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         renderBackground(context, mouseX, mouseY, delta);
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 20, 0xFFFFFF);
-        context.drawCenteredTextWithShadow(textRenderer, Text.translatable("simmcmap.settings.groups"),
+        context.drawCenteredTextWithShadow(textRenderer, Text.translatable("simmc_tool_set.settings.groups"),
                 width / 2, 38, 0xA0A0A0);
         super.render(context, mouseX, mouseY, delta);
     }

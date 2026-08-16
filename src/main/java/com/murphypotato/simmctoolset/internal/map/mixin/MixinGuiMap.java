@@ -74,7 +74,7 @@ public abstract class MixinGuiMap {
         try {
             SimmcMapClient.renderWorldMapUi(context, mouseX, mouseY, simmc_tool_set$view());
         } catch (Throwable failure) {
-            XaeroCompatibility.disable("世界地图界面渲染失败", failure);
+            XaeroCompatibility.reportUiFailure(failure);
         }
     }
 

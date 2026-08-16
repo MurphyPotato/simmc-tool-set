@@ -225,7 +225,7 @@ public final class IconResourceLoader implements RegisteredIconLoader {
     }
 
     private static byte[] loadFallback() {
-        try (InputStream stream = IconResourceLoader.class.getResourceAsStream("/assets/simmc-map/generic-fallback.png")) {
+        try (InputStream stream = IconResourceLoader.class.getResourceAsStream("/assets/simmc_tool_set/generic-fallback.png")) {
             if (stream == null) throw new IllegalStateException("bundled fallback icon missing");
             byte[] decoded = stream.readAllBytes();
             if (!validPng("image/png", decoded)) throw new IllegalStateException("bundled fallback icon invalid");

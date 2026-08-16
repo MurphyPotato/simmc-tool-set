@@ -109,6 +109,7 @@ public final class WorldMapOverlayRenderer {
     }
 
     public Optional<HitResult> hitTest(double screenX, double screenY, View view) {
+        if (view == null) return Optional.empty();
         State current = state.get();
         return layers.hitTest(current.prepared(), current.hiddenLayers(), screenX, screenY, view)
                 .map(hit -> new HitResult(hit.layer(), hit.marker()));

@@ -70,6 +70,25 @@ public final class SimmcMapConfig {
         }
     }
 
+    /** Loads the new config path and imports an older file without changing the source file. */
+    public static SimmcMapConfig loadOrImport(Path path, boolean externalMapInstalled, Path... legacyPaths) {
+        if (externalMapInstalled) return defaults();
+        if (Files.exists(path)) return load(path);
+        if (legacyPaths != null) {
+            for (Path legacyPath : legacyPaths) {
+                if (legacyPath == null || Files.notExists(legacyPath)) continue;
+                SimmcMapConfig imported = load(legacyPath);
+                try {
+                    imported.save(path);
+                } catch (RuntimeException exception) {
+                    LOGGER.warn("Failed to write migrated SIMMC map configuration to {}", path, exception);
+                }
+                return imported;
+            }
+        }
+        return defaults();
+    }
+
     public static String normalizeBaseUrl(String baseUrl) {
         requireValue(baseUrl, "map base URL");
         String normalized = baseUrl.trim();

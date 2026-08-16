@@ -3,6 +3,7 @@ package com.murphypotato.simmctoolset.internal.map;
 import com.murphypotato.simmctoolset.internal.map.model.MapSnapshot;
 import com.murphypotato.simmctoolset.internal.map.model.MapPoint;
 import com.murphypotato.simmctoolset.internal.map.model.OnlinePlayerEntry;
+import com.murphypotato.simmctoolset.internal.map.command.SimmcMapCommand;
 import com.murphypotato.simmctoolset.internal.map.gui.WorldMapUiController;
 import com.murphypotato.simmctoolset.internal.map.integration.XaeroCompatibility;
 import com.murphypotato.simmctoolset.internal.map.integration.XaeroWaypointBridge;
@@ -57,9 +58,14 @@ public final class SimmcMapClient {
 
     public static void initialize() {
         if (config != null) return;
-        configPath = FabricLoader.getInstance().getConfigDir().resolve("simmc-tool-set-map.json");
-        config = SimmcMapConfig.load(configPath);
+        Path configDir = FabricLoader.getInstance().getConfigDir();
+        configPath = configDir.resolve("simmc-tool-set").resolve("map.json");
+        config = SimmcMapConfig.loadOrImport(configPath,
+                FabricLoader.getInstance().isModLoaded("simmcmap"),
+                configDir.resolve("simmc-tool-set-map.json"),
+                configDir.resolve("simmcmap.json"));
         WORLD_MAP_UI.applyConfig(config);
+        SimmcMapCommand.register();
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             String address = client.getCurrentServerEntry() == null ? "" : client.getCurrentServerEntry().address;
             new ServerActivationService(config).resolveFor(address).ifPresentOrElse(
@@ -80,6 +86,8 @@ public final class SimmcMapClient {
         runtimeStatus = "正在连接地图数据源";
         try {
             Path cache = FabricLoader.getInstance().getGameDir().resolve("simmc-tool-set-map-cache");
+            MapCacheMigration.importIfAbsent(cache,
+                    FabricLoader.getInstance().getGameDir().resolve("simmcmap-cache"));
             HttpClient.Builder httpBuilder = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8));
             SquaremapHttpClient http = new SquaremapHttpClient(httpBuilder.build(), Duration.ofSeconds(12), 32L * 1024 * 1024, "SIMMC-Map/1.0.0");
             ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> daemon(r, "simmc-refresh-scheduler"));

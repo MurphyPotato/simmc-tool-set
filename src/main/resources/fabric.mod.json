@@ -15,6 +15,9 @@
   "entrypoints": {
     "client": [
       "com.murphypotato.simmctoolset.client.ToolSetClient"
+    ],
+    "modmenu": [
+      "com.murphypotato.simmctoolset.internal.map.gui.SimmcMapModMenuIntegration"
     ]
   },
   "mixins": [

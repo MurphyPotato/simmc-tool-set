@@ -46,7 +46,13 @@ public final class WorldMapUiController {
         for (int i = 0; i < BUTTONS.length; i++) { boolean active = buttonActive(i); context.fill(x, TOP, x + WIDTHS[i], TOP + BUTTON_H, active ? 0xCC2E7D32 : 0xCC202020); context.drawText(text, Text.literal(BUTTONS[i]), x + 5, TOP + 6, 0xFFFFFFFF, false); x += WIDTHS[i] + 3; }
         if (toolbar.openPanel() != MapToolbar.Panel.NONE) renderPanel(context);
         if (toolbar.detailPopup().isOpen()) renderDetail(context);
-        else overlay.hitTest(mouseX, mouseY, view).flatMap(this::entryFor).ifPresent(entry -> { int w = text.getWidth(entry.displayName()) + 10; context.fill(mouseX + 8, mouseY + 8, mouseX + 8 + w, mouseY + 24, 0xE0000000); context.drawText(text, Text.literal(entry.displayName()), mouseX + 13, mouseY + 12, 0xFFFFFFFF, false); });
+        else if (view != null) {
+            overlay.hitTest(mouseX, mouseY, view).flatMap(this::entryFor).ifPresent(entry -> {
+                int w = text.getWidth(entry.displayName()) + 10;
+                context.fill(mouseX + 8, mouseY + 8, mouseX + 8 + w, mouseY + 24, 0xE0000000);
+                context.drawText(text, Text.literal(entry.displayName()), mouseX + 13, mouseY + 12, 0xFFFFFFFF, false);
+            });
+        }
     }
     private boolean buttonActive(int i) { return switch (i) { case 0 -> toolbar.worldMapEnabled(); case 1 -> toolbar.worldBackgroundEnabled(); case 2 -> toolbar.openPanel() == MapToolbar.Panel.LAYERS; case 3 -> toolbar.openPanel() == MapToolbar.Panel.SEARCH; case 4 -> toolbar.openPanel() == MapToolbar.Panel.FAVORITES; case 5 -> toolbar.openPanel() == MapToolbar.Panel.PLAYERS; default -> false; }; }
     private void renderPanel(DrawContext c) { var t = MinecraftClient.getInstance().textRenderer; int bottom = Math.min(c.getScaledWindowHeight() - 8, 280); c.fill(X, PANEL_TOP, X + PANEL_W, bottom, 0xE0101010); int y = PANEL_TOP + 8; if (toolbar.openPanel() == MapToolbar.Panel.LAYERS) { for (LayerPanel.Layer layer : LayerPanel.LAYERS) { c.drawText(t, Text.literal((toolbar.layerPanel().isVisible(layer.id()) ? "☑ " : "☐ ") + layer.name()), X + 8, y, 0xFFFFFFFF, false); y += 20; } } else if (toolbar.openPanel() == MapToolbar.Panel.SEARCH) { c.drawText(t, Text.literal("搜索：" + search.query() + "_"), X + 8, y, 0xFFFFFF80, false); y += 20; for (SearchEntry entry : search.results()) { c.drawText(t, Text.literal(entry.displayName()), X + 8, y, entry.canNavigate() ? 0xFFFFFFFF : 0xFFAAAAAA, false); y += 18; } } else if (toolbar.openPanel() == MapToolbar.Panel.PLAYERS) { c.drawText(t, Text.literal(players.available() ? "在线玩家" : "在线名单暂不可用"), X + 8, y, 0xFFFFFF80, false); y += 20; for (OnlinePlayersOverlay.Row row : players.rows()) { c.drawText(t, Text.literal(row.name() + " · " + row.status()), X + 8, y, 0xFFFFFFFF, false); y += 18; } } else { c.drawText(t, Text.literal("收藏"), X + 8, y, 0xFFFFFF80, false); y += 20; for (var favorite : favorites.favorites()) { c.drawText(t, Text.literal(favorite.entry().map(SearchEntry::displayName).orElse("该地点当前不可用")), X + 8, y, favorite.entry().isPresent() ? 0xFFFFFFFF : 0xFFAAAAAA, false); y += 18; } } }
@@ -75,6 +81,7 @@ public final class WorldMapUiController {
             }
             return true;
         }
+        if (view == null) return false;
         Optional<SearchEntry> hit = overlay.hitTest(mouseX, mouseY, view).flatMap(this::entryFor); if (button == 1 && hit.isPresent()) { toolbar.detailPopup().open(hit.orElseThrow()); return true; } return false;
     }
     private void toolbarAction(int i) { switch (i) { case 0 -> { toolbar.toggleWorldMap(); SimmcMapClient.saveUserSettings(); } case 1 -> { toolbar.toggleWorldBackground(); SimmcMapClient.saveUserSettings(); } case 2 -> toolbar.openPanel(MapToolbar.Panel.LAYERS); case 3 -> toolbar.openPanel(MapToolbar.Panel.SEARCH); case 4 -> toolbar.openPanel(MapToolbar.Panel.FAVORITES); case 5 -> toolbar.openPanel(MapToolbar.Panel.PLAYERS); case 6 -> SimmcMapClient.requestRefresh(); case 7 -> fitRequested = true; default -> { } } }

@@ -157,7 +157,7 @@ public final class LayerRenderer {
     public Optional<Hit> hitTest(Prepared prepared, Set<String> hiddenLayerIds,
                                  double screenX, double screenY,
                                  WorldMapOverlayRenderer.View view) {
-        if (!Double.isFinite(screenX) || !Double.isFinite(screenY)) return Optional.empty();
+        if (view == null || !Double.isFinite(screenX) || !Double.isFinite(screenY)) return Optional.empty();
         MapPoint2D world = view.screenToWorld(screenX, screenY);
         Bounds query = expandedBounds(new Bounds(world.x(), world.z(), world.x(), world.z()),
                 scaledReach(prepared.maximumIconReach(), view.scale()));

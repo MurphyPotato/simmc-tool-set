@@ -45,7 +45,7 @@ final class MinecraftNativeTextureUploader implements NativeTextureUploader {
     }
 
     private Identifier register(String name, NativeImage image) {
-        Identifier id = Identifier.of("simmcmap", "dynamic/" + SEQUENCE.incrementAndGet());
+        Identifier id = Identifier.of("simmc_tool_set", "dynamic/" + SEQUENCE.incrementAndGet());
         NativeImageBackedTexture texture = new NativeImageBackedTexture(() -> "SIMMC " + name, image);
         try {
             textures.registerTexture(id, texture);
