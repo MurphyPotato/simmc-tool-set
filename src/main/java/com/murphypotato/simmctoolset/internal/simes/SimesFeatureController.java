@@ -26,6 +26,7 @@ public final class SimesFeatureController {
         if (registered) return;
         registered = true;
         SimesArcaneHud.initialize();
+        SimesArcaneStatusHud.initialize();
         SimesBrewingCookwareHud.initialize();
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             active = SimesServerGate.isTarget(client);
@@ -39,6 +40,7 @@ public final class SimesFeatureController {
     public static synchronized void reset() {
         active = false;
         SimesArcaneHud.reset();
+        SimesArcaneStatusHud.reset();
         SimesBrewingCookwareHud.reset();
     }
 

@@ -28,7 +28,7 @@ public final class ToolSetKeyRouter {
     private static boolean prefixUsed;
     private static Screen observedScreen;
 
-    public enum Target { ARCANE_HUD, SCROLL, ACCESSORY, BREWING, MAP, DIAGNOSTICS }
+    public enum Target { ARCANE_HUD, SCROLL, ACCESSORY, BREWING, MAP, DIAGNOSTICS, SIMES_SETTINGS }
 
     private ToolSetKeyRouter() { }
 
@@ -42,7 +42,7 @@ public final class ToolSetKeyRouter {
         add("map", "SIMMC 网页地图", "打开地图状态与覆盖设置", GLFW.GLFW_KEY_5, Target.MAP);
         add("diagnostics", "诊断与日志", "打开本地诊断记录", GLFW.GLFW_KEY_GRAVE_ACCENT, Target.DIAGNOSTICS);
         add("accessory_direct", "饰品工具直达", "不使用组合前缀，直接打开饰品工具", GLFW.GLFW_KEY_0, Target.ACCESSORY);
-        add("simes_settings", "Simes 设置兼容入口", "使用 O 打开奥术 HUD 设置", GLFW.GLFW_KEY_O, Target.ARCANE_HUD);
+        add("simes_settings", "Simes 设置兼容入口", "使用 O 打开原生奥术 HUD 设置", GLFW.GLFW_KEY_O, Target.SIMES_SETTINGS);
         load();
     }
 

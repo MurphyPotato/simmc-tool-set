@@ -110,6 +110,16 @@ public final class SimesArcaneHud {
         }
     }
 
+    /** Handles the cancellable Action Bar packet path while preserving unrelated messages. */
+    public static boolean handleActionBar(Text text) {
+        if (!enabled() || text == null) return false;
+        String raw = text.getString();
+        ArcaneCooldownParser.Result parsed = ArcaneCooldownParser.parse(raw);
+        if (parsed.values().isEmpty()) return false;
+        accept(raw);
+        return config != null && config.simesMode;
+    }
+
     private static void updateCooldowns(List<ArcaneCooldownParser.Value> values) {
         long now = System.nanoTime();
         List<String> seen = new ArrayList<>();
@@ -332,6 +342,11 @@ public final class SimesArcaneHud {
 
     public static ArcaneHudConfig config() {
         return config;
+    }
+
+    public static void openSettings(net.minecraft.client.gui.screen.Screen parent) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        client.execute(() -> client.setScreen(new SimesArcaneHudSettingsScreen(parent)));
     }
 
     static int totalWidth() {

@@ -83,8 +83,13 @@ public final class ToolSetScreen extends Screen {
             case ACCESSORY -> addDrawableChild(ButtonWidget.builder(Text.literal("打开饰品配装工具"),
                     button -> ToolSetClient.openAccessory(client, this))
                     .dimensions(x, y, Math.min(220, width), 20).build());
-            case ARCANE_HUD -> addDrawableChild(toggle(x, y, width, "奥术 HUD", ToolSetSettings.arcaneHudEnabled(),
-                     ToolSetSettings::setArcaneHudEnabled));
+            case ARCANE_HUD -> {
+                addDrawableChild(toggle(x, y, width, "奥术 HUD", ToolSetSettings.arcaneHudEnabled(),
+                        ToolSetSettings::setArcaneHudEnabled));
+                addDrawableChild(ButtonWidget.builder(Text.literal("打开原生 HUD 设置"),
+                        button -> com.murphypotato.simmctoolset.internal.simes.SimesArcaneHud.openSettings(this))
+                        .dimensions(x, y + 24, Math.min(240, width), 20).build());
+            }
             case BREWING -> {
                 addDrawableChild(toggle(x, y, width, "发酵提示", ToolSetSettings.fermentationEnabled(),
                         ToolSetSettings::setFermentationEnabled));

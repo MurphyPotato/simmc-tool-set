@@ -4,6 +4,7 @@ import com.mojang.brigadier.Command;
 import com.murphypotato.simmctoolset.internal.accessory.client.TravelHunterClient;
 import com.murphypotato.simmctoolset.internal.scroll.client.ArcaneScrollCalculatorClient;
 import com.murphypotato.simmctoolset.internal.simes.SimesFeatureController;
+import com.murphypotato.simmctoolset.internal.simes.SimesArcaneHud;
 import com.murphypotato.simmctoolset.map.MapCompatibility;
 import com.murphypotato.simmctoolset.map.MapModule;
 import net.fabricmc.api.ClientModInitializer;
@@ -98,6 +99,7 @@ public final class ToolSetClient implements ClientModInitializer {
             case BREWING -> openPanel(ToolSetScreen.Panel.BREWING, parent);
             case MAP -> openPanel(ToolSetScreen.Panel.MAP, parent);
             case DIAGNOSTICS -> openPanel(ToolSetScreen.Panel.DIAGNOSTICS, parent);
+            case SIMES_SETTINGS -> SimesArcaneHud.openSettings(parent);
         }
     }
 
