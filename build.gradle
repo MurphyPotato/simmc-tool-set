@@ -41,6 +41,7 @@ def modMenuJar = optionalLocalMod(
     "Mod Menu",
     /(?i)^(?:\[[^\]]+\] )?modmenu-.*\.jar$/
 )
+def modMenuAvailable = xaeroMapAvailable && modMenuJar != null
 
 if (!xaeroMapAvailable) {
     logger.lifecycle("Xaero JARs not both present in ${xaeroLibDir}: building without the optional map implementation")
@@ -89,11 +90,19 @@ processResources {
         png.parentFile.mkdirs()
         png.bytes = Base64.decoder.decode(encoded)
         new File(destinationDir, "assets/simmc_tool_set/generic-fallback.png.base64").delete()
+        def mixinFile = new File(destinationDir, "simmc_tool_set.mixins.json")
         if (!xaeroMapAvailable) {
-            def mixinFile = new File(destinationDir, "simmc_tool_set.mixins.json")
             def mixins = new JsonSlurper().parse(mixinFile)
             mixins.client = mixins.client.findAll { !it.startsWith("map.") }
             mixinFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(mixins)) + System.lineSeparator()
+        }
+        if (!modMenuAvailable) {
+            def metadataFile = new File(destinationDir, "fabric.mod.json")
+            def metadata = new JsonSlurper().parse(metadataFile)
+            if (metadata.entrypoints instanceof Map) {
+                metadata.entrypoints.remove("modmenu")
+            }
+            metadataFile.text = JsonOutput.prettyPrint(JsonOutput.toJson(metadata)) + System.lineSeparator()
         }
     }
 }

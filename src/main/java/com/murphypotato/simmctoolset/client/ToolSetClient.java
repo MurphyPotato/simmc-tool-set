@@ -92,7 +92,6 @@ public final class ToolSetClient implements ClientModInitializer {
     public static void openTarget(ToolSetKeyRouter.Target target, Screen parent) {
         MinecraftClient client = MinecraftClient.getInstance();
         switch (target) {
-            case HOTKEYS -> openHotkeys(parent);
             case ARCANE_HUD -> openPanel(ToolSetScreen.Panel.ARCANE_HUD, parent);
             case SCROLL -> openScroll(client, parent);
             case ACCESSORY -> openAccessory(client, parent);

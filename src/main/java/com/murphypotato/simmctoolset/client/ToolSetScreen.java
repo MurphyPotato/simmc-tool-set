@@ -195,13 +195,13 @@ public final class ToolSetScreen extends Screen {
             case BREWING -> List.of(
                     "当前状态：" + SimesFeatureController.brewingStatus(),
                     "发酵提示：" + (ToolSetSettings.fermentationEnabled() ? "开" : "关") + "；厨具提示：" + (ToolSetSettings.cookwareEnabled() ? "开" : "关") + "。",
-                    "进入服务器后点击发酵桶或厨具，收到服务器提示后会在屏幕右上角显示状态；没有数据时不会伪造计时。"
+                    "原生助手会在目标方块附近显示材料、校准状态和服务器确认结果；没有数据时不会伪造计时。"
             );
             case MAP -> mapLines();
             case FLEX -> List.of("此板块为未来已授权模块预留。", "当前不会创建线程、事件或配置。");
             case HOTKEYS -> List.of(
                     "默认：\\+1 奥术 HUD，\\+2 卷轴计算，\\+3 饰品配装，\\+4 发酵与厨具，\\+5 网页地图，\\+` 诊断日志。",
-                    "按住\\再按数字键触发；单独松开\\打开工具组按键设置。主键盘 0 仍为饰品直达键。",
+                    "按住\\再按功能键触发；单独松开\\打开工具组总控。主键盘 0 仍为饰品直达键。",
                     "F1-F12、导航区、SysRq、小键盘和方向键不作为默认键，但可以在专属页面重新绑定。"
             );
             case DIAGNOSTICS -> DiagnosticLog.snapshot().isEmpty()

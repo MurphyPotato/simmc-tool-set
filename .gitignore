@@ -2,6 +2,7 @@
 Thumbs.db
 libs/
 run/
+logs/
 build/
 .gradle/
 .gradle-local/
