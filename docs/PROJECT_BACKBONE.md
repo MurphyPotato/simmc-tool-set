@@ -19,12 +19,12 @@
 | Java | 21；已使用项目 JDK `I:\mc smc服\simmc moster hunter 2.0\tools\android-env\jdk-21` 构建 |
 | Fabric Loader | 0.17.3 |
 | Fabric API | 0.136.1+1.21.8 |
-| 当前分支 | `fabric-mc1.21.8-tool-set-v1.0.3` |
-| 当前提交 | `74cf55b` |
-| 当前标签 | `v1.0.3-fabric-mc1.21.8` |
-| JAR | `I:\mc smc服\simmc moster hunter 2.0\release\simmc-tool-set-fabric-1.0.3-fabric-mc1.21.8.jar` |
-| JAR SHA-256 | `1784d91a4c8aca8a6570a603e6a205937d51a2f500f26cdcb2d8b1402935f41f` |
-| 最近验证 | `clean test verifyMapCompatibility build` 成功；兼容性 smoke 3 个场景通过 |
+| 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.0` |
+| 当前提交 | `4793c04` |
+| 当前标签 | 尚未创建；旧 `v1.0.3-fabric-mc1.21.8` 保持不变 |
+| 构建 JAR | `build/libs/simmc-tool-set-fabric-1.1.0-fabric.jar`；尚未复制到 `release/` |
+| 构建 JAR SHA-256 | `4DBB2720AEF7AFBBD8A7A12F08555D0CA037D3C5D3405F71E26246157D25CBE3` |
+| 最近验证 | `build -x test`、`verifyMapCompatibility`、`compileTestJava` 和无 Xaero 构建通过；Gradle `test` 被本机 worker 缺失阻塞 |
 | 真实客户端联调 | 未完成；标题界面、世界内、容器、目标服务器和完整启动矩阵仍需人工验收 |
 
 ## 2. 总体架构
@@ -58,7 +58,7 @@
 | `\` + `` ` `` | 诊断与日志 |
 | 主键盘 `0` | 饰品工具直达 |
 
-- 按住前缀键后在约 650-800 ms 窗口内按次键；单独松开前缀键打开工具组按键页。
+- 按住前缀键后在约 650-800 ms 窗口内按次键；单独松开前缀键打开工具组总览页，工具组按键页只能从总控导航进入。
 - 默认键暂不使用 F1-F12、Insert/导航区、SysRq、小键盘和方向键；玩家重绑定时可以选择这些区域。
 - 文本框、聊天、命令、书、告示牌和其它编辑界面聚焦时，组合键完全旁路，不吞字符。
 - 超时、Esc、未知次键、失焦、切屏和全部鼠标事件都应清除前缀状态并放行原生行为。
@@ -127,7 +127,9 @@
 - Simes BossBar 状态捕获、厨具提示移到右上角。
 - Xaero 版本状态、刷新控件、兼容警告和不兼容时继续尝试运行。
 - `MapCompatibilitySmoke` 三场景验证，完整 JAR 构建和静态内容审计。
-- Git 分支、提交、标签和独立 release JAR/校验文件。
+- v1.0.3 的 Git 分支、提交、标签和独立 release JAR/校验文件保持不变。
+- v1.1.0 已合并自定义快捷键、Simes 原生奥术冷却/状态 HUD、发酵与厨具世界投影、SIMMC Map null-view 修复、原生命令和配置迁移。
+- v1.1.0 已完成 `compileJava`、`compileTestJava`、`build -x test`、`verifyMapCompatibility` 以及无 Xaero/Mod Menu 构建验证；尚未发布正式标签或 release 产物。
 
 ### 仍需完成
 
@@ -137,6 +139,7 @@
 - 验证 Xaero 已验证组合下世界地图和小地图覆盖确实可见，并记录不兼容版本启动结果。
 - 完成 mod 3 外置桥接的真实构建、提交/版本事实确认和整合客户端矩阵。
 - 测试干净安装、仅内置模块、mod 3 外置、mod 4 外置、两者外置、Simes 外置、Xaero 缺失和不兼容组合。
+- 创建 `v1.1.0-fabric-mc1.21.8` 标签、外部 `release/` JAR 和 `.jar.sha256` 前，必须先完成真实客户端证据。
 
 ## 10. 问题与解决方案记录
 
@@ -150,6 +153,9 @@
 - 版本发布曾出现“直接覆盖”的风险；通过新分支、新标签、外部 release 目录和 SHA-256 文件解决。
 - 测试脚本名称必须使用仓库实际命令，例如 `npm run verify:fabric-data`，不要凭直觉拼接任务名。
 - 只做源码/编译验证时不能声称 Minecraft 窗口和真实服务器联调已经完成。
+- 本轮 Fabric Loom 首次重映射在系统临时目录报 `AccessDeniedException`；将 `TEMP/TMP` 指向项目内 `.gradle-local/loom-tmp` 后 `build -x test` 成功。
+- 本轮 Gradle `test` 即使使用项目临时目录和 `--max-workers=1`，仍稳定报告 `ClassNotFoundException: worker.org.gradle.process.internal.worker.GradleWorkerMain`；因此只能确认测试类编译，不能把单元测试写成通过。
+- 无 Xaero/Mod Menu 构建必须通过资源处理剔除地图 Mixin 和 Mod Menu entrypoint；该矩阵已实际通过。
 
 ## 11. 验收门槛
 
