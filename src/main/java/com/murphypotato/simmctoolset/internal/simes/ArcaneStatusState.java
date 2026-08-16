@@ -190,7 +190,7 @@ final class ArcaneStatusState {
         if (parsed.kind == Kind.DURATION) {
             entry.totalTicks = parsed.ticks;
             entry.remainingTicks = parsed.ticks;
-            entry.progress = 1.0f;
+            entry.progress = clamp(progress);
         } else {
             entry.totalTicks = 0;
             entry.remainingTicks = 0;
@@ -282,7 +282,6 @@ final class ArcaneStatusState {
             if (parsed.kind == Kind.DURATION) {
                 entry.totalTicks = parsed.ticks;
                 entry.remainingTicks = parsed.ticks;
-                entry.progress = 1.0f;
             }
             return entry;
         }

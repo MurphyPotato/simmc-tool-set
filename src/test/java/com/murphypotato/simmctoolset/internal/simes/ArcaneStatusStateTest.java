@@ -72,14 +72,21 @@ final class ArcaneStatusStateTest {
         assertEquals(ArcaneStatusState.Kind.DURATION, duration.kind());
         assertEquals(40, duration.totalTicks());
         assertEquals(40, duration.remainingTicks());
-        assertEquals(1.0f, duration.progress());
+        assertEquals(0.8f, duration.progress());
         assertEquals(300L, duration.updatedAt());
+
+        state.updateProgress(id, 0.25f, 350L, false);
+        duration = state.snapshot(id);
+        assertEquals(40, duration.totalTicks());
+        assertEquals(40, duration.remainingTicks());
+        assertEquals(0.25f, duration.progress());
+        assertEquals(350L, duration.updatedAt());
 
         state.updateName(id, "火球术剩余: 7 tick", 400L, false);
         duration = state.snapshot(id);
         assertEquals(7, duration.totalTicks());
         assertEquals(7, duration.remainingTicks());
-        assertEquals(1.0f, duration.progress());
+        assertEquals(0.25f, duration.progress());
         assertEquals(400L, duration.updatedAt());
     }
 

@@ -31,11 +31,13 @@ public final class SimesArcaneHudSettingsScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.literal("HUD：" + (config().arcaneEnabled ? "开" : "关")), button -> {
             config().arcaneEnabled = !config().arcaneEnabled;
             config().save();
+            resetHudState();
             clearAndInit();
         }).dimensions(left, 52, 145, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("Simes 模式：" + (config().simesMode ? "开" : "关")), button -> {
             config().simesMode = !config().simesMode;
             config().save();
+            resetHudState();
             clearAndInit();
         }).dimensions(left + 155, 52, 145, 20).build());
 
@@ -72,6 +74,11 @@ public final class SimesArcaneHudSettingsScreen extends Screen {
 
     private ArcaneHudConfig config() {
         return SimesArcaneHud.config();
+    }
+
+    private void resetHudState() {
+        SimesArcaneHud.reset();
+        SimesArcaneStatusHud.reset();
     }
 
     private void changeScale(int amount) {

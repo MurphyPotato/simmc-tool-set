@@ -66,6 +66,11 @@ public final class SimesArcaneStatusHud {
 
     /** Returns true only when the complete packet must be hidden from vanilla. */
     public static synchronized boolean handleBossBar(BossBarS2CPacket packet) {
+        ArcaneHudConfig config = config();
+        if (!enabled() || config == null || !config.simesMode) {
+            reset();
+            return false;
+        }
         if (packet == null) return false;
         boolean[] cancel = {false};
         long now = System.nanoTime();
@@ -121,7 +126,12 @@ public final class SimesArcaneStatusHud {
     }
 
     private static void acceptGameMessage(String raw) {
-        if (!enabled() || raw == null) return;
+        ArcaneHudConfig config = config();
+        if (!enabled() || config == null || !config.simesMode) {
+            reset();
+            return;
+        }
+        if (raw == null) return;
         Matcher released = RELEASED.matcher(raw.trim());
         if (released.matches()) {
             String name = ArcaneColors.canonicalName(released.group(1));
@@ -160,6 +170,11 @@ public final class SimesArcaneStatusHud {
     }
 
     private static void cleanup() {
+        ArcaneHudConfig config = config();
+        if (!enabled() || config == null || !config.simesMode) {
+            reset();
+            return;
+        }
         STATE.tick(System.nanoTime());
         if (global != null && (!enabled() || global.remaining(System.nanoTime()) <= 0.0)) global = null;
     }
@@ -198,17 +213,14 @@ public final class SimesArcaneStatusHud {
     private static List<Row> statusRows(long now) {
         List<Row> rows = new ArrayList<>();
         for (ArcaneStatusState.Snapshot value : STATE.snapshots(now)) {
-            double elapsed = Math.max(0.0, (now - value.updatedAt()) / 1_000_000_000.0);
             double remaining = value.kind() == ArcaneStatusState.Kind.DURATION
-                    ? Math.max(0.0, value.remainingTicks() / 20.0 - elapsed) : 0.0;
-            float progress = value.kind() == ArcaneStatusState.Kind.DURATION && value.totalTicks() > 0
-                    ? (float) (remaining / (value.totalTicks() / 20.0)) : value.progress();
+                    ? value.remainingTicks() / 20.0 : 0.0;
             String label = value.kind() == ArcaneStatusState.Kind.CASTING
                     ? "吟唱 " + value.name()
                     : displayName(value.name()) + " 持续 " + formatSeconds(remaining);
             float alpha = value.exiting()
                     ? 1.0f - Math.min(1.0f, (now - value.updatedAt()) / (float) FADE_NANOS) : 1.0f;
-            rows.add(new Row(value.name(), label, progress, alpha, value.interrupted()));
+            rows.add(new Row(value.name(), label, value.progress(), alpha, value.interrupted()));
         }
         return rows;
     }
