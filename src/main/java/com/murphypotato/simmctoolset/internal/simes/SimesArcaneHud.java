@@ -9,9 +9,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.LoreComponent;
-import net.minecraft.entity.boss.BossBar;
 import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.s2c.play.BossBarS2CPacket;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -20,15 +18,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /** Licensed Simes-derived Arcane cooldown HUD, limited to the authorized HUD scope. */
 public final class SimesArcaneHud {
-    private static final Pattern CASTING = Pattern.compile("^正在吟唱\\s+(.+)$");
-    private static final Pattern DURATION = Pattern.compile("^(.+?)剩余\\s*[:：]\\s*([0-9]+)\\s*tick$", Pattern.CASE_INSENSITIVE);
-    private static final Pattern RELEASED = Pattern.compile("^释放\\s+(.+)$");
     private static final Pattern COMPLETE = Pattern.compile("^(.+?)\\s+冷却完成$");
     private static final int ICON_SIZE = 16;
     private static final int NAME_WIDTH = 52;
@@ -37,11 +31,8 @@ public final class SimesArcaneHud {
     private static final int TOTAL_WIDTH = ICON_SIZE + 3 + NAME_WIDTH + 4 + BAR_WIDTH;
     private static final Identifier ID = Identifier.of("simmc_tool_set", "simes_arcane_hud");
     private static final Map<String, Cooldown> COOLDOWNS = new LinkedHashMap<>();
-    private static final Map<UUID, BossEntry> BOSS_ENTRIES = new LinkedHashMap<>();
     private static List<String> equippedArcanes = List.of();
     private static ArcaneHudConfig config;
-    private static String status = "";
-    private static long statusUntil;
     private static boolean initialized;
     private static int lastStackIdentity;
     private static int lastLoreHash;
@@ -74,12 +65,7 @@ public final class SimesArcaneHud {
         synchronized (COOLDOWNS) {
             COOLDOWNS.clear();
         }
-        synchronized (BOSS_ENTRIES) {
-            BOSS_ENTRIES.clear();
-        }
         equippedArcanes = List.of();
-        status = "";
-        statusUntil = 0L;
         lastStackIdentity = 0;
         lastLoreHash = 0;
     }
@@ -95,19 +81,6 @@ public final class SimesArcaneHud {
         }
         ArcaneCooldownParser.Result parsed = ArcaneCooldownParser.parse(value);
         if (!parsed.values().isEmpty()) updateCooldowns(parsed.values());
-        Matcher casting = CASTING.matcher(value);
-        Matcher duration = DURATION.matcher(value);
-        Matcher released = RELEASED.matcher(value);
-        if (casting.matches()) {
-            status = "吟唱：" + ArcaneColors.canonicalName(casting.group(1));
-            statusUntil = System.currentTimeMillis() + 6_000L;
-        } else if (duration.matches()) {
-            status = ArcaneColors.canonicalName(duration.group(1)) + " 剩余 " + duration.group(2) + " tick";
-            statusUntil = System.currentTimeMillis() + 6_000L;
-        } else if (released.matches()) {
-            status = "已释放：" + ArcaneColors.canonicalName(released.group(1));
-            statusUntil = System.currentTimeMillis() + 6_000L;
-        }
     }
 
     /** Handles the cancellable Action Bar packet path while preserving unrelated messages. */
@@ -146,66 +119,6 @@ public final class SimesArcaneHud {
             Cooldown cooldown = COOLDOWNS.get(name);
             if (cooldown != null && cooldown.exitStarted == 0L) cooldown.exitStarted = System.nanoTime();
         }
-    }
-
-    /** Captures server-authored arcane BossBars for the compact HUD. */
-    public static synchronized void acceptBossBar(BossBarS2CPacket packet) {
-        if (!enabled() || packet == null) return;
-        packet.accept(new BossBarS2CPacket.Consumer() {
-            @Override
-            public void add(UUID uuid, Text name, float percent, BossBar.Color color, BossBar.Style style,
-                            boolean darkenSky, boolean dragonMusic, boolean thickenFog) {
-                update(uuid, name, percent);
-            }
-
-            @Override
-            public void remove(UUID uuid) {
-                synchronized (BOSS_ENTRIES) {
-                    BOSS_ENTRIES.remove(uuid);
-                }
-            }
-
-            @Override
-            public void updateProgress(UUID uuid, float percent) {
-                synchronized (BOSS_ENTRIES) {
-                    BossEntry old = BOSS_ENTRIES.get(uuid);
-                    if (old != null) BOSS_ENTRIES.put(uuid, new BossEntry(old.name, percent, System.currentTimeMillis()));
-                }
-            }
-
-            @Override
-            public void updateStyle(UUID uuid, BossBar.Color color, BossBar.Style style) {
-            }
-
-            @Override
-            public void updateName(UUID uuid, Text name) {
-                synchronized (BOSS_ENTRIES) {
-                    BossEntry old = BOSS_ENTRIES.get(uuid);
-                    if (old != null) update(uuid, name, old.progress);
-                }
-            }
-
-            @Override
-            public void updateProperties(UUID uuid, boolean darkenSky, boolean dragonMusic, boolean thickenFog) {
-            }
-
-            private void update(UUID uuid, Text name, float percent) {
-                String raw = name == null ? "" : name.getString().trim();
-                Matcher casting = CASTING.matcher(raw);
-                Matcher duration = DURATION.matcher(raw);
-                if (casting.matches() || duration.matches()) {
-                    String spell = casting.matches() ? casting.group(1) : duration.group(1);
-                    synchronized (BOSS_ENTRIES) {
-                        BOSS_ENTRIES.put(uuid, new BossEntry(ArcaneColors.canonicalName(spell), percent,
-                                System.currentTimeMillis()));
-                    }
-                } else {
-                    synchronized (BOSS_ENTRIES) {
-                        BOSS_ENTRIES.remove(uuid);
-                    }
-                }
-            }
-        });
     }
 
     private static void updateEquippedArcanes(MinecraftClient client) {
@@ -251,9 +164,6 @@ public final class SimesArcaneHud {
             COOLDOWNS.values().removeIf(cooldown -> cooldown.exitStarted != 0L
                     && now - cooldown.exitStarted > 250_000_000L);
         }
-        synchronized (BOSS_ENTRIES) {
-            BOSS_ENTRIES.values().removeIf(entry -> System.currentTimeMillis() - entry.updatedAt > 10_000L);
-        }
     }
 
     private static void render(DrawContext context, net.minecraft.client.render.RenderTickCounter tickCounter) {
@@ -264,19 +174,6 @@ public final class SimesArcaneHud {
         int height = client.getWindow().getScaledHeight();
         renderRows(context, configuredX(width), configuredY(height), config.cooldownScalePercent / 100.0f,
                 System.nanoTime(), equippedArcanes, false);
-        int y = configuredY(height) + equippedArcanes.size() * ROW_HEIGHT + 2;
-        synchronized (BOSS_ENTRIES) {
-            for (BossEntry entry : BOSS_ENTRIES.values()) {
-                String label = entry.name + " " + Math.round(entry.progress * 100.0f) + "%";
-                context.drawTextWithShadow(client.textRenderer, Text.literal(label), configuredX(width), y,
-                        0xFFFFC266);
-                y += 11;
-            }
-        }
-        if (statusUntil > System.currentTimeMillis()) {
-            context.drawTextWithShadow(client.textRenderer, Text.literal(status), configuredX(width), y,
-                    0xFFBDEBFF);
-        }
     }
 
     static void renderPreview(DrawContext context, int x, int y, float scale) {
@@ -400,6 +297,4 @@ public final class SimesArcaneHud {
         }
     }
 
-    private record BossEntry(String name, float progress, long updatedAt) {
-    }
 }

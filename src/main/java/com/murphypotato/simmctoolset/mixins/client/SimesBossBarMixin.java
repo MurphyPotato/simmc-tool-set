@@ -1,6 +1,5 @@
 package com.murphypotato.simmctoolset.mixins.client;
 
-import com.murphypotato.simmctoolset.internal.simes.SimesArcaneHud;
 import com.murphypotato.simmctoolset.internal.simes.SimesArcaneStatusHud;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
 import net.minecraft.network.packet.s2c.play.BossBarS2CPacket;
@@ -15,12 +14,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 abstract class SimesBossBarMixin {
     @Inject(method = "onOverlayMessage", at = @At("HEAD"), cancellable = true)
     private void simmcToolSet$handleActionBar(OverlayMessageS2CPacket packet, CallbackInfo ci) {
-        if (SimesArcaneHud.handleActionBar(packet.text())) ci.cancel();
+        if (com.murphypotato.simmctoolset.internal.simes.SimesArcaneHud.handleActionBar(packet.text())) ci.cancel();
     }
 
     @Inject(method = "onBossBar", at = @At("HEAD"), cancellable = true)
     private void simmcToolSet$readArcaneStatus(BossBarS2CPacket packet, CallbackInfo ci) {
-        SimesArcaneHud.acceptBossBar(packet);
         if (SimesArcaneStatusHud.handleBossBar(packet)) ci.cancel();
     }
 }
