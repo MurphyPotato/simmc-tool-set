@@ -17,7 +17,7 @@
       "com.murphypotato.simmctoolset.client.ToolSetClient"
     ],
     "modmenu": [
-      "com.murphypotato.simmctoolset.internal.map.gui.SimmcMapModMenuIntegration"
+      "com.murphypotato.simmctoolset.client.ToolSetModMenuIntegration"
     ]
   },
   "mixins": [
@@ -30,6 +30,7 @@
     "fabric-api": ">=0.136.1+1.21.8"
   },
   "suggests": {
+    "modmenu": "*",
     "xaeroworldmap": "*",
     "xaerominimap": "*"
   }
