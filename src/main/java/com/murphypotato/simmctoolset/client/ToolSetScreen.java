@@ -2,6 +2,7 @@ package com.murphypotato.simmctoolset.client;
 
 import com.murphypotato.simmctoolset.map.MapCompatibility;
 import com.murphypotato.simmctoolset.internal.simes.SimesFeatureController;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -86,24 +87,38 @@ public final class ToolSetScreen extends Screen {
             case ARCANE_HUD -> {
                 addDrawableChild(toggle(x, y, width, "奥术 HUD", ToolSetSettings.arcaneHudEnabled(),
                         ToolSetSettings::setArcaneHudEnabled));
-                addDrawableChild(ButtonWidget.builder(Text.literal("打开 Simes 设置"),
-                        button -> com.murphypotato.simmctoolset.internal.simes.SimesArcaneHud.openSettings(this))
-                        .dimensions(x, y + 24, Math.min(240, width), 20).build());
+                addSimesSettingsButton(x, y + 24, width);
             }
             case BREWING -> {
-                addDrawableChild(toggle(x, y, width, "发酵提示", ToolSetSettings.fermentationEnabled(),
-                        ToolSetSettings::setFermentationEnabled));
-                addDrawableChild(toggle(x, y + 24, width, "厨具提示", ToolSetSettings.cookwareEnabled(),
-                        ToolSetSettings::setCookwareEnabled));
-                addDrawableChild(ButtonWidget.builder(Text.literal("打开 Simes 设置"),
-                        button -> com.murphypotato.simmctoolset.internal.simes.SimesArcaneHud.openSettings(this))
-                        .dimensions(x, y + 48, Math.min(240, width), 20).build());
+                if (FabricLoader.getInstance().isModLoaded("simes")) {
+                    addSimesSettingsButton(x, y, width);
+                } else {
+                    addDrawableChild(toggle(x, y, width, "发酵提示", ToolSetSettings.fermentationEnabled(),
+                            ToolSetSettings::setFermentationEnabled));
+                    addDrawableChild(toggle(x, y + 24, width, "厨具提示", ToolSetSettings.cookwareEnabled(),
+                            ToolSetSettings::setCookwareEnabled));
+                    addSimesSettingsButton(x, y + 48, width);
+                }
             }
             case MAP -> addMapControls(x, y, width);
             case HOTKEYS -> addHotkeyControls(x, y, width);
             case DIAGNOSTICS -> addDiagnosticsControls(x, y, width);
             default -> { }
         }
+    }
+
+    private void addSimesSettingsButton(int x, int y, int width) {
+        ButtonWidget button = ButtonWidget.builder(
+                        Text.literal(FabricLoader.getInstance().isModLoaded("simes")
+                                ? "外置 Simes 已接管（请按 O）" : "打开 Simes 设置"),
+                        ignored -> {
+                            if (!FabricLoader.getInstance().isModLoaded("simes")) {
+                                com.murphypotato.simmctoolset.internal.simes.SimesArcaneHud.openSettings(this);
+                            }
+                        })
+                .dimensions(x, y, Math.min(260, width), 20).build();
+        button.active = !FabricLoader.getInstance().isModLoaded("simes");
+        addDrawableChild(button);
     }
 
     private void addHotkeyControls(int x, int y, int width) {
