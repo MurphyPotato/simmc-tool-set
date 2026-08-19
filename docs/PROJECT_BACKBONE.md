@@ -20,9 +20,9 @@
 | Fabric Loader | 0.17.3 |
 | Fabric API | 0.136.1+1.21.8 |
 | 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.1` |
-| 当前提交 | `9f55e50` (`fix: restore native keys and Simes controls`) |
+| 当前提交 | `ac7bb7d` (`fix: keep external Simes settings isolated`) |
 | 当前标签 | 尚未创建；旧 `v1.0.3-fabric-mc1.21.8` 保持不变 |
-| 构建 JAR | 已复制为外部候选 `release/simmc-tool-set-fabric-1.1.1-fabric-mc1.21.8.jar`，1,339,185 bytes；尚未创建标签或线上 Release |
+| 构建 JAR | 已复制为外部候选 `release/simmc-tool-set-fabric-1.1.1-fabric-mc1.21.8.jar`，1,339,286 bytes；尚未创建标签或线上 Release |
 | 构建 JAR SHA-256 | `46D323A82F3BBE448A03B45208F5BD3A6FF95E55D48BE0A2632F2BD0B0030521` |
 | 最近验证 | 全依赖矩阵 `verifyUnitTests` 25/25、地图 smoke、3 个兼容场景和 `build -x test` 通过；无 Xaero/Mod Menu 矩阵 25/25、3 个兼容场景和 `build -x test` 通过 |
 | 真实客户端联调 | 隔离 `runClient` 已到渲染资源加载阶段，无 Tool Set 崩溃；热键页/Simes 页视觉与目标服务器功能仍需人工验收；不得启动、修改或复用用户客户端 |
