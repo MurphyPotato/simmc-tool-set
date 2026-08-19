@@ -29,16 +29,18 @@ final class ArcaneStatusStateTest {
     }
 
     @Test
-    void keepsSuppressionAfterTheLocalEntryIsClearedUntilRemove() {
+    void keepsSuppressedEntryAcrossUnknownNamesUntilRemove() {
         ArcaneStatusState state = new ArcaneStatusState(KNOWN);
         UUID id = UUID.randomUUID();
 
         state.add(id, "正在吟唱 火球术", 0.7f, false, 0L, true);
         assertTrue(state.updateName(id, "未知 BossBar", 1L, true).cancel());
-        assertEquals(null, state.snapshot(id));
-        assertTrue(state.updateProgress(id, 0.2f, 2L, true).cancel());
-        assertTrue(state.remove(id, 3L).cancel());
-        assertFalse(state.updateProgress(id, 0.1f, 4L, true).cancel());
+        assertEquals("火球术", state.snapshot(id).name());
+        assertTrue(state.updateName(id, "御风术剩余: 40 tick", 2L, true).cancel());
+        assertEquals("御风术", state.snapshot(id).name());
+        assertTrue(state.updateProgress(id, 0.2f, 3L, true).cancel());
+        assertTrue(state.remove(id, 4L).cancel());
+        assertFalse(state.updateProgress(id, 0.1f, 5L, true).cancel());
     }
 
     @Test

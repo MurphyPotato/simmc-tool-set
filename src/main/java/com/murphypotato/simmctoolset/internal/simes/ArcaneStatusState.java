@@ -93,7 +93,6 @@ final class ArcaneStatusState {
             if (entry != null) {
                 Parsed parsed = classify(rawName);
                 if (parsed != null) activate(entry, parsed, entry.progress, now);
-                else entries.remove(id);
             }
             return new Decision(true, true);
         }

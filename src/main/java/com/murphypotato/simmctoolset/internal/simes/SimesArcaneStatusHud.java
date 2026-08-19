@@ -66,11 +66,6 @@ public final class SimesArcaneStatusHud {
 
     /** Returns true only when the complete packet must be hidden from vanilla. */
     public static synchronized boolean handleBossBar(BossBarS2CPacket packet) {
-        ArcaneHudConfig config = config();
-        if (!enabled() || config == null || !config.simesMode) {
-            reset();
-            return false;
-        }
         if (packet == null) return false;
         boolean[] cancel = {false};
         long now = System.nanoTime();
@@ -126,12 +121,7 @@ public final class SimesArcaneStatusHud {
     }
 
     private static void acceptGameMessage(String raw) {
-        ArcaneHudConfig config = config();
-        if (!enabled() || config == null || !config.simesMode) {
-            reset();
-            return;
-        }
-        if (raw == null) return;
+        if (!enabled() || raw == null) return;
         Matcher released = RELEASED.matcher(raw.trim());
         if (released.matches()) {
             String name = ArcaneColors.canonicalName(released.group(1));
@@ -170,11 +160,6 @@ public final class SimesArcaneStatusHud {
     }
 
     private static void cleanup() {
-        ArcaneHudConfig config = config();
-        if (!enabled() || config == null || !config.simesMode) {
-            reset();
-            return;
-        }
         STATE.tick(System.nanoTime());
         if (global != null && (!enabled() || global.remaining(System.nanoTime()) <= 0.0)) global = null;
     }
