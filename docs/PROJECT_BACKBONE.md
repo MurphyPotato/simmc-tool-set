@@ -19,13 +19,13 @@
 | Java | 21；已使用项目 JDK `I:\mc smc服\simmc moster hunter 2.0\tools\android-env\jdk-21` 构建 |
 | Fabric Loader | 0.17.3 |
 | Fabric API | 0.136.1+1.21.8 |
-| 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.0` |
-| 当前提交 | `4e5ea2a` |
+| 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.1` |
+| 当前提交 | `9f55e50` (`fix: restore native keys and Simes controls`) |
 | 当前标签 | 尚未创建；旧 `v1.0.3-fabric-mc1.21.8` 保持不变 |
-| 构建 JAR | 已复制为外部候选 `release/simmc-tool-set-fabric-1.1.0-fabric-mc1.21.8.jar`，1,339,035 bytes；尚未创建标签或线上 Release |
-| 构建 JAR SHA-256 | `DAA452DBB739B64957371FC1E7396BFF7CBD88D8C5D45DAB12947AFF94B17EC2` |
-| 最近验证 | 全依赖矩阵 `verifyUnitTests` 24/24、地图 smoke、3 个兼容场景和构建通过；无 Xaero/Mod Menu 矩阵 23/23、3 个兼容场景和构建通过 |
-| 真实客户端联调 | 未完成；必要时可在仓库隔离 `run/` 目录启动自建开发客户端，但不得启动、修改或复用用户客户端；用户安装环境仍由用户手动验收 |
+| 构建 JAR | 已复制为外部候选 `release/simmc-tool-set-fabric-1.1.1-fabric-mc1.21.8.jar`，1,339,185 bytes；尚未创建标签或线上 Release |
+| 构建 JAR SHA-256 | `46D323A82F3BBE448A03B45208F5BD3A6FF95E55D48BE0A2632F2BD0B0030521` |
+| 最近验证 | 全依赖矩阵 `verifyUnitTests` 25/25、地图 smoke、3 个兼容场景和 `build -x test` 通过；无 Xaero/Mod Menu 矩阵 25/25、3 个兼容场景和 `build -x test` 通过 |
+| 真实客户端联调 | 隔离 `runClient` 已到渲染资源加载阶段，无 Tool Set 崩溃；热键页/Simes 页视觉与目标服务器功能仍需人工验收；不得启动、修改或复用用户客户端 |
 
 ## 2. 总体架构
 
@@ -40,7 +40,8 @@
 - 左侧固定导航顺序：总览、奥术 HUD、卷轴计算、饰品配装、发酵与厨具、SIMMC 网页地图、预留板块、工具组按键；诊断与日志固定在底部。
 - 总览必须说明鼠标入口、快捷键、外置模块接管和当前运行状态。
 - 总控和子页面使用中文；长警告、状态和按钮文字必须在不同 GUI 缩放与分辨率下可读、不截断、不重叠。
-- 工具组按键进入专属设置页，不跳转 Minecraft 原生控制页；专属页显示当前键、修改、恢复和冲突提示。
+- 工具组按键进入专属设置页，不跳转 Minecraft 原生控制页；专属页只管理六个组合子键，显示当前键、修改、恢复和冲突提示。
+- `\\` 前缀、主键盘 `0` 和内部 Simes 的 `O` 保留为 Minecraft 原生 `KeyBinding`；外置 Simes 存在时不注册内部 `O`。
 - 鼠标点击是与快捷键并行的完整入口。快捷键不得拦截按钮点击、滚轮、拖动物品、容器交互、地图操作或原生 Screen 返回。
 - 容器名称、聊天和 HUD 信息不能互相遮挡；发酵/厨具以 Simes 原生世界投影为运行时主显示，总控页面只显示状态摘要，不保留重复的右上角全局提示。
 
@@ -58,7 +59,7 @@
 | `\` + `` ` `` | 诊断与日志 |
 | 主键盘 `0` | 饰品工具直达 |
 
-- 按住前缀键后在约 650-800 ms 窗口内按次键；单独松开前缀键打开工具组总览页，工具组按键页只能从总控导航进入。
+- 按住前缀键后在 750 ms 窗口内按次键；单独松开前缀键打开工具组总览页，工具组按键页只能从总控导航进入。
 - 默认键暂不使用 F1-F12、Insert/导航区、SysRq、小键盘和方向键；玩家重绑定时可以选择这些区域。
 - 文本框、聊天、命令、书、告示牌和其它编辑界面聚焦时，组合键完全旁路，不吞字符。
 - 超时、Esc、未知次键、失焦、切屏和全部鼠标事件都应清除前缀状态并放行原生行为。
@@ -76,7 +77,7 @@
 ### 5.2 发酵与厨具
 
 - 发酵提示和厨具提示是两个独立开关，默认开启。
-- 仅在 `play.simmc.cn` 激活；点击目标方块后，根据服务器可见消息显示状态，不伪造没有收到的数据。
+- 仅在 `play.simmc.cn` 激活；准星指向 10 格内目标方块时，在目标上方显示带食材图标的半透明信息卡，根据服务器可见消息显示状态，不伪造没有收到的数据。
 - Simes 授权范围不包括市场、估值、余额、自动消息和 Mana 功能。
 
 ### 5.3 mod 3 饰品配装
@@ -133,6 +134,8 @@
 - 奥术状态 HUD 已恢复 pending、等级、吟唱、持续、公共冷却、退出/中断动画及被隐藏 BossBar 从 `ADD` 到 `REMOVE` 的完整抑制生命周期；三套 HUD 使用独立拖动、缩放和重置配置。
 - v1.1.0 已加入独立于 Xaero 的可选 Mod Menu 总入口，并验证无 Mod Menu 时入口类、测试和元数据均被剔除。
 - v1.1.0 已通过全依赖 `verifyUnitTests` 24/24、地图 smoke、3 个兼容场景及完整构建；无 Xaero/Mod Menu 矩阵通过 23/23、3 个兼容场景及完整构建。尚未发布正式标签或 release 产物。
+- v1.1.1 已恢复 `\\`/`0`/内部 `O` 的原生按键注册，组合子键独立保存；修复自绘文字 Alpha 为 0 导致的空白标签；统一 Simes 设置页加入发酵桶和蒸煮煎锅开关；信息卡恢复食材图标、行距和 10 格距离限制。
+- v1.1.1 已通过全依赖和无 Xaero/Mod Menu 两套 `verifyUnitTests` 25/25、地图 smoke、3 个兼容场景与 `build -x test`；已生成外部候选 JAR 和 SHA-256，尚未创建标签或线上 Release。
 
 ### 仍需完成
 
@@ -156,8 +159,11 @@
 - 版本发布曾出现“直接覆盖”的风险；通过新分支、新标签、外部 release 目录和 SHA-256 文件解决。
 - 测试脚本名称必须使用仓库实际命令，例如 `npm run verify:fabric-data`，不要凭直觉拼接任务名。
 - 只做源码/编译验证时不能声称 Minecraft 窗口和真实服务器联调已经完成。
+- Minecraft 文字颜色参数必须使用带 Alpha 的 ARGB；24 位 RGB 会被当作透明文字，表现为按钮存在但标签空白。
+- Litematica 只作为热键页布局参考；其 MaLiLib 依赖不得复制进 Tool Set。
+- 隔离 `runClient` 在本轮已到 Fabric/渲染资源加载阶段；Xaero 联网版本检查超时不影响本地启动，但目标服务器和页面点击仍未验证。
 - 本轮 Fabric Loom 首次重映射在系统临时目录报 `AccessDeniedException`；将 `TEMP/TMP` 指向项目内 `.gradle-local/loom-tmp` 后 `build -x test` 成功。
-- 本轮 Gradle `test` 即使使用项目临时目录和 `--max-workers=1`，仍稳定报告 `ClassNotFoundException: worker.org.gradle.process.internal.worker.GradleWorkerMain`；新增 `verifyUnitTests`，通过 JUnit Platform Launcher 直接发现并执行测试，零测试或任一失败都会让任务失败。后续以该任务的实际计数作为本机单元测试证据。
+- 本轮 Gradle `test` 仍报告 `ClassNotFoundException: worker.org.gradle.process.internal.worker.GradleWorkerMain`；继续使用 `verifyUnitTests` 通过 JUnit Platform Launcher 直接执行测试，并以 `build -x test` 完成构建。后续以该任务的实际计数作为本机单元测试证据。
 - 无 Xaero/Mod Menu 构建必须通过资源处理剔除地图 Mixin 和 Mod Menu entrypoint；该矩阵已实际通过。
 - Gradle wrapper 必须设置 `GRADLE_USER_HOME` 指向已有项目缓存；否则即使本机已有 Gradle 9.5.0，也可能再次尝试联网下载并因沙箱网络权限失败。
 - Loom 项目缓存缺少 `mojang_versions_manifest.json` 时，即使其余 Minecraft 缓存存在也会在配置阶段失败；可从本机已有 Gradle Fabric Loom 缓存复制同一清单后使用 `--offline` 验证，无需重新联网下载。
