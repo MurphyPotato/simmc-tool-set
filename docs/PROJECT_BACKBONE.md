@@ -20,17 +20,17 @@
 | Fabric Loader | 0.17.3 |
 | Fabric API | 0.136.1+1.21.8 |
 | 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.0` |
-| 当前提交 | `4793c04` |
+| 当前提交 | `4e5ea2a` |
 | 当前标签 | 尚未创建；旧 `v1.0.3-fabric-mc1.21.8` 保持不变 |
-| 构建 JAR | `build/libs/simmc-tool-set-fabric-1.1.0-fabric.jar`；尚未复制到 `release/` |
-| 构建 JAR SHA-256 | `4DBB2720AEF7AFBBD8A7A12F08555D0CA037D3C5D3405F71E26246157D25CBE3` |
-| 最近验证 | `build -x test`、`verifyMapCompatibility`、`compileTestJava` 和无 Xaero 构建通过；Gradle `test` 被本机 worker 缺失阻塞 |
-| 真实客户端联调 | 未完成；标题界面、世界内、容器、目标服务器和完整启动矩阵仍需人工验收 |
+| 构建 JAR | `build/libs/simmc-tool-set-fabric-1.1.0-fabric.jar`，1,339,035 bytes；尚未复制到 `release/` |
+| 构建 JAR SHA-256 | `DAA452DBB739B64957371FC1E7396BFF7CBD88D8C5D45DAB12947AFF94B17EC2` |
+| 最近验证 | 全依赖矩阵 `verifyUnitTests` 24/24、地图 smoke、3 个兼容场景和构建通过；无 Xaero/Mod Menu 矩阵 23/23、3 个兼容场景和构建通过 |
+| 真实客户端联调 | 未完成；必要时可在仓库隔离 `run/` 目录启动自建开发客户端，但不得启动、修改或复用用户客户端；用户安装环境仍由用户手动验收 |
 
 ## 2. 总体架构
 
 - 发行形态是一个客户端 mod ID、一个客户端入口、一个 JAR；各功能作为源码级内部模块维护，不做嵌套 JAR 外壳。
-- 总控使用原生 Minecraft `Screen`，不引入 WebView、Cloth Config 或 YACL；Mod Menu 只能作为可选入口。
+- 总控使用原生 Minecraft `Screen`，不引入 WebView、Cloth Config 或 YACL；Mod Menu 只能作为可选总入口，且其可用性不得依赖 Xaero 是否存在。
 - 内部模块之间通过清晰的 provider/bridge 边界连接；外置模块存在且桥接兼容时，外置模块优先。
 - 外置模块接管后，内置对应模块必须零初始化：不构造控制器、不注册事件、不启动线程、不读写对应配置。
 - 所有复杂工具都必须保留父 Screen；关闭、Esc 和返回应恢复同一父 Screen。父上下文失效时安全返回游戏并给出一次提示。
@@ -42,7 +42,7 @@
 - 总控和子页面使用中文；长警告、状态和按钮文字必须在不同 GUI 缩放与分辨率下可读、不截断、不重叠。
 - 工具组按键进入专属设置页，不跳转 Minecraft 原生控制页；专属页显示当前键、修改、恢复和冲突提示。
 - 鼠标点击是与快捷键并行的完整入口。快捷键不得拦截按钮点击、滚轮、拖动物品、容器交互、地图操作或原生 Screen 返回。
-- 容器名称、聊天和 HUD 信息不能互相遮挡；发酵/厨具提示使用右上角区域，不再占用聊天左下角。
+- 容器名称、聊天和 HUD 信息不能互相遮挡；发酵/厨具以 Simes 原生世界投影为运行时主显示，总控页面只显示状态摘要，不保留重复的右上角全局提示。
 
 ## 4. 快捷键与输入边界
 
@@ -103,6 +103,7 @@
 - SIMMC 覆盖层同时面向 Xaero 世界地图和小地图；缩放、拖动、点击和鼠标归属仍由 Xaero 处理。
 - 地图连接、刷新、公开标记、切服/离服清理和运行失败状态必须在地图页和诊断中可见。
 - Xaero 与 Mod Menu 外部 JAR 不打包进 Tool Set；`jsoup 1.18.3` 作为构建所需嵌入依赖保留。
+- 安装 Mod Menu 时，其 Tool Set 配置入口必须直接打开总控首页并保留同一个父 Screen；没有 Mod Menu 时构建必须剔除入口类和 `fabric.mod.json` 中的对应 entrypoint。
 
 ## 7. 配置、诊断与隐私
 
@@ -124,16 +125,18 @@
 ### 已完成
 
 - 1.0.3 总控中文化、专属按键页、状态页、发酵/厨具分开开关、诊断路径显示。
-- Simes BossBar 状态捕获、厨具提示移到右上角。
+- v1.0.3 曾将厨具提示移到右上角；该显示方案已被 v1.1.0 的 Simes 原生世界投影替代。BossBar 状态捕获继续保留。
 - Xaero 版本状态、刷新控件、兼容警告和不兼容时继续尝试运行。
 - `MapCompatibilitySmoke` 三场景验证，完整 JAR 构建和静态内容审计。
 - v1.0.3 的 Git 分支、提交、标签和独立 release JAR/校验文件保持不变。
 - v1.1.0 已合并自定义快捷键、Simes 原生奥术冷却/状态 HUD、发酵与厨具世界投影、SIMMC Map null-view 修复、原生命令和配置迁移。
-- v1.1.0 已完成 `compileJava`、`compileTestJava`、`build -x test`、`verifyMapCompatibility` 以及无 Xaero/Mod Menu 构建验证；尚未发布正式标签或 release 产物。
+- 奥术状态 HUD 已恢复 pending、等级、吟唱、持续、公共冷却、退出/中断动画及被隐藏 BossBar 从 `ADD` 到 `REMOVE` 的完整抑制生命周期；三套 HUD 使用独立拖动、缩放和重置配置。
+- v1.1.0 已加入独立于 Xaero 的可选 Mod Menu 总入口，并验证无 Mod Menu 时入口类、测试和元数据均被剔除。
+- v1.1.0 已通过全依赖 `verifyUnitTests` 24/24、地图 smoke、3 个兼容场景及完整构建；无 Xaero/Mod Menu 矩阵通过 23/23、3 个兼容场景及完整构建。尚未发布正式标签或 release 产物。
 
 ### 仍需完成
 
-- 在 `I:\mc 起源服务器\versions\1.21.8-Fabric 0.17.3` 客户端进行真实启动和窗口验收。
+- `I:\mc 起源服务器\versions\1.21.8-Fabric 0.17.3` 是用户客户端，只由用户手动启动和验收；Codex 不得启动、修改或复用该目录。必要的开发期运行验证只能使用仓库隔离 `run/` 目录和当前自建产物。
 - 验证标题界面、世界内、背包、容器和地图页面的点击、Esc、返回父 Screen 与容器拖拽。
 - 验证奥术实际使用后的 HUD、发酵/厨具实际提示和服务器切换清理。
 - 验证 Xaero 已验证组合下世界地图和小地图覆盖确实可见，并记录不兼容版本启动结果。
@@ -154,8 +157,11 @@
 - 测试脚本名称必须使用仓库实际命令，例如 `npm run verify:fabric-data`，不要凭直觉拼接任务名。
 - 只做源码/编译验证时不能声称 Minecraft 窗口和真实服务器联调已经完成。
 - 本轮 Fabric Loom 首次重映射在系统临时目录报 `AccessDeniedException`；将 `TEMP/TMP` 指向项目内 `.gradle-local/loom-tmp` 后 `build -x test` 成功。
-- 本轮 Gradle `test` 即使使用项目临时目录和 `--max-workers=1`，仍稳定报告 `ClassNotFoundException: worker.org.gradle.process.internal.worker.GradleWorkerMain`；因此只能确认测试类编译，不能把单元测试写成通过。
+- 本轮 Gradle `test` 即使使用项目临时目录和 `--max-workers=1`，仍稳定报告 `ClassNotFoundException: worker.org.gradle.process.internal.worker.GradleWorkerMain`；新增 `verifyUnitTests`，通过 JUnit Platform Launcher 直接发现并执行测试，零测试或任一失败都会让任务失败。后续以该任务的实际计数作为本机单元测试证据。
 - 无 Xaero/Mod Menu 构建必须通过资源处理剔除地图 Mixin 和 Mod Menu entrypoint；该矩阵已实际通过。
+- Gradle wrapper 必须设置 `GRADLE_USER_HOME` 指向已有项目缓存；否则即使本机已有 Gradle 9.5.0，也可能再次尝试联网下载并因沙箱网络权限失败。
+- Loom 项目缓存缺少 `mojang_versions_manifest.json` 时，即使其余 Minecraft 缓存存在也会在配置阶段失败；可从本机已有 Gradle Fabric Loom 缓存复制同一清单后使用 `--offline` 验证，无需重新联网下载。
+- 必要时允许在仓库隔离 `run/` 目录运行自建开发客户端；禁止启动、修改或复用用户客户端目录。隔离客户端到达资源加载阶段只能证明相应启动阶段，不等于用户环境、UI、目标服务器功能或完整矩阵验收。
 
 ## 11. 验收门槛
 
@@ -167,7 +173,7 @@
 - 版本不兼容警告缺失，或地图失败导致其它模块失效。
 - 诊断自动上传、泄露凭据或写入未说明目录。
 - JAR 错误打包 Xaero/Mod Menu，或缺少必要的 jsoup 嵌入依赖。
-- 真实客户端启动、标题/世界/容器路径和父 Screen 行为没有证据。
+- 用户客户端的手工启动、标题/世界/容器路径和父 Screen 行为没有验收证据。
 
 ## 12. 后续更新协议
 
