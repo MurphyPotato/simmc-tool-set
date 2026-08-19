@@ -1,6 +1,8 @@
 {
   "key.categories.simmc_tool_set": "simMC 工具组",
   "key.simmc_tool_set.prefix": "工具组组合键前缀",
+  "key.simmc_tool_set.accessory_direct": "饰品工具直达",
+  "key.simmc_tool_set.simes_settings": "Simes 设置",
   "key.simmc_tool_set.arcane_hud": "奥术 HUD",
   "key.simmc_tool_set.scroll": "卷轴计算",
   "key.simmc_tool_set.accessory": "饰品配装",

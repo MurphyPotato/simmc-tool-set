@@ -8,7 +8,7 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
-/** Tool Set-only key page; no Minecraft Controls screen or native KeyBinding objects. */
+/** Tool Set-only page for the six prefix subkeys. */
 public final class ToolSetHotkeyScreen extends Screen {
     private final Screen parent;
     private List<ToolSetKeyRouter.ShortcutBinding> bindings = List.of();
@@ -72,9 +72,10 @@ public final class ToolSetHotkeyScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         context.fill(0, 0, width, height, 0xE0121720);
         context.fill(14, 32, width - 14, height - 38, 0xE01F2937);
-        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 10, 0xFFFFFF);
+        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 10, 0xFFFFFFFF);
         context.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("仅显示 simMC 工具组按键；不会改变鼠标点击、容器操作或原生按键"), width / 2, 24, 0xB8C5D6);
+                Text.literal("这里只修改组合子键；\\、0、O 请在 Minecraft 控制设置中修改"),
+                width / 2, 24, 0xFFB8C5D6);
         int left = Math.max(18, width / 2 - 250);
         int rowHeight = 34;
         for (int i = 0; i < bindings.size(); i++) {
@@ -82,13 +83,13 @@ public final class ToolSetHotkeyScreen extends Screen {
             context.fill(left - 8, rowY - 5, left + 494, rowY + 26,
                     i % 2 == 0 ? 0xA52A3544 : 0xA5232D3A);
             ToolSetKeyRouter.ShortcutBinding binding = bindings.get(i);
-            context.drawTextWithShadow(textRenderer, Text.literal(binding.label()), left, rowY, 0xFFFFFF);
-            context.drawTextWithShadow(textRenderer, Text.literal(binding.description()), left, rowY + 12, 0x9EADBF);
-            context.drawTextWithShadow(textRenderer, Text.literal(binding.displayName()), left + 250, rowY + 5, 0x8FE8FF);
+            context.drawTextWithShadow(textRenderer, Text.literal(binding.label()), left, rowY, 0xFFFFFFFF);
+            context.drawTextWithShadow(textRenderer, Text.literal(binding.description()), left, rowY + 12, 0xFF9EADBF);
+            context.drawTextWithShadow(textRenderer, Text.literal(binding.displayName()), left + 250, rowY + 5, 0xFF8FE8FF);
         }
         if (!status.isEmpty()) {
             context.drawCenteredTextWithShadow(textRenderer,
-                    Text.literal(textRenderer.trimToWidth(status, width - 28)), width / 2, height - 45, 0xFFD36B);
+                    Text.literal(textRenderer.trimToWidth(status, width - 28)), width / 2, height - 45, 0xFFFFD36B);
         }
         super.render(context, mouseX, mouseY, delta);
     }

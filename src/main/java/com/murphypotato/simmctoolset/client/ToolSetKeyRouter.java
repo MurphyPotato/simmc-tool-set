@@ -1,10 +1,13 @@
 package com.murphypotato.simmctoolset.client;
 
 import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
@@ -17,12 +20,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-/** Tool Set-only shortcut router. It deliberately does not register Minecraft KeyBindings. */
+/** Native direct keys plus Tool Set-only prefix subkeys. */
 public final class ToolSetKeyRouter {
     private static final long PREFIX_WINDOW_MILLIS = 750;
     private static final Path FILE = FabricLoader.getInstance().getConfigDir()
             .resolve("simmc-tool-set").resolve("shortcuts.properties");
     private static final Map<String, ShortcutBinding> SHORTCUTS = new LinkedHashMap<>();
+    private static KeyBinding prefix;
+    private static KeyBinding accessoryDirect;
+    private static KeyBinding simesSettings;
     private static long prefixDeadline;
     private static boolean prefixDown;
     private static boolean prefixUsed;
@@ -33,17 +39,24 @@ public final class ToolSetKeyRouter {
     private ToolSetKeyRouter() { }
 
     public static synchronized void register() {
+        prefix = registerNative("key.simmc_tool_set.prefix", GLFW.GLFW_KEY_BACKSLASH);
+        accessoryDirect = registerNative("key.simmc_tool_set.accessory_direct", GLFW.GLFW_KEY_0);
+        if (!FabricLoader.getInstance().isModLoaded("simes")) {
+            simesSettings = registerNative("key.simmc_tool_set.simes_settings", GLFW.GLFW_KEY_O);
+        }
         SHORTCUTS.clear();
-        add("prefix", "组合键前缀", "按住后再按功能键；单独松开打开工具组总控", GLFW.GLFW_KEY_BACKSLASH, null);
         add("arcane_hud", "奥术 HUD", "打开奥术 HUD 设置", GLFW.GLFW_KEY_1, Target.ARCANE_HUD);
         add("scroll", "卷轴计算", "打开卷轴材料计算器", GLFW.GLFW_KEY_2, Target.SCROLL);
         add("accessory", "饰品配装", "打开饰品扫描与配装工具", GLFW.GLFW_KEY_3, Target.ACCESSORY);
         add("brewing", "发酵与厨具", "打开原生发酵与厨具助手", GLFW.GLFW_KEY_4, Target.BREWING);
         add("map", "SIMMC 网页地图", "打开地图状态与覆盖设置", GLFW.GLFW_KEY_5, Target.MAP);
         add("diagnostics", "诊断与日志", "打开本地诊断记录", GLFW.GLFW_KEY_GRAVE_ACCENT, Target.DIAGNOSTICS);
-        add("accessory_direct", "饰品工具直达", "不使用组合前缀，直接打开饰品工具", GLFW.GLFW_KEY_0, Target.ACCESSORY);
-        add("simes_settings", "Simes 设置兼容入口", "使用 O 打开原生奥术 HUD 设置", GLFW.GLFW_KEY_O, Target.SIMES_SETTINGS);
         load();
+    }
+
+    private static KeyBinding registerNative(String translationKey, int defaultKey) {
+        return KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                translationKey, InputUtil.Type.KEYSYM, defaultKey, "key.categories.simmc_tool_set"));
     }
 
     private static void add(String id, String label, String description, int defaultKey, Target target) {
@@ -56,9 +69,8 @@ public final class ToolSetKeyRouter {
             clear();
             return false;
         }
-        ShortcutBinding prefix = SHORTCUTS.get("prefix");
-        if (prefix == null) return false;
-        boolean isPrefix = prefix.matches(keyCode, scanCode);
+        if (prefix == null || accessoryDirect == null) return false;
+        boolean isPrefix = prefix.matchesKey(keyCode, scanCode);
         if (action == GLFW.GLFW_RELEASE && isPrefix) {
             boolean openOverview = prefixDown && !prefixUsed && System.currentTimeMillis() <= prefixDeadline;
             clear();
@@ -80,14 +92,12 @@ public final class ToolSetKeyRouter {
             return false;
         }
         if (!prefixDown) {
-            ShortcutBinding direct = SHORTCUTS.get("accessory_direct");
-            ShortcutBinding simes = SHORTCUTS.get("simes_settings");
-            if (direct != null && direct.matches(keyCode, scanCode)) {
-                open(client, direct.target());
+            if (accessoryDirect.matchesKey(keyCode, scanCode)) {
+                open(client, Target.ACCESSORY);
                 return true;
             }
-            if (simes != null && simes.matches(keyCode, scanCode)) {
-                open(client, simes.target());
+            if (simesSettings != null && simesSettings.matchesKey(keyCode, scanCode)) {
+                open(client, Target.SIMES_SETTINGS);
                 return true;
             }
             return false;
@@ -124,8 +134,7 @@ public final class ToolSetKeyRouter {
 
     private static Target targetFor(int keyCode, int scanCode) {
         for (ShortcutBinding binding : SHORTCUTS.values()) {
-            if (binding.target() != null && !binding.id().equals("accessory_direct")
-                    && !binding.id().equals("simes_settings") && binding.matches(keyCode, scanCode)) {
+            if (binding.matches(keyCode, scanCode)) {
                 return binding.target();
             }
         }

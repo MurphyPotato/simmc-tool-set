@@ -86,7 +86,7 @@ public final class ToolSetScreen extends Screen {
             case ARCANE_HUD -> {
                 addDrawableChild(toggle(x, y, width, "奥术 HUD", ToolSetSettings.arcaneHudEnabled(),
                         ToolSetSettings::setArcaneHudEnabled));
-                addDrawableChild(ButtonWidget.builder(Text.literal("打开原生 HUD 设置"),
+                addDrawableChild(ButtonWidget.builder(Text.literal("打开 Simes 设置"),
                         button -> com.murphypotato.simmctoolset.internal.simes.SimesArcaneHud.openSettings(this))
                         .dimensions(x, y + 24, Math.min(240, width), 20).build());
             }
@@ -95,6 +95,9 @@ public final class ToolSetScreen extends Screen {
                         ToolSetSettings::setFermentationEnabled));
                 addDrawableChild(toggle(x, y + 24, width, "厨具提示", ToolSetSettings.cookwareEnabled(),
                         ToolSetSettings::setCookwareEnabled));
+                addDrawableChild(ButtonWidget.builder(Text.literal("打开 Simes 设置"),
+                        button -> com.murphypotato.simmctoolset.internal.simes.SimesArcaneHud.openSettings(this))
+                        .dimensions(x, y + 48, Math.min(240, width), 20).build());
             }
             case MAP -> addMapControls(x, y, width);
             case HOTKEYS -> addHotkeyControls(x, y, width);
@@ -167,9 +170,9 @@ public final class ToolSetScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         context.fill(0, 0, width, height, 0xE0121720);
         context.fill(0, 0, NAV_WIDTH, height, 0xE01F2937);
-        context.drawTextWithShadow(textRenderer, title, MARGIN, 8, 0xFFFFFF);
+        context.drawTextWithShadow(textRenderer, title, MARGIN, 8, 0xFFFFFFFF);
         int x = NAV_WIDTH + MARGIN;
-        context.drawTextWithShadow(textRenderer, Text.literal(panel.title), x, 18, 0xFFFFFF);
+        context.drawTextWithShadow(textRenderer, Text.literal(panel.title), x, 18, 0xFFFFFFFF);
         renderPanelText(context, x, 38, width - x - MARGIN);
         super.render(context, mouseX, mouseY, delta);
     }
@@ -206,7 +209,7 @@ public final class ToolSetScreen extends Screen {
             case FLEX -> List.of("此板块为未来已授权模块预留。", "当前不会创建线程、事件或配置。");
             case HOTKEYS -> List.of(
                     "默认：\\+1 奥术 HUD，\\+2 卷轴计算，\\+3 饰品配装，\\+4 发酵与厨具，\\+5 网页地图，\\+` 诊断日志。",
-                    "按住\\再按功能键触发；单独松开\\打开工具组总控。主键盘 0 仍为饰品直达键。",
+                    "按住\\再按功能键触发；单独松开\\打开工具组总控。\\、0、O 在 Minecraft 控制设置中修改。",
                     "F1-F12、导航区、SysRq、小键盘和方向键不作为默认键，但可以在专属页面重新绑定。"
             );
             case DIAGNOSTICS -> DiagnosticLog.snapshot().isEmpty()
@@ -217,7 +220,7 @@ public final class ToolSetScreen extends Screen {
         int lineY = y;
         for (String line : lines) {
             for (var wrapped : textRenderer.wrapLines(Text.literal(line), Math.max(80, usableWidth))) {
-                context.drawTextWithShadow(textRenderer, wrapped, x, lineY, 0xD7DEE8);
+                context.drawTextWithShadow(textRenderer, wrapped, x, lineY, 0xFFD7DEE8);
                 lineY += 12;
             }
             lineY += 4;

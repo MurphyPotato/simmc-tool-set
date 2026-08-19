@@ -1,5 +1,6 @@
 package com.murphypotato.simmctoolset.internal.simes;
 
+import com.murphypotato.simmctoolset.client.ToolSetSettings;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -21,7 +22,7 @@ public final class SimesArcaneHudSettingsScreen extends Screen {
     private String status = "";
 
     public SimesArcaneHudSettingsScreen(Screen parent) {
-        super(Text.literal("奥术 HUD 设置"));
+        super(Text.literal("Simes 设置"));
         this.parent = parent;
     }
 
@@ -39,18 +40,27 @@ public final class SimesArcaneHudSettingsScreen extends Screen {
             clearAndInit();
         }).dimensions(left + 155, 52, 145, 20).build());
 
-        addDrawableChild(targetButton("冷却", Target.COOLDOWN, left, 80));
-        addDrawableChild(targetButton("吟唱/持续", Target.STATUS, left + 102, 80));
-        addDrawableChild(targetButton("公共冷却", Target.GLOBAL_COOLDOWN, left + 204, 80));
+        addDrawableChild(ButtonWidget.builder(Text.literal("发酵桶助手：" + (ToolSetSettings.fermentationEnabled() ? "开" : "关")), button -> {
+            ToolSetSettings.setFermentationEnabled(!ToolSetSettings.fermentationEnabled());
+            clearAndInit();
+        }).dimensions(left, 80, 145, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("蒸煮煎锅助手：" + (ToolSetSettings.cookwareEnabled() ? "开" : "关")), button -> {
+            ToolSetSettings.setCookwareEnabled(!ToolSetSettings.cookwareEnabled());
+            clearAndInit();
+        }).dimensions(left + 155, 80, 145, 20).build());
+
+        addDrawableChild(targetButton("冷却", Target.COOLDOWN, left, 108));
+        addDrawableChild(targetButton("吟唱/持续", Target.STATUS, left + 102, 108));
+        addDrawableChild(targetButton("公共冷却", Target.GLOBAL_COOLDOWN, left + 204, 108));
 
         addDrawableChild(ButtonWidget.builder(Text.literal("缩放 -"), button -> changeScale(-10))
-                .dimensions(left, 106, 58, 20).build());
+                .dimensions(left, 134, 58, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal(scaleText()), button -> setScale(100))
-                .dimensions(left + 63, 106, 112, 20).build());
+                .dimensions(left + 63, 134, 112, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("缩放 +"), button -> changeScale(10))
-                .dimensions(left + 180, 106, 58, 20).build());
+                .dimensions(left + 180, 134, 58, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("重置当前"), button -> resetSelected())
-                .dimensions(left + 243, 106, 57, 20).build());
+                .dimensions(left + 243, 134, 57, 20).build());
 
         addDrawableChild(ButtonWidget.builder(Text.literal("重置全部"), button -> resetAll())
                 .dimensions(left, height - 28, 96, 20).build());
@@ -223,15 +233,15 @@ public final class SimesArcaneHudSettingsScreen extends Screen {
     }
 
     private double previewMinimumY(int panelHeight) {
-        return 144.0 + panelHeight + 4.0;
+        return 172.0 + panelHeight + 4.0;
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         context.fill(0, 0, width, height, 0xE0121720);
-        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 14, 0xFFFFFF);
+        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 14, 0xFFFFFFFF);
         context.drawCenteredTextWithShadow(textRenderer, Text.literal("选择预览后拖动，按钮调整独立布局"),
-                width / 2, 30, 0xB8C5D6);
+                width / 2, 30, 0xFFB8C5D6);
         PreviewBounds bounds = previewBounds();
         int frameColor = dragging ? 0xFFFFFF55 : 0xFF777777;
         context.fill(bounds.x - 4, bounds.top() - 4, bounds.x + bounds.width + 4,
@@ -249,7 +259,7 @@ public final class SimesArcaneHudSettingsScreen extends Screen {
         }
         context.drawTextWithShadow(textRenderer, Text.literal(targetLabel()), bounds.x, bounds.top() - 14, 0xFFFFFFFF);
         if (!status.isEmpty()) context.drawCenteredTextWithShadow(textRenderer, Text.literal(status),
-                width / 2, height - 46, 0xFFD36B);
+                width / 2, height - 46, 0xFFFFD36B);
         super.render(context, mouseX, mouseY, delta);
     }
 

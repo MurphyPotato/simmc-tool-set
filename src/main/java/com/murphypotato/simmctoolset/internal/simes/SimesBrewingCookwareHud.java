@@ -416,6 +416,10 @@ public final class SimesBrewingCookwareHud {
         }
 
         BlockPos targetPos = target.getBlockPos();
+        if (targetPos.toCenterPos().squaredDistanceTo(client.player.getPos()) > 100.0D) {
+            projectedPanels = List.of();
+            return;
+        }
         Panel panel = null;
         if (SimesFeatureController.fermentationEnabled()) {
             Fermenter fermenter = fermenters.get(targetPos);
@@ -454,29 +458,35 @@ public final class SimesBrewingCookwareHud {
     }
 
     private static void drawPanel(DrawContext context, MinecraftClient client, Panel panel, int centerX, int anchorY) {
-        int width = panel.lines.stream().mapToInt(client.textRenderer::getWidth).max().orElse(80);
+        int width = panel.lines.stream().mapToInt(line -> client.textRenderer.getWidth(line.text)
+                + (line.stack.isEmpty() ? 0 : 20)).max().orElse(80);
         width = Math.max(width, client.textRenderer.getWidth(panel.title));
-        width = Math.min(width + 16, Math.max(96, client.getWindow().getScaledWidth() - 8));
-        int height = 23 + panel.lines.size() * 13;
+        width = Math.min(Math.max(96, width + 10), Math.max(96, client.getWindow().getScaledWidth() - 8));
+        int height = 23 + panel.lines.size() * 18;
         int x = Math.max(4, Math.min(centerX - width / 2, client.getWindow().getScaledWidth() - width - 4));
         int y = Math.max(4, anchorY - height - 8);
 
         context.fill(x - 2, y - 2, x + width + 2, y + height + 2, 0xB0000000);
         context.fill(x, y, x + width, y + height, 0x73000000);
         context.fill(x, y, x + width, y + 1, panel.color);
-        context.drawTextWithShadow(client.textRenderer, Text.literal(panel.title),
-                x + 7, y + 5, panel.color);
-        int lineY = y + 19;
-        for (String line : panel.lines) {
-            context.drawTextWithShadow(client.textRenderer, Text.literal(line), x + 7, lineY, 0xFFFFFFFF);
-            lineY += 13;
+        context.drawCenteredTextWithShadow(client.textRenderer, Text.literal(panel.title),
+                x + width / 2, y + 5, panel.color);
+        int lineY = y + 20;
+        for (Line line : panel.lines) {
+            int textX = x + 7;
+            if (!line.stack.isEmpty()) {
+                context.drawItem(line.stack, x + 4, lineY - 4);
+                textX += 20;
+            }
+            context.drawTextWithShadow(client.textRenderer, Text.literal(line.text), textX, lineY, 0xFFFFFFFF);
+            lineY += 18;
         }
     }
 
     private static Panel cookerPanel(BlockPos pos, SimesCookerState state) {
         Map<String, Integer> counts = new LinkedHashMap<>();
         for (String key : state.contents()) counts.merge(key, 1, Integer::sum);
-        List<String> lines = new ArrayList<>();
+        List<Line> lines = new ArrayList<>();
         Map<String, ItemStack> samples = new HashMap<>();
         for (ItemStack stack : cookerContents.getOrDefault(pos, List.of())) samples.put(details(stack), stack);
         int shown = 0;
@@ -484,17 +494,18 @@ public final class SimesBrewingCookwareHud {
             if (shown++ >= MAX_VISIBLE_ITEMS) break;
             ItemStack sample = samples.get(entry.getKey());
             String label = sample == null ? displayName(entry.getKey()) : sample.getName().getString();
-            lines.add(label + " x" + entry.getValue());
+            lines.add(new Line(sample == null ? ItemStack.EMPTY : sample.copyWithCount(1),
+                    label + " ×" + entry.getValue()));
         }
         if (counts.size() > MAX_VISIBLE_ITEMS) {
-            lines.add("以及其他 " + (counts.size() - MAX_VISIBLE_ITEMS) + " 种食材");
+            lines.add(new Line(ItemStack.EMPTY, "以及其他 " + (counts.size() - MAX_VISIBLE_ITEMS) + " 种食材"));
         }
         String timer = state.isOpen() ? "无盖状态：未开始计时"
                 : state.isCompleted() ? "服务器已完成"
                 : state.remainingMillis(System.currentTimeMillis()) > 0L
                 ? String.format(Locale.ROOT, "预计：%.1f 秒（本地）", state.remainingMillis(System.currentTimeMillis()) / 1_000D)
                 : "预计时间已到，等待服务器";
-        lines.add(timer);
+        lines.add(new Line(ItemStack.EMPTY, timer));
         String title = state.isOpen() ? state.cookwareName()
                 : state.isCompleted() ? state.cookwareName() + " · 已完成"
                 : state.cookwareName() + " · 烹饪中";
@@ -604,7 +615,10 @@ public final class SimesBrewingCookwareHud {
         }
     }
 
-    private record Panel(BlockPos pos, String title, int color, List<String> lines) {
+    private record Line(ItemStack stack, String text) {
+    }
+
+    private record Panel(BlockPos pos, String title, int color, List<Line> lines) {
     }
 
     private record ProjectedPanel(Panel panel, int x, int y) {
@@ -666,22 +680,23 @@ public final class SimesBrewingCookwareHud {
         }
 
         private Panel panel() {
-            List<String> lines = new ArrayList<>();
+            List<Line> lines = new ArrayList<>();
             int shown = 0;
             Map<String, Integer> tracked = ledger.snapshot();
             for (Map.Entry<String, Integer> entry : tracked.entrySet()) {
                 if (shown++ >= MAX_VISIBLE_ITEMS) break;
                 ItemStack sample = samples.get(entry.getKey());
                 String name = sample == null ? displayName(entry.getKey()) : sample.getName().getString();
-                lines.add(name + " x" + entry.getValue());
+                lines.add(new Line(sample == null ? ItemStack.EMPTY : sample.copyWithCount(1),
+                        name + " ×" + entry.getValue()));
             }
             if (tracked.size() > MAX_VISIBLE_ITEMS) {
-                lines.add("以及其他 " + (tracked.size() - MAX_VISIBLE_ITEMS) + " 种食材");
+                lines.add(new Line(ItemStack.EMPTY, "以及其他 " + (tracked.size() - MAX_VISIBLE_ITEMS) + " 种食材"));
             }
-            if (lines.isEmpty()) lines.add("桶内物品：等待记录");
-            if (!product.isEmpty()) lines.add("产物：" + product);
-            lines.add("时间：" + timer.displayAt(System.nanoTime()));
-            lines.add("更新：" + (serverUpdatedAt == 0L ? "未校准" : elapsed(serverUpdatedAt)));
+            if (lines.isEmpty()) lines.add(new Line(ItemStack.EMPTY, "桶内物品：等待记录"));
+            if (!product.isEmpty()) lines.add(new Line(ItemStack.EMPTY, "产物：" + product));
+            lines.add(new Line(ItemStack.EMPTY, "时间：" + timer.displayAt(System.nanoTime())));
+            lines.add(new Line(ItemStack.EMPTY, "更新：" + (serverUpdatedAt == 0L ? "未校准" : elapsed(serverUpdatedAt))));
             return new Panel(pos, "发酵桶 · " + status, 0xFFFFB45E, lines);
         }
     }

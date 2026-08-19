@@ -45,7 +45,7 @@ public final class SimmcMapConfigScreen extends Screen {
 
     @Override public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         renderBackground(context, mouseX, mouseY, delta);
-        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 20, 0xFFFFFF);
+        context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 20, 0xFFFFFFFF);
         context.drawCenteredTextWithShadow(textRenderer, Text.translatable("simmc_tool_set.settings.groups"),
                 width / 2, 38, 0xA0A0A0);
         super.render(context, mouseX, mouseY, delta);
