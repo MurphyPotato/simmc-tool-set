@@ -514,13 +514,17 @@ public final class SimesBrewingCookwareHud {
 
     private static boolean isClock(ItemStack stack) {
         if (stack.isEmpty()) return false;
-        String id = craftEngineId(stack);
-        return id.contains("pocket_watch") || id.contains("cooking_clock")
-                || id.contains("烹饪钟") || stack.getName().getString().contains("烹饪钟");
+        String value = details(stack);
+        return value.contains("pocket_watch") || value.contains("cooking_clock")
+                || value.contains("烹饪钟") || value.contains("厨房钟");
     }
 
     private static boolean isCookware(ItemStack stack) {
-        return isFermentationBarrel(stack) || COOKWARE_IDS.contains(craftEngineId(stack));
+        return isFermentationBarrel(stack) || isCookingVessel(stack)
+                || details(stack).contains("kitchenware")
+                || details(stack).contains("蒸锅") || details(stack).contains("煮锅")
+                || details(stack).contains("炖锅") || details(stack).contains("煎锅")
+                || details(stack).contains("炒锅");
     }
 
     private static boolean isFermentationBarrelAt(MinecraftClient client, BlockPos pos) {
@@ -531,21 +535,34 @@ public final class SimesBrewingCookwareHud {
     }
 
     private static boolean isFermentationBarrel(ItemStack stack) {
-        return FERMENTATION_IDS.contains(craftEngineId(stack));
+        String value = details(stack);
+        return FERMENTATION_IDS.contains(craftEngineId(stack))
+                || value.contains("kitchenware_3/fermentation_barrel");
     }
 
     private static boolean isCookingVessel(ItemStack stack) {
-        return COOKWARE_IDS.contains(craftEngineId(stack));
+        String value = details(stack);
+        return COOKWARE_IDS.contains(craftEngineId(stack))
+                || value.contains("smc:kitchenware_2/cookware")
+                || value.contains("smc:kitchenware_2/steamer")
+                || value.contains("smc:kitchenware_2/skillet")
+                || value.contains("kitchenware_2/cookware")
+                || value.contains("kitchenware_2/steamer")
+                || value.contains("kitchenware_2/skillet");
     }
 
     private static boolean isOpenCookingVessel(ItemStack stack) {
-        return OPEN_COOKWARE_IDS.contains(craftEngineId(stack));
+        String value = details(stack);
+        return OPEN_COOKWARE_IDS.contains(craftEngineId(stack))
+                || value.contains("kitchenware_2/cookware_open")
+                || value.contains("kitchenware_2/steamer_open")
+                || value.contains("kitchenware_2/skillet_open");
     }
 
     private static String normalizedCookwareName(ItemStack stack) {
-        String id = craftEngineId(stack);
-        if (id.endsWith("/cookware_open")) return "炖锅 无盖";
-        if (id.endsWith("/cookware")) return "炖锅";
+        String id = details(stack);
+        if (id.contains("kitchenware_2/cookware_open")) return "炖锅 无盖";
+        if (id.contains("kitchenware_2/cookware")) return "炖锅";
         return stack.getName().getString();
     }
 

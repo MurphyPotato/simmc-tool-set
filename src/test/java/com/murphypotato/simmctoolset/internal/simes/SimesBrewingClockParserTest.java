@@ -33,5 +33,10 @@ class SimesBrewingClockParserTest {
 
         assertInstanceOf(SimesBrewingClockParser.Completed.class,
                 SimesBrewingClockParser.parse("腌制已完成！"));
+
+        SimesBrewingClockParser.Invalidate restarted = assertInstanceOf(
+                SimesBrewingClockParser.Invalidate.class,
+                SimesBrewingClockParser.parse("腌制已开始"));
+        assertEquals("发酵中 · 待校准", restarted.status());
     }
 }
