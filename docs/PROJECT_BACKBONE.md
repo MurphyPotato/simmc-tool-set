@@ -19,12 +19,12 @@
 | Java | 21；已使用项目 JDK `I:\mc smc服\simmc moster hunter 2.0\tools\android-env\jdk-21` 构建 |
 | Fabric Loader | 0.17.3 |
 | Fabric API | 0.136.1+1.21.8 |
-| 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.1` |
-| 当前实现提交 | `ac7bb7d` (`fix: keep external Simes settings isolated`) |
+| 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.2` |
+| 当前实现提交 | 待提交；从 v1.1.1 基线 `83eed04` 开始 |
 | 当前标签 | 尚未创建；旧 `v1.0.3-fabric-mc1.21.8` 保持不变 |
-| 构建 JAR | 已复制为外部候选 `release/simmc-tool-set-fabric-1.1.1-fabric-mc1.21.8.jar`，1,339,286 bytes；尚未创建标签或线上 Release |
-| 构建 JAR SHA-256 | `46D323A82F3BBE448A03B45208F5BD3A6FF95E55D48BE0A2632F2BD0B0030521` |
-| 最近验证 | 全依赖矩阵 `verifyUnitTests` 25/25、地图 smoke、3 个兼容场景和 `build -x test` 通过；无 Xaero/Mod Menu 矩阵 25/25、3 个兼容场景和 `build -x test` 通过 |
+| 构建 JAR | `release/simmc-tool-set-fabric-1.1.2-fabric-mc1.21.8.jar`，1,339,859 bytes；尚未创建标签或线上 Release |
+| 构建 JAR SHA-256 | `16277E283AE86F1003C46F0C10C5106CAFF23C558742C493F51409D7A0C9E444`；旧 v1.1.1 校验不变 |
+| 最近验证 | 本轮全依赖 `verifyUnitTests` 25/25、地图 smoke、3 个兼容场景和 `build -x test` 通过；真实发酵/厨具目标服务器提示仍未验证 |
 | 真实客户端联调 | 隔离 `runClient` 已到渲染资源加载阶段，无 Tool Set 崩溃；热键页/Simes 页视觉与目标服务器功能仍需人工验收；不得启动、修改或复用用户客户端 |
 
 ## 2. 总体架构
@@ -137,6 +137,12 @@
 - v1.1.1 已恢复 `\\`/`0`/内部 `O` 的原生按键注册，组合子键独立保存；修复自绘文字 Alpha 为 0 导致的空白标签；统一 Simes 设置页加入发酵桶和蒸煮煎锅开关；信息卡恢复食材图标、行距和 10 格距离限制。
 - v1.1.1 已通过全依赖和无 Xaero/Mod Menu 两套 `verifyUnitTests` 25/25、地图 smoke、3 个兼容场景与 `build -x test`；已生成外部候选 JAR 和 SHA-256，尚未创建标签或线上 Release。
 
+### v1.1.2 本轮已确认与修复
+
+- 外置 Simes 存在时，旧的内部设置入口现在会安全拒绝打开；内置配置为空不会再触发设置页空指针。
+- 发酵桶、厨具和烹饪钟识别补齐 Simes 原版的完整物品详情匹配，兼容 `craftengine:id` 不在预期直接字段的合法变体；计时、账本和投影流程未重写。
+- 用户反馈的“准星指向后无信息”本轮未能由真实服务器复现，当前分类为“未复现”；本轮只修复静态确认的识别兼容缺口，真实触发条件仍需目标服务器验收。
+
 ### 仍需完成
 
 - `I:\mc 起源服务器\versions\1.21.8-Fabric 0.17.3` 是用户客户端，只由用户手动启动和验收；Codex 不得启动、修改或复用该目录。必要的开发期运行验证只能使用仓库隔离 `run/` 目录和当前自建产物。
@@ -145,7 +151,7 @@
 - 验证 Xaero 已验证组合下世界地图和小地图覆盖确实可见，并记录不兼容版本启动结果。
 - 完成 mod 3 外置桥接的真实构建、提交/版本事实确认和整合客户端矩阵。
 - 测试干净安装、仅内置模块、mod 3 外置、mod 4 外置、两者外置、Simes 外置、Xaero 缺失和不兼容组合。
-- 本地外部候选 JAR 和 `.jar.sha256` 已按用户指示生成；创建 `v1.1.1-fabric-mc1.21.8` 标签或线上 Release 前，仍须完成真实客户端证据。
+- v1.1.1 的本地候选 JAR 和 `.jar.sha256` 保持不变；v1.1.2 创建新候选后，创建 `v1.1.2-fabric-mc1.21.8` 标签或线上 Release 前仍须完成真实客户端证据。
 
 ## 10. 问题与解决方案记录
 
