@@ -4,6 +4,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gl.RenderPipelines;
@@ -242,8 +243,15 @@ public final class SimesArcaneHud {
     }
 
     public static void openSettings(net.minecraft.client.gui.screen.Screen parent) {
+        if (FabricLoader.getInstance().isModLoaded("simes")) {
+            // External Simes owns its settings and the internal config is intentionally null.
+            return;
+        }
         MinecraftClient client = MinecraftClient.getInstance();
-        client.execute(() -> client.setScreen(new SimesArcaneHudSettingsScreen(parent)));
+        client.execute(() -> {
+            if (config == null) config = ArcaneHudConfig.load();
+            client.setScreen(new SimesArcaneHudSettingsScreen(parent));
+        });
     }
 
     static int totalWidth() {
