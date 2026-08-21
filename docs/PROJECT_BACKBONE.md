@@ -20,7 +20,7 @@
 | Fabric Loader | 0.17.3 |
 | Fabric API | 0.136.1+1.21.8 |
 | 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.2` |
-| 当前实现提交 | 待提交；从 v1.1.1 基线 `83eed04` 开始 |
+| 当前实现提交 | `2c6a0f0`；从 v1.1.1 基线 `83eed04` 开始 |
 | 当前标签 | 尚未创建；旧 `v1.0.3-fabric-mc1.21.8` 保持不变 |
 | 构建 JAR | `release/simmc-tool-set-fabric-1.1.2-fabric-mc1.21.8.jar`，1,339,859 bytes；尚未创建标签或线上 Release |
 | 构建 JAR SHA-256 | `16277E283AE86F1003C46F0C10C5106CAFF23C558742C493F51409D7A0C9E444`；旧 v1.1.1 校验不变 |
