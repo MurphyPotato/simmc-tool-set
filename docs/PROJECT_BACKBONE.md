@@ -20,7 +20,7 @@
 | Fabric Loader | 0.17.3 |
 | Fabric API | 0.136.1+1.21.8 |
 | 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.1` |
-| 当前提交 | `ac7bb7d` (`fix: keep external Simes settings isolated`) |
+| 当前实现提交 | `ac7bb7d` (`fix: keep external Simes settings isolated`) |
 | 当前标签 | 尚未创建；旧 `v1.0.3-fabric-mc1.21.8` 保持不变 |
 | 构建 JAR | 已复制为外部候选 `release/simmc-tool-set-fabric-1.1.1-fabric-mc1.21.8.jar`，1,339,286 bytes；尚未创建标签或线上 Release |
 | 构建 JAR SHA-256 | `46D323A82F3BBE448A03B45208F5BD3A6FF95E55D48BE0A2632F2BD0B0030521` |
@@ -145,7 +145,7 @@
 - 验证 Xaero 已验证组合下世界地图和小地图覆盖确实可见，并记录不兼容版本启动结果。
 - 完成 mod 3 外置桥接的真实构建、提交/版本事实确认和整合客户端矩阵。
 - 测试干净安装、仅内置模块、mod 3 外置、mod 4 外置、两者外置、Simes 外置、Xaero 缺失和不兼容组合。
-- 本地外部候选 JAR 和 `.jar.sha256` 已按用户指示生成；创建 `v1.1.0-fabric-mc1.21.8` 标签或线上 Release 前，仍须完成真实客户端证据。
+- 本地外部候选 JAR 和 `.jar.sha256` 已按用户指示生成；创建 `v1.1.1-fabric-mc1.21.8` 标签或线上 Release 前，仍须完成真实客户端证据。
 
 ## 10. 问题与解决方案记录
 
