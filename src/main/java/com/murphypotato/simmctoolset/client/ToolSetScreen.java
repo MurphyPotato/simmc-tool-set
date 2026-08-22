@@ -6,6 +6,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 
 import java.io.IOException;
@@ -39,6 +40,9 @@ public final class ToolSetScreen extends Screen {
 
     private final Screen parent;
     private Panel panel;
+    private int diagnosticScroll;
+    private int diagnosticKnownLineCount = -1;
+    private int diagnosticKnownVisibleLines = -1;
 
     public ToolSetScreen(Screen parent, Panel panel) {
         super(Text.literal("simMC 工具组"));
@@ -102,7 +106,7 @@ public final class ToolSetScreen extends Screen {
             }
             case MAP -> addMapControls(x, y, width);
             case HOTKEYS -> addHotkeyControls(x, y, width);
-            case DIAGNOSTICS -> addDiagnosticsControls(x, y, width);
+            case DIAGNOSTICS -> addDiagnosticsControls(x, diagnosticControlsTop(height), width);
             default -> { }
         }
     }
@@ -136,16 +140,17 @@ public final class ToolSetScreen extends Screen {
     private void addMapControls(int x, int y, int width) {
         MapCompatibility.Status status = MapCompatibility.status();
         if (ToolSetClient.isMapInternal()) {
-            addDrawableChild(toggle(x, y, width, "SIMMC 覆盖层（世界地图与小地图）", ToolSetClient.mapWorldOverlayEnabled(),
+            int controlWidth = mapControlWidth(width);
+            addDrawableChild(toggle(x, y, controlWidth, "SIMMC 覆盖层（世界地图与小地图）", ToolSetClient.mapWorldOverlayEnabled(),
                     ignored -> ToolSetClient.toggleMapWorldOverlay()));
-            addDrawableChild(toggle(x, y + 24, width, "世界地图背景", ToolSetClient.mapWorldBackgroundEnabled(),
+            addDrawableChild(toggle(x, y + 24, controlWidth, "世界地图背景", ToolSetClient.mapWorldBackgroundEnabled(),
                     ignored -> ToolSetClient.toggleMapWorldBackground()));
-            addDrawableChild(toggle(x, y + 48, width, "小地图背景", ToolSetClient.mapMinimapBackgroundEnabled(),
+            addDrawableChild(toggle(x, y + 48, controlWidth, "小地图背景", ToolSetClient.mapMinimapBackgroundEnabled(),
                     ignored -> ToolSetClient.toggleMapMinimapBackground()));
             addDrawableChild(ButtonWidget.builder(Text.literal("立即刷新地图数据"), button -> {
                 ToolSetClient.refreshMap();
                 DiagnosticLog.info("已从工具组地图页面请求刷新");
-            }).dimensions(x, y + 72, Math.min(220, width), 20).build());
+            }).dimensions(x, y + 72, controlWidth, 20).build());
         }
         if (status.canEnableExperimental()) {
             addDrawableChild(ButtonWidget.builder(Text.literal("尝试兼容模式（需重启）"), button -> {
@@ -193,6 +198,10 @@ public final class ToolSetScreen extends Screen {
     }
 
     private void renderPanelText(DrawContext context, int x, int y, int usableWidth) {
+        if (panel == Panel.DIAGNOSTICS) {
+            renderDiagnosticText(context, x, y, usableWidth);
+            return;
+        }
         List<String> lines = switch (panel) {
             case OVERVIEW -> List.of(
                     ToolSetKeyRouter.currentShortcutSummary(),
@@ -205,7 +214,7 @@ public final class ToolSetScreen extends Screen {
             );
             case SCROLL -> List.of(
                     ToolSetClient.scrollStatus(),
-                    "保留原有设置、材料排除和计算取消行为。",
+                    scrollPanelDescription(),
                     "外置桥接版本要求 2.1.0-fabric 或更新版本。"
             );
             case ACCESSORY -> List.of(
@@ -226,10 +235,7 @@ public final class ToolSetScreen extends Screen {
                     "按住\\再按功能键触发；单独松开\\打开工具组总控。",
                     "工具组组合键前缀键 \\、饰品工具直达键 0、打开 Simes 设置键 O，需在 Minecraft-按键控制-按键绑定 中修改。"
             );
-            case DIAGNOSTICS -> DiagnosticLog.snapshot().isEmpty()
-                    ? List.of("尚无本地诊断记录。", "日志只在点击导出后写入 config/simmc-tool-set/diagnostics/。",
-                    "最近导出：" + DiagnosticLog.lastExportPath().map(Path::toString).orElse("尚未导出"))
-                    : new ArrayList<>(DiagnosticLog.snapshot());
+            case DIAGNOSTICS -> List.of();
         };
         int lineY = y;
         for (String line : lines) {
@@ -240,6 +246,81 @@ public final class ToolSetScreen extends Screen {
             lineY += 4;
             if (lineY > height - 12) return;
         }
+    }
+
+    private void renderDiagnosticText(DrawContext context, int x, int y, int usableWidth) {
+        List<String> entries = DiagnosticLog.snapshot().isEmpty()
+                ? List.of("尚无本地诊断记录。", "日志只在点击导出后写入 config/simmc-tool-set/diagnostics/。",
+                "最近导出：" + DiagnosticLog.lastExportPath().map(Path::toString).orElse("尚未导出"))
+                : DiagnosticLog.snapshot();
+        List<OrderedText> lines = new ArrayList<>();
+        for (String entry : entries) {
+            lines.addAll(textRenderer.wrapLines(Text.literal(entry), Math.max(80, usableWidth)));
+        }
+
+        int visibleLines = diagnosticVisibleLines(y, height);
+        int maxScroll = diagnosticMaxScroll(lines.size(), visibleLines);
+        int previousMax = diagnosticMaxScroll(diagnosticKnownLineCount, diagnosticKnownVisibleLines);
+        if (diagnosticKnownLineCount < 0 || diagnosticScroll >= previousMax) {
+            diagnosticScroll = maxScroll;
+        } else {
+            diagnosticScroll = Math.min(diagnosticScroll, maxScroll);
+        }
+        diagnosticKnownLineCount = lines.size();
+        diagnosticKnownVisibleLines = visibleLines;
+
+        int contentBottom = diagnosticContentBottom(height);
+        context.enableScissor(x, y, width - MARGIN, contentBottom);
+        int lineY = y;
+        for (int index = diagnosticScroll; index < lines.size() && lineY + 10 <= contentBottom; index++) {
+            context.drawTextWithShadow(textRenderer, lines.get(index), x, lineY, 0xFFD7DEE8);
+            lineY += 12;
+        }
+        context.disableScissor();
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        if (panel != Panel.DIAGNOSTICS || verticalAmount == 0.0) {
+            return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+        }
+        int maxScroll = diagnosticMaxScroll(diagnosticKnownLineCount, diagnosticKnownVisibleLines);
+        diagnosticScroll = diagnosticScrollFor(panel, diagnosticScroll, verticalAmount, maxScroll);
+        return true;
+    }
+
+    static String scrollPanelDescription() {
+        return "用于计算奥术卷轴材料配比，支持材料排除与轮换方案。";
+    }
+
+    static int mapControlWidth(int availableWidth) {
+        return Math.min(260, availableWidth);
+    }
+
+    static int diagnosticControlsTop(int screenHeight) {
+        return screenHeight - 52;
+    }
+
+    static int diagnosticContentBottom(int screenHeight) {
+        return diagnosticControlsTop(screenHeight) - 8;
+    }
+
+    static int diagnosticVisibleLines(int contentTop, int screenHeight) {
+        return Math.max(1, (diagnosticContentBottom(screenHeight) - contentTop) / 12);
+    }
+
+    static int diagnosticMaxScroll(int lineCount, int visibleLines) {
+        return Math.max(0, lineCount - Math.max(1, visibleLines));
+    }
+
+    static int diagnosticInitialScroll(int lineCount, int visibleLines) {
+        return diagnosticMaxScroll(lineCount, visibleLines);
+    }
+
+    static int diagnosticScrollFor(Panel panel, int current, double wheelAmount, int maxScroll) {
+        if (panel != Panel.DIAGNOSTICS || wheelAmount == 0.0) return current;
+        int next = current + (wheelAmount > 0.0 ? -3 : 3);
+        return Math.max(0, Math.min(maxScroll, next));
     }
 
     private List<String> mapLines() {

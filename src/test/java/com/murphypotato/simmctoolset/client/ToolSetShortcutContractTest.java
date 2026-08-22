@@ -50,6 +50,43 @@ final class ToolSetShortcutContractTest {
         assertFalse(formatter.contains("defaultKey()"));
     }
 
+    @Test
+    void usesShortScrollDescription() {
+        assertEquals("用于计算奥术卷轴材料配比，支持材料排除与轮换方案。",
+                ToolSetScreen.scrollPanelDescription());
+    }
+
+    @Test
+    void usesOneWidthForMapControls() {
+        assertEquals(140, ToolSetScreen.mapControlWidth(140));
+        assertEquals(260, ToolSetScreen.mapControlWidth(260));
+        assertEquals(260, ToolSetScreen.mapControlWidth(400));
+    }
+
+    @Test
+    void reservesBottomSafeAreaForDiagnostics() {
+        assertEquals(308, ToolSetScreen.diagnosticControlsTop(360));
+        assertEquals(300, ToolSetScreen.diagnosticContentBottom(360));
+        assertEquals(21, ToolSetScreen.diagnosticVisibleLines(38, 360));
+    }
+
+    @Test
+    void diagnosticsStartAtLatestAndClampWheelMovement() {
+        int max = ToolSetScreen.diagnosticMaxScroll(50, 10);
+        assertEquals(40, max);
+        assertEquals(max, ToolSetScreen.diagnosticInitialScroll(50, 10));
+        assertEquals(37, ToolSetScreen.diagnosticScrollFor(ToolSetScreen.Panel.DIAGNOSTICS, 40, 1, max));
+        assertEquals(40, ToolSetScreen.diagnosticScrollFor(ToolSetScreen.Panel.DIAGNOSTICS, 39, -1, max));
+        assertEquals(0, ToolSetScreen.diagnosticScrollFor(ToolSetScreen.Panel.DIAGNOSTICS, 1, 1, max));
+        assertEquals(40, ToolSetScreen.diagnosticScrollFor(ToolSetScreen.Panel.DIAGNOSTICS, 39, -1, max));
+    }
+
+    @Test
+    void nonDiagnosticsPanelsDoNotConsumeDiagnosticScroll() {
+        assertEquals(12, ToolSetScreen.diagnosticScrollFor(ToolSetScreen.Panel.MAP, 12, 1, 40));
+        assertEquals(12, ToolSetScreen.diagnosticScrollFor(ToolSetScreen.Panel.OVERVIEW, 12, -1, 40));
+    }
+
     private static int count(String value, String needle) {
         int result = 0;
         for (int at = value.indexOf(needle); at >= 0; at = value.indexOf(needle, at + needle.length())) result++;
