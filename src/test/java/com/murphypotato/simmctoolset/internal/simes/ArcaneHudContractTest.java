@@ -120,10 +120,12 @@ final class ArcaneHudContractTest {
                 "src/main/java/com/murphypotato/simmctoolset/internal/simes/ManaHud.java"));
         assertTrue(source.contains("onExperienceBarUpdate"));
         assertTrue(source.contains("ManaHud.handleExperiencePacket"));
+        assertTrue(source.contains("NetworkThreadUtils;forceMainThread"));
+        assertFalse(source.contains("at = @At(\"HEAD\")"));
         assertTrue(mana.contains("if (!SimesFeatureController.arcaneEnabled()"));
         String transport = mana.substring(mana.indexOf("handleExperiencePacket"),
                 mana.indexOf("public static boolean isArcaneCodex"));
-        assertFalse(transport.contains("manaHudEnabled"));
+        assertTrue(transport.contains("manaHudEnabled"));
     }
 
     @Test
@@ -141,6 +143,7 @@ final class ArcaneHudContractTest {
                 source.indexOf("private static List<String> extractEquippedArcanes"));
         assertTrue(source.contains("ManaHud.isArcaneCodex(stack)"));
         assertTrue(source.contains("stack.getComponents().hashCode()"));
+        assertTrue(source.contains("equippedArcanes = List.copyOf(detected)"));
         assertFalse(wandUpdate.contains("client.player.getOffHandStack()"));
         assertTrue(source.contains("!seen.contains(cooldown.name) && cooldown.exitStarted == 0L)"));
     }
@@ -152,6 +155,7 @@ final class ArcaneHudContractTest {
         assertFalse(Files.exists(directory.resolve("ArcaneStatusState.java")));
         assertTrue(source.contains("Map<UUID, Status> STATUSES"));
         assertTrue(source.contains("Set<UUID> HIDDEN_ARCANE_LEVEL_BARS"));
+        assertTrue(source.contains("Map<UUID, ClientBossBar> HIDDEN_BOSS_BARS"));
         assertTrue(source.contains("new SuppressedBossBarIds()"));
         assertTrue(source.contains("Status.pending"));
         assertTrue(source.contains("Kind.PENDING"));
@@ -161,7 +165,7 @@ final class ArcaneHudContractTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void visualResetPreservesCancelledBossBarIdsUntilFullLifecycleReset() throws Exception {
+    void visualResetReleasesCancelledBossBarIdsForVanillaRebuild() throws Exception {
         Field suppressedField = SimesArcaneStatusHud.class.getDeclaredField("SUPPRESSED_BOSS_BARS");
         Field hiddenField = SimesArcaneStatusHud.class.getDeclaredField("HIDDEN_ARCANE_LEVEL_BARS");
         suppressedField.setAccessible(true);
@@ -176,8 +180,8 @@ final class ArcaneHudContractTest {
 
             SimesArcaneStatusHud.clearVisualState();
 
-            assertTrue(suppressed.contains(statusId));
-            assertTrue(hidden.contains(levelId));
+            assertFalse(suppressed.contains(statusId));
+            assertFalse(hidden.contains(levelId));
 
             SimesArcaneStatusHud.reset();
 
@@ -185,6 +189,28 @@ final class ArcaneHudContractTest {
             assertFalse(hidden.contains(levelId));
         } finally {
             SimesArcaneStatusHud.reset();
+        }
+    }
+
+    @Test
+    void runtimeLayoutClampsLargeScaleAndRightEdge() {
+        assertEquals(0.5f, SimesHudLayoutScreen.runtimeScale(2.0f, 44, 88), 0.0001f);
+        assertEquals(0, SimesHudLayoutScreen.runtimeX(1, 44, 88, 0.5f));
+        assertEquals(72, SimesHudLayoutScreen.runtimeX(100, 160, 88, 1.0f));
+    }
+
+    @Test
+    void manaPacketHandlerLeavesVanillaExperienceWhenManaDisplayIsOff() throws Exception {
+        Field configField = SimesArcaneHud.class.getDeclaredField("config");
+        configField.setAccessible(true);
+        Object previous = configField.get(null);
+        ArcaneHudConfig config = new ArcaneHudConfig();
+        config.manaHudEnabled = false;
+        try {
+            configField.set(null, config);
+            assertFalse(ManaHud.handleExperiencePacket(null));
+        } finally {
+            configField.set(null, previous);
         }
     }
 

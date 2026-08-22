@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.hud.ClientBossBar;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.entity.boss.BossBar;
@@ -56,6 +57,7 @@ public final class SimesArcaneStatusHud {
 
     private static final Map<UUID, Status> STATUSES = new LinkedHashMap<>();
     private static final Set<UUID> HIDDEN_ARCANE_LEVEL_BARS = new HashSet<>();
+    private static final Map<UUID, ClientBossBar> HIDDEN_BOSS_BARS = new LinkedHashMap<>();
     private static final SuppressedBossBarIds SUPPRESSED_BOSS_BARS = new SuppressedBossBarIds();
     private static GlobalCooldown globalCooldown;
     private static boolean initialized;
@@ -76,13 +78,23 @@ public final class SimesArcaneStatusHud {
     public static synchronized void reset() {
         STATUSES.clear();
         HIDDEN_ARCANE_LEVEL_BARS.clear();
+        HIDDEN_BOSS_BARS.clear();
         SUPPRESSED_BOSS_BARS.clear();
         globalCooldown = null;
     }
 
-    /** Clears rendered state without releasing packet IDs whose ADD never reached vanilla. */
+    /** Clears rendered state and restores hidden bars so vanilla can resume updates. */
     static synchronized void clearVisualState() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client != null && client.inGameHud != null) {
+            for (ClientBossBar bar : HIDDEN_BOSS_BARS.values()) {
+                client.inGameHud.getBossBarHud().handlePacket(BossBarS2CPacket.add(bar));
+            }
+        }
         STATUSES.clear();
+        HIDDEN_ARCANE_LEVEL_BARS.clear();
+        HIDDEN_BOSS_BARS.clear();
+        SUPPRESSED_BOSS_BARS.clear();
         globalCooldown = null;
     }
 
@@ -102,13 +114,19 @@ public final class SimesArcaneStatusHud {
                 if (level.matches() && isKnownArcane(level.group(1))) {
                     if (hide) {
                         HIDDEN_ARCANE_LEVEL_BARS.add(id);
+                        rememberHiddenBossBar(id, name, percent, color, style,
+                                darkenSky, dragonMusic, thickenFog);
                         SUPPRESSED_BOSS_BARS.suppress(id);
                     }
                     recognized[0] = true;
                     cancel[0] = hide;
                 } else if (casting.matches() && isKnownArcane(casting.group(1))) {
                     STATUSES.put(id, Status.casting(canonical(casting.group(1)), percent, now, hide));
-                    if (hide) SUPPRESSED_BOSS_BARS.suppress(id);
+                    if (hide) {
+                        rememberHiddenBossBar(id, name, percent, color, style,
+                                darkenSky, dragonMusic, thickenFog);
+                        SUPPRESSED_BOSS_BARS.suppress(id);
+                    }
                     recognized[0] = true;
                     cancel[0] = hide;
                 } else if (raw.isBlank() && style == BossBar.Style.NOTCHED_10 && percent >= 0.99f) {
@@ -118,6 +136,7 @@ public final class SimesArcaneStatusHud {
 
             @Override
             public void remove(UUID id) {
+                HIDDEN_BOSS_BARS.remove(id);
                 if (SUPPRESSED_BOSS_BARS.release(id)) {
                     HIDDEN_ARCANE_LEVEL_BARS.remove(id);
                     Status value = STATUSES.get(id);
@@ -144,6 +163,8 @@ public final class SimesArcaneStatusHud {
                 if (SUPPRESSED_BOSS_BARS.contains(id)) {
                     Status value = STATUSES.get(id);
                     if (value != null) value.progress = clamp(percent);
+                    ClientBossBar bar = HIDDEN_BOSS_BARS.get(id);
+                    if (bar != null) bar.setPercent(percent);
                     recognized[0] = true;
                     cancel[0] = true;
                     return;
@@ -165,6 +186,8 @@ public final class SimesArcaneStatusHud {
             public void updateName(UUID id, Text name) {
                 if (SUPPRESSED_BOSS_BARS.contains(id)) {
                     updateSuppressedName(id, name, now);
+                    ClientBossBar bar = HIDDEN_BOSS_BARS.get(id);
+                    if (bar != null) bar.setName(name);
                     recognized[0] = true;
                     cancel[0] = true;
                     return;
@@ -204,11 +227,22 @@ public final class SimesArcaneStatusHud {
 
             @Override
             public void updateStyle(UUID id, BossBar.Color color, BossBar.Style style) {
+                ClientBossBar bar = HIDDEN_BOSS_BARS.get(id);
+                if (bar != null) {
+                    bar.setColor(color);
+                    bar.setStyle(style);
+                }
                 updateOther(id);
             }
 
             @Override
             public void updateProperties(UUID id, boolean darkenSky, boolean dragonMusic, boolean thickenFog) {
+                ClientBossBar bar = HIDDEN_BOSS_BARS.get(id);
+                if (bar != null) {
+                    bar.setDarkenSky(darkenSky);
+                    bar.setDragonMusic(dragonMusic);
+                    bar.setThickenFog(thickenFog);
+                }
                 updateOther(id);
             }
 
@@ -251,9 +285,24 @@ public final class SimesArcaneStatusHud {
     }
 
     private static void suppressExistingBossBar(UUID id) {
+        Status value = STATUSES.get(id);
+        if (value != null && !HIDDEN_BOSS_BARS.containsKey(id)) {
+            String name = value.kind == Kind.CASTING ? "正在吟唱 " + value.name : value.name;
+            rememberHiddenBossBar(id, Text.literal(name), value.progress,
+                    BossBar.Color.WHITE, BossBar.Style.PROGRESS, false, false, false);
+        }
         SUPPRESSED_BOSS_BARS.suppress(id);
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.inGameHud != null) client.inGameHud.getBossBarHud().handlePacket(BossBarS2CPacket.remove(id));
+        if (client != null && client.inGameHud != null) {
+            client.inGameHud.getBossBarHud().handlePacket(BossBarS2CPacket.remove(id));
+        }
+    }
+
+    private static void rememberHiddenBossBar(UUID id, Text name, float percent, BossBar.Color color,
+                                              BossBar.Style style, boolean darkenSky, boolean dragonMusic,
+                                              boolean thickenFog) {
+        HIDDEN_BOSS_BARS.putIfAbsent(id, new ClientBossBar(id, name, percent, color, style,
+                darkenSky, dragonMusic, thickenFog));
     }
 
     private static void handleGameMessage(String raw) {
@@ -314,12 +363,17 @@ public final class SimesArcaneStatusHud {
         int width = client.getWindow().getScaledWidth();
         int height = client.getWindow().getScaledHeight();
         if (!statusRows.isEmpty()) {
-            renderRows(context, configuredX(width), configuredY(height),
-                    config.arcaneStatusScalePercent / 100.0f, statusRows, LABEL_WIDTH, BAR_WIDTH);
+            float scale = SimesHudLayoutScreen.runtimeScale(
+                    config.arcaneStatusScalePercent / 100.0f, width, totalWidth());
+            int x = SimesHudLayoutScreen.runtimeX(configuredX(width), width, totalWidth(), scale);
+            renderRows(context, x, configuredY(height), scale, statusRows, LABEL_WIDTH, BAR_WIDTH);
         }
         if (!globalRows.isEmpty()) {
-            renderRows(context, configuredGlobalX(width), configuredGlobalY(height),
-                    config.globalCooldownScalePercent / 100.0f, globalRows, GLOBAL_LABEL_WIDTH, GLOBAL_BAR_WIDTH);
+            float scale = SimesHudLayoutScreen.runtimeScale(
+                    config.globalCooldownScalePercent / 100.0f, width, globalTotalWidth());
+            int x = SimesHudLayoutScreen.runtimeX(configuredGlobalX(width), width, globalTotalWidth(), scale);
+            renderRows(context, x, configuredGlobalY(height), scale,
+                    globalRows, GLOBAL_LABEL_WIDTH, GLOBAL_BAR_WIDTH);
         }
     }
 

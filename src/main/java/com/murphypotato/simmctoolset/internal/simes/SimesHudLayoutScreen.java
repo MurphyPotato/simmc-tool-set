@@ -227,6 +227,14 @@ public final class SimesHudLayoutScreen extends Screen {
         return new PreviewBounds(x, y, panelWidth, panelHeight);
     }
 
+    static float runtimeScale(float scale, int screenWidth, int panelWidth) {
+        return Math.min(scale, Math.max(0, screenWidth) / (float) Math.max(1, panelWidth));
+    }
+
+    static int runtimeX(int configuredX, int screenWidth, int panelWidth, float scale) {
+        return Math.max(0, Math.min(Math.max(0, screenWidth - Math.round(panelWidth * scale)), configuredX));
+    }
+
     private double previewMinimumY(int panelHeight) {
         return 108.0 + panelHeight + 4.0;
     }

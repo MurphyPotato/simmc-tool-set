@@ -22,6 +22,7 @@ public final class SimesArcaneHudSettingsScreen extends Screen {
         int right = center + 4;
         addDrawableChild(toggle(left, 48, "奥术冷却监听", config().arcaneEnabled, () -> {
             config().arcaneEnabled = !config().arcaneEnabled;
+            SimesArcaneStatusHud.clearVisualState();
             saveAndRefresh();
         }));
         addDrawableChild(ButtonWidget.builder(modeText(), button -> {

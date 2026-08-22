@@ -59,6 +59,8 @@ public final class ManaHud {
     }
 
     public static boolean handleExperiencePacket(ExperienceBarUpdateS2CPacket packet) {
+        ArcaneHudConfig config = SimesArcaneHud.config();
+        if (config == null || !config.manaHudEnabled) return false;
         MinecraftClient client = MinecraftClient.getInstance();
         if (!SimesFeatureController.arcaneEnabled() || client.player == null) return false;
         ItemStack stack = client.player.getMainHandStack();
@@ -114,8 +116,10 @@ public final class ManaHud {
         if (trailingMana < displayedMana) trailingMana = displayedMana;
         else trailingMana += (displayedMana - trailingMana) * Math.min(1.0, dt / 0.35);
         MinecraftClient client = MinecraftClient.getInstance();
-        renderPanel(context, configuredX(client.getWindow().getScaledWidth()),
-                configuredY(client.getWindow().getScaledHeight()), config.manaHudScalePercent / 100.0f,
+        int width = client.getWindow().getScaledWidth();
+        float scale = SimesHudLayoutScreen.runtimeScale(config.manaHudScalePercent / 100.0f, width, TOTAL_WIDTH);
+        int x = SimesHudLayoutScreen.runtimeX(configuredX(width), width, TOTAL_WIDTH, scale);
+        renderPanel(context, x, configuredY(client.getWindow().getScaledHeight()), scale,
                 displayedMana, trailingMana, maximum, regeneration, now);
     }
 

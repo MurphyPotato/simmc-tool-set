@@ -182,7 +182,7 @@ public final class SimesArcaneHud {
         lastWandIdentity = identity;
         lastWandComponentsHash = componentsHash;
         List<String> detected = extractEquippedArcanes(stack);
-        if (!detected.isEmpty()) equippedArcanes = List.copyOf(detected);
+        equippedArcanes = List.copyOf(detected);
     }
 
     private static List<String> extractEquippedArcanes(ItemStack stack) {
@@ -225,7 +225,10 @@ public final class SimesArcaneHud {
         if (client.player == null) return;
         int width = client.getWindow().getScaledWidth();
         int height = client.getWindow().getScaledHeight();
-        renderRows(context, configuredX(width), configuredY(height), config.cooldownScalePercent / 100.0f,
+        float scale = SimesHudLayoutScreen.runtimeScale(
+                config.cooldownScalePercent / 100.0f, width, TOTAL_WIDTH);
+        int x = SimesHudLayoutScreen.runtimeX(configuredX(width), width, TOTAL_WIDTH, scale);
+        renderRows(context, x, configuredY(height), scale,
                 System.nanoTime(), equippedArcanes, false);
     }
 
