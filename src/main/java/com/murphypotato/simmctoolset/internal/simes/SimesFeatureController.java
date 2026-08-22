@@ -52,6 +52,11 @@ public final class SimesFeatureController {
         return active() && ToolSetSettings.arcaneHudEnabled();
     }
 
+    public static void setArcaneEnabled(boolean enabled) {
+        if (!enabled) SimesArcaneStatusHud.clearVisualState();
+        ToolSetSettings.setArcaneHudEnabled(enabled);
+    }
+
     public static boolean brewingEnabled() {
         return active() && ToolSetSettings.brewingEnabled();
     }

@@ -286,6 +286,17 @@ final class ArcaneHudContractTest {
     }
 
     @Test
+    void topLevelArcaneToggleRoutesThroughTheSimesLifecycle() throws IOException {
+        String controller = Files.readString(Path.of(
+                "src/main/java/com/murphypotato/simmctoolset/internal/simes/SimesFeatureController.java"));
+        String screen = Files.readString(Path.of(
+                "src/main/java/com/murphypotato/simmctoolset/client/ToolSetScreen.java"));
+        assertTrue(controller.contains("if (!enabled) SimesArcaneStatusHud.clearVisualState()"));
+        assertTrue(screen.contains("SimesFeatureController::setArcaneEnabled"));
+        assertFalse(screen.contains("ToolSetSettings::setArcaneHudEnabled"));
+    }
+
+    @Test
     void arcaneLifecycleResetAlsoPerformsAFullStatusReset() throws IOException {
         String arcane = Files.readString(Path.of(
                 "src/main/java/com/murphypotato/simmctoolset/internal/simes/SimesArcaneHud.java"));

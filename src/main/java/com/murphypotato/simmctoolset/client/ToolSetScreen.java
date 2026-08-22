@@ -92,7 +92,7 @@ public final class ToolSetScreen extends Screen {
                     .dimensions(x, y, Math.min(220, width), 20).build());
             case ARCANE_HUD -> {
                 addDrawableChild(toggle(x, y, width, "奥术 HUD", ToolSetSettings.arcaneHudEnabled(),
-                        ToolSetSettings::setArcaneHudEnabled));
+                        SimesFeatureController::setArcaneEnabled));
                 addSimesSettingsButton(x, y + 24, width);
             }
             case BREWING -> {
