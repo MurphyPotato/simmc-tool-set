@@ -16,13 +16,13 @@ import java.nio.file.Path;
 
 /** Arcane-only configuration with a one-way migration from the old Simes HUD file. */
 public final class ArcaneHudConfig {
-    public static final int CURRENT_CONFIG_VERSION = 1;
+    public static final int CURRENT_CONFIG_VERSION = 2;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String CONFIG_DIRECTORY = "simmc-tool-set";
     private static final String CONFIG_NAME = "arcane-hud.json";
 
     public int configVersion = CURRENT_CONFIG_VERSION;
-    public boolean simesMode = true;
+    public boolean simesMode;
     public boolean arcaneEnabled = true;
     public boolean arcaneStatusEnabled = true;
     public boolean hideRecognizedArcaneBossBars = true;
@@ -35,6 +35,10 @@ public final class ArcaneHudConfig {
     public double globalCooldownX = -1.0;
     public double globalCooldownY = -1.0;
     public int globalCooldownScalePercent = 100;
+    public boolean manaHudEnabled = true;
+    public double manaHudX = -1.0;
+    public double manaHudY = -1.0;
+    public int manaHudScalePercent = 100;
 
     public static ArcaneHudConfig load() {
         Path file = configFile();
@@ -56,11 +60,9 @@ public final class ArcaneHudConfig {
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             ArcaneHudConfig config = GSON.fromJson(reader, ArcaneHudConfig.class);
             if (config == null) config = new ArcaneHudConfig();
+            boolean migrated = requiresSchemaWrite(config.configVersion);
             config.normalize();
-            if (config.configVersion != CURRENT_CONFIG_VERSION) {
-                config.configVersion = CURRENT_CONFIG_VERSION;
-                config.save();
-            }
+            if (migrated) config.save();
             return config;
         } catch (Exception error) {
             DiagnosticLog.error("Could not read Arcane HUD config", error);
@@ -68,7 +70,7 @@ public final class ArcaneHudConfig {
         }
     }
 
-    private static ArcaneHudConfig readLegacy(Path file, ArcaneHudConfig target) {
+    static ArcaneHudConfig readLegacy(Path file, ArcaneHudConfig target) {
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
             var root = JsonParser.parseReader(reader);
             JsonObject json = root.isJsonObject() ? root.getAsJsonObject() : new JsonObject();
@@ -85,6 +87,10 @@ public final class ArcaneHudConfig {
             copyDouble(json, "globalCooldownX", value -> target.globalCooldownX = value);
             copyDouble(json, "globalCooldownY", value -> target.globalCooldownY = value);
             copyInt(json, "globalCooldownScalePercent", value -> target.globalCooldownScalePercent = value);
+            copyBoolean(json, "manaHudEnabled", value -> target.manaHudEnabled = value);
+            copyDouble(json, "manaHudX", value -> target.manaHudX = value);
+            copyDouble(json, "manaHudY", value -> target.manaHudY = value);
+            copyInt(json, "manaHudScalePercent", value -> target.manaHudScalePercent = value);
         } catch (Exception error) {
             DiagnosticLog.error("Could not migrate legacy Arcane HUD config", error);
         }
@@ -111,9 +117,12 @@ public final class ArcaneHudConfig {
         arcaneStatusY = coordinate(arcaneStatusY);
         globalCooldownX = coordinate(globalCooldownX);
         globalCooldownY = coordinate(globalCooldownY);
+        manaHudX = coordinate(manaHudX);
+        manaHudY = coordinate(manaHudY);
         cooldownScalePercent = scale(cooldownScalePercent);
         arcaneStatusScalePercent = scale(arcaneStatusScalePercent);
         globalCooldownScalePercent = scale(globalCooldownScalePercent);
+        manaHudScalePercent = scale(manaHudScalePercent);
         configVersion = CURRENT_CONFIG_VERSION;
     }
 
@@ -123,6 +132,10 @@ public final class ArcaneHudConfig {
 
     static int scale(int value) {
         return Math.max(50, Math.min(200, value));
+    }
+
+    static boolean requiresSchemaWrite(int version) {
+        return version < CURRENT_CONFIG_VERSION;
     }
 
     public void save() {
@@ -151,6 +164,11 @@ public final class ArcaneHudConfig {
     public void resetGlobalCooldownPosition() {
         globalCooldownX = -1.0;
         globalCooldownY = -1.0;
+    }
+
+    public void resetManaHudPosition() {
+        manaHudX = -1.0;
+        manaHudY = -1.0;
     }
 
     static Path configFile() {

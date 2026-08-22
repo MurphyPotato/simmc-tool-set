@@ -7,6 +7,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,7 +45,24 @@ final class ArcaneHudContractTest {
     }
 
     @Test
-    void normalizesCoordinatesAndScaleWithoutForbiddenFields() {
+    void newConfigDefaultsToVanillaActionBarMode() {
+        assertFalse(new ArcaneHudConfig().simesMode);
+    }
+
+    @Test
+    void configIncludesManaLayoutWithoutForbiddenSimesFeatures() {
+        Set<String> names = Arrays.stream(ArcaneHudConfig.class.getDeclaredFields())
+                .map(field -> field.getName())
+                .collect(Collectors.toSet());
+
+        assertTrue(names.containsAll(Set.of(
+                "manaHudEnabled", "manaHudX", "manaHudY", "manaHudScalePercent")));
+        assertTrue(names.stream().noneMatch(name -> name.contains("market")
+                || name.contains("value") || name.contains("balance") || name.contains("autoMessage")));
+    }
+
+    @Test
+    void normalizesCoordinatesAndScale() {
         ArcaneHudConfig config = new ArcaneHudConfig();
         config.cooldownX = 4.0;
         config.cooldownY = Double.NaN;
@@ -56,10 +75,146 @@ final class ArcaneHudContractTest {
         assertEquals(50, config.cooldownScalePercent);
         assertEquals(-1.0, config.arcaneStatusX);
         assertEquals(200, config.arcaneStatusScalePercent);
-        assertTrue(Arrays.stream(ArcaneHudConfig.class.getDeclaredFields()).noneMatch(field -> field.getName().contains("mana")
-                || field.getName().contains("market")
-                || field.getName().contains("value")
-                || field.getName().contains("autoMessage")));
+    }
+
+    @Test
+    void normalizesManaLayoutUnderSchemaTwo() {
+        ArcaneHudConfig config = new ArcaneHudConfig();
+        config.manaHudX = Double.POSITIVE_INFINITY;
+        config.manaHudY = -4.0;
+        config.manaHudScalePercent = 999;
+
+        config.normalize();
+
+        assertEquals(2, ArcaneHudConfig.CURRENT_CONFIG_VERSION);
+        assertEquals(-1.0, config.manaHudX);
+        assertEquals(-1.0, config.manaHudY);
+        assertEquals(200, config.manaHudScalePercent);
+    }
+
+    @Test
+    void predictsManaFromPacketTimeWithoutExceedingBounds() {
+        assertEquals(52.0, ManaHud.predictedMana(50.0, 2.0, 180.0,
+                1_000_000_000L, 2_000_000_000L), 0.0001);
+        assertEquals(180.0, ManaHud.predictedMana(179.0, 5.0, 180.0,
+                1_000_000_000L, 2_000_000_000L), 0.0001);
+        assertEquals(0.0, ManaHud.predictedMana(-5.0, 2.0, 180.0,
+                0L, 1_000_000_000L), 0.0001);
+    }
+
+    @Test
+    void recognizesOnlyDocumentedArcaneCodexComponentMarkers() {
+        assertTrue(ManaHud.isArcaneCodexComponents("sim_magic:codex_item"));
+        assertTrue(ManaHud.isArcaneCodexComponents("smccore:arcane_codex"));
+        assertTrue(ManaHud.isArcaneCodexComponents("\"smc:id\":\"arcane_codex\""));
+        assertTrue(ManaHud.isArcaneCodexComponents("注能杖，用来承载奥术"));
+        assertFalse(ManaHud.isArcaneCodexComponents("minecraft:book"));
+    }
+
+    @Test
+    void mixinSeparatesWandManaExperiencePackets() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/murphypotato/simmctoolset/mixins/client/SimesBossBarMixin.java"));
+        String mana = Files.readString(Path.of(
+                "src/main/java/com/murphypotato/simmctoolset/internal/simes/ManaHud.java"));
+        assertTrue(source.contains("onExperienceBarUpdate"));
+        assertTrue(source.contains("ManaHud.handleExperiencePacket"));
+        assertTrue(mana.contains("if (!SimesFeatureController.arcaneEnabled()"));
+        String transport = mana.substring(mana.indexOf("handleExperiencePacket"),
+                mana.indexOf("public static boolean isArcaneCodex"));
+        assertFalse(transport.contains("manaHudEnabled"));
+    }
+
+    @Test
+    void readsTheFirstThreeDistinctLoreSlotsInOrder() {
+        assertEquals(List.of("治愈术", "火球术", "雷电射线"),
+                SimesArcaneHud.arcaneNamesFromLore(List.of(
+                        "左键 治愈术", "Shift 火球术", "重复 火球术", "右键 雷电射线", "忽略 御风术")));
+    }
+
+    @Test
+    void cooldownHudUsesOnlyMainHandCodexAndFullComponentHash() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/murphypotato/simmctoolset/internal/simes/SimesArcaneHud.java"));
+        String wandUpdate = source.substring(source.indexOf("private static void updateEquippedArcanes"),
+                source.indexOf("private static List<String> extractEquippedArcanes"));
+        assertTrue(source.contains("ManaHud.isArcaneCodex(stack)"));
+        assertTrue(source.contains("stack.getComponents().hashCode()"));
+        assertFalse(wandUpdate.contains("client.player.getOffHandStack()"));
+        assertTrue(source.contains("!seen.contains(cooldown.name) && cooldown.exitStarted == 0L)"));
+    }
+
+    @Test
+    void statusHudOwnsTheNativePendingAndSuppressionLifecycle() throws IOException {
+        Path directory = Path.of("src/main/java/com/murphypotato/simmctoolset/internal/simes");
+        String source = Files.readString(directory.resolve("SimesArcaneStatusHud.java"));
+        assertFalse(Files.exists(directory.resolve("ArcaneStatusState.java")));
+        assertTrue(source.contains("Map<UUID, Status> STATUSES"));
+        assertTrue(source.contains("Set<UUID> HIDDEN_ARCANE_LEVEL_BARS"));
+        assertTrue(source.contains("new SuppressedBossBarIds()"));
+        assertTrue(source.contains("Status.pending"));
+        assertTrue(source.contains("Kind.PENDING"));
+        assertTrue(source.contains("suppressExistingBossBar"));
+        assertTrue(source.contains("SUPPRESSED_BOSS_BARS.release(id)"));
+    }
+
+    @Test
+    void legacyMigrationWhitelistsManaAndPreservesDisplayMode() throws IOException {
+        Path legacy = Files.createTempFile("simes-hud", ".json");
+        Files.writeString(legacy, """
+                {
+                  "simesMode": true,
+                  "arcaneEnabled": false,
+                  "arcaneStatusEnabled": false,
+                  "manaHudEnabled": false,
+                  "manaHudX": 0.25,
+                  "manaHudY": 0.75,
+                  "manaHudScalePercent": 170,
+                  "marketTooltipEnabled": true,
+                  "autoMessageX": 0.4
+                }
+                """);
+
+        ArcaneHudConfig migrated = ArcaneHudConfig.readLegacy(legacy, new ArcaneHudConfig());
+
+        assertTrue(migrated.simesMode);
+        assertFalse(migrated.arcaneEnabled);
+        assertFalse(migrated.arcaneStatusEnabled);
+        assertFalse(migrated.manaHudEnabled);
+        assertEquals(0.25, migrated.manaHudX);
+        assertEquals(0.75, migrated.manaHudY);
+        assertEquals(170, migrated.manaHudScalePercent);
+        Files.deleteIfExists(legacy);
+    }
+
+    @Test
+    void olderConfigSchemasAreMarkedForOneTimeRewrite() {
+        assertTrue(ArcaneHudConfig.requiresSchemaWrite(1));
+        assertFalse(ArcaneHudConfig.requiresSchemaWrite(2));
+        assertFalse(ArcaneHudConfig.requiresSchemaWrite(3));
+    }
+
+    @Test
+    void settingsExposeOnlyAuthorizedTogglesAndFourHudLayoutTargets() throws IOException {
+        String settings = Files.readString(Path.of(
+                "src/main/java/com/murphypotato/simmctoolset/internal/simes/SimesArcaneHudSettingsScreen.java"));
+        String layout = Files.readString(Path.of(
+                "src/main/java/com/murphypotato/simmctoolset/internal/simes/SimesHudLayoutScreen.java"));
+        assertTrue(settings.contains("奥术冷却监听"));
+        assertTrue(settings.contains("吟唱与持续状态"));
+        assertTrue(settings.contains("法杖魔力 HUD"));
+        assertTrue(settings.contains("奥术显示："));
+        assertTrue(settings.contains("统一 HUD 布局与缩放"));
+        assertTrue(settings.contains("new SimesHudLayoutScreen(this)"));
+        assertTrue(layout.contains("MANA"));
+        assertTrue(layout.contains("ManaHud.renderPreview"));
+        assertTrue(layout.contains("for (Target target : Target.values())"));
+        assertTrue(layout.contains("previewBounds(target)"));
+        String combined = settings + layout;
+        assertFalse(combined.contains("市场"));
+        assertFalse(combined.contains("估值"));
+        assertFalse(combined.contains("余额"));
+        assertFalse(combined.contains("自动消息"));
     }
 
     @Test

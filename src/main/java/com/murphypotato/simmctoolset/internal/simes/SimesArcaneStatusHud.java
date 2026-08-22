@@ -13,6 +13,8 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -21,11 +23,16 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Simes-native casting, duration and global-cooldown surfaces. */
+/** Faithful Simes casting, duration and local global-cooldown HUD. */
 public final class SimesArcaneStatusHud {
+    private static final Pattern CASTING = Pattern.compile("^\\s*正在吟唱\\s+(.+?)\\s*$");
+    private static final Pattern DURATION = Pattern.compile(
+            "^\\s*(.+?)剩余\\s*[:：]\\s*(\\d+)\\s*tick\\s*$", Pattern.CASE_INSENSITIVE);
     private static final Pattern RELEASED = Pattern.compile("^\\s*释放\\s+(.+?)\\s*$");
     private static final Pattern GLOBAL_HINT = Pattern.compile(
             "^\\s*.+?\\s+处于公共冷却中[，,]\\s*剩余\\s*([0-9.]+)\\s*秒\\s*$");
+    private static final Pattern ARCANE_LEVEL = Pattern.compile(
+            "^\\s*(.+?)\\s+Lv\\s*5(?:\\s+MAX(?:/MAX)?)?\\s*$", Pattern.CASE_INSENSITIVE);
     private static final Identifier ID = Identifier.of("simmc_tool_set", "simes_arcane_status");
     private static final int ICON_SIZE = 16;
     private static final int LABEL_WIDTH = 96;
@@ -33,8 +40,8 @@ public final class SimesArcaneStatusHud {
     private static final int GLOBAL_LABEL_WIDTH = 72;
     private static final int GLOBAL_BAR_WIDTH = 48;
     private static final int ROW_HEIGHT = 19;
-    private static final long FADE_NANOS = ArcaneStatusState.EXIT_NANOS;
-    private static final Map<String, Double> GLOBAL_TOTALS = Map.ofEntries(
+    private static final long EXIT_NANOS = 220_000_000L;
+    private static final Map<String, Double> GLOBAL_COOLDOWNS = Map.ofEntries(
             Map.entry("混乱射线", 0.5), Map.entry("腾云术", 11.0), Map.entry("火球术", 0.5),
             Map.entry("克敌先机", 0.5), Map.entry("引力术", 18.0), Map.entry("治愈术", 0.5),
             Map.entry("治疗射线", 0.5), Map.entry("冰刃术", 0.5), Map.entry("寒冰吐息", 0.5),
@@ -42,8 +49,15 @@ public final class SimesArcaneStatusHud {
             Map.entry("斥力术", 0.0), Map.entry("激流术", 30.0), Map.entry("蜘化术", 3.5),
             Map.entry("火焰吐息", 0.5), Map.entry("火陨术", 0.5), Map.entry("御风术", 40.0),
             Map.entry("雷电射线", 0.5), Map.entry("后撤步", 0.0));
-    private static final ArcaneStatusState STATE = new ArcaneStatusState(Set.copyOf(ArcaneColors.spellNames()));
-    private static GlobalCooldown global;
+    private static final Map<String, String> ALIASES = Map.ofEntries(
+            Map.entry("腾云", "腾云术"), Map.entry("凌步", "凌步术"), Map.entry("御风", "御风术"),
+            Map.entry("跳跃", "跳跃术"), Map.entry("蛛化", "蜘化术"), Map.entry("激流", "激流术"),
+            Map.entry("斥力", "斥力术"), Map.entry("引力", "引力术"), Map.entry("火陨", "火陨术"));
+
+    private static final Map<UUID, Status> STATUSES = new LinkedHashMap<>();
+    private static final Set<UUID> HIDDEN_ARCANE_LEVEL_BARS = new HashSet<>();
+    private static final SuppressedBossBarIds SUPPRESSED_BOSS_BARS = new SuppressedBossBarIds();
+    private static GlobalCooldown globalCooldown;
     private static boolean initialized;
 
     private SimesArcaneStatusHud() {
@@ -53,94 +67,226 @@ public final class SimesArcaneStatusHud {
         if (initialized) return;
         initialized = true;
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
-            if (!overlay) acceptGameMessage(message.getString());
+            if (!overlay) handleGameMessage(message.getString());
         });
         ClientTickEvents.END_CLIENT_TICK.register(client -> cleanup());
         HudElementRegistry.attachElementAfter(VanillaHudElements.ARMOR_BAR, ID, SimesArcaneStatusHud::render);
     }
 
     public static synchronized void reset() {
-        STATE.reset();
-        global = null;
+        STATUSES.clear();
+        HIDDEN_ARCANE_LEVEL_BARS.clear();
+        SUPPRESSED_BOSS_BARS.clear();
+        globalCooldown = null;
     }
 
-    /** Returns true only when the complete packet must be hidden from vanilla. */
     public static synchronized boolean handleBossBar(BossBarS2CPacket packet) {
-        if (packet == null) return false;
+        if (packet == null || !SimesFeatureController.arcaneEnabled()) return false;
+        boolean[] recognized = {false};
         boolean[] cancel = {false};
         long now = System.nanoTime();
         packet.accept(new BossBarS2CPacket.Consumer() {
             @Override
             public void add(UUID id, Text name, float percent, BossBar.Color color, BossBar.Style style,
                             boolean darkenSky, boolean dragonMusic, boolean thickenFog) {
-                ArcaneStatusState.Decision decision = STATE.add(id, text(name), percent,
-                        style == BossBar.Style.NOTCHED_10, now, shouldHide());
-                cancel[0] = decision.cancel();
+                String raw = text(name);
+                Matcher casting = CASTING.matcher(raw);
+                Matcher level = ARCANE_LEVEL.matcher(raw);
+                boolean hide = shouldHide();
+                if (level.matches() && isKnownArcane(level.group(1))) {
+                    if (hide) {
+                        HIDDEN_ARCANE_LEVEL_BARS.add(id);
+                        SUPPRESSED_BOSS_BARS.suppress(id);
+                    }
+                    recognized[0] = true;
+                    cancel[0] = hide;
+                } else if (casting.matches() && isKnownArcane(casting.group(1))) {
+                    STATUSES.put(id, Status.casting(canonical(casting.group(1)), percent, now, hide));
+                    if (hide) SUPPRESSED_BOSS_BARS.suppress(id);
+                    recognized[0] = true;
+                    cancel[0] = hide;
+                } else if (raw.isBlank() && style == BossBar.Style.NOTCHED_10 && percent >= 0.99f) {
+                    STATUSES.put(id, Status.pending(now));
+                }
             }
 
             @Override
             public void remove(UUID id) {
-                cancel[0] = STATE.remove(id, now).cancel();
+                if (SUPPRESSED_BOSS_BARS.release(id)) {
+                    HIDDEN_ARCANE_LEVEL_BARS.remove(id);
+                    Status value = STATUSES.get(id);
+                    if (value != null) value.finish(now, value.kind == Kind.CASTING && value.progress < 0.995f);
+                    recognized[0] = true;
+                    cancel[0] = true;
+                    return;
+                }
+                if (HIDDEN_ARCANE_LEVEL_BARS.remove(id)) {
+                    recognized[0] = true;
+                    cancel[0] = true;
+                    return;
+                }
+                Status value = STATUSES.get(id);
+                if (value != null) {
+                    value.finish(now, value.kind == Kind.CASTING && value.progress < 0.995f);
+                    recognized[0] = true;
+                    cancel[0] = value.suppressed;
+                }
             }
 
             @Override
             public void updateProgress(UUID id, float percent) {
-                boolean wasSuppressed = STATE.isSuppressed(id);
-                applyUpdate(id, wasSuppressed, STATE.updateProgress(id, percent, now, shouldHide()));
-            }
-
-            @Override
-            public void updateStyle(UUID id, BossBar.Color color, BossBar.Style style) {
-                boolean wasSuppressed = STATE.isSuppressed(id);
-                applyUpdate(id, wasSuppressed, STATE.updateStyle(id, now, shouldHide()));
+                if (SUPPRESSED_BOSS_BARS.contains(id)) {
+                    Status value = STATUSES.get(id);
+                    if (value != null) value.progress = clamp(percent);
+                    recognized[0] = true;
+                    cancel[0] = true;
+                    return;
+                }
+                if (HIDDEN_ARCANE_LEVEL_BARS.contains(id)) {
+                    recognized[0] = true;
+                    cancel[0] = true;
+                    return;
+                }
+                Status value = STATUSES.get(id);
+                if (value != null) {
+                    value.progress = clamp(percent);
+                    recognized[0] = true;
+                    cancel[0] = value.suppressed;
+                }
             }
 
             @Override
             public void updateName(UUID id, Text name) {
-                boolean wasSuppressed = STATE.isSuppressed(id);
-                applyUpdate(id, wasSuppressed, STATE.updateName(id, text(name), now, shouldHide()));
+                if (SUPPRESSED_BOSS_BARS.contains(id)) {
+                    updateSuppressedName(id, name, now);
+                    recognized[0] = true;
+                    cancel[0] = true;
+                    return;
+                }
+                if (HIDDEN_ARCANE_LEVEL_BARS.contains(id)) {
+                    recognized[0] = true;
+                    cancel[0] = true;
+                    return;
+                }
+                Status value = STATUSES.get(id);
+                if (value == null) return;
+                String raw = text(name);
+                Matcher casting = CASTING.matcher(raw);
+                Matcher duration = DURATION.matcher(raw);
+                if (casting.matches() && isKnownArcane(casting.group(1))) {
+                    boolean hide = shouldHide();
+                    value.suppressed = hide;
+                    value.activate(Kind.CASTING, canonical(casting.group(1)), 0, now);
+                    if (hide) suppressExistingBossBar(id);
+                    recognized[0] = true;
+                    cancel[0] = hide;
+                } else if (duration.matches() && isKnownArcane(duration.group(1))) {
+                    boolean hide = shouldHide();
+                    value.suppressed = hide;
+                    value.activate(Kind.DURATION, canonical(duration.group(1)),
+                            Integer.parseInt(duration.group(2)), now);
+                    if (hide) suppressExistingBossBar(id);
+                    recognized[0] = true;
+                    cancel[0] = hide;
+                } else if (value.kind != Kind.PENDING) {
+                    recognized[0] = true;
+                    cancel[0] = value.suppressed;
+                } else {
+                    STATUSES.remove(id);
+                }
+            }
+
+            @Override
+            public void updateStyle(UUID id, BossBar.Color color, BossBar.Style style) {
+                updateOther(id);
             }
 
             @Override
             public void updateProperties(UUID id, boolean darkenSky, boolean dragonMusic, boolean thickenFog) {
-                boolean wasSuppressed = STATE.isSuppressed(id);
-                applyUpdate(id, wasSuppressed, STATE.updateProperties(id, now, shouldHide()));
+                updateOther(id);
             }
 
-            private void applyUpdate(UUID id, boolean wasSuppressed, ArcaneStatusState.Decision decision) {
-                boolean newlySuppressed = !wasSuppressed && decision.cancel();
-                cancel[0] = decision.cancel();
-                if (newlySuppressed) removeExistingBossBar(id);
+            private void updateOther(UUID id) {
+                if (SUPPRESSED_BOSS_BARS.contains(id) || HIDDEN_ARCANE_LEVEL_BARS.contains(id)) {
+                    recognized[0] = true;
+                    cancel[0] = true;
+                    return;
+                }
+                Status value = STATUSES.get(id);
+                recognized[0] = value != null;
+                cancel[0] = value != null && value.suppressed;
             }
         });
-        return cancel[0];
+        return recognized[0] && cancel[0];
+    }
+
+    private static void updateSuppressedName(UUID id, Text name, long now) {
+        Status value = STATUSES.get(id);
+        if (value == null) return;
+        String raw = text(name);
+        Matcher casting = CASTING.matcher(raw);
+        Matcher duration = DURATION.matcher(raw);
+        if (casting.matches()) value.activate(Kind.CASTING, canonical(casting.group(1)), 0, now);
+        else if (duration.matches()) value.activate(Kind.DURATION, canonical(duration.group(1)),
+                Integer.parseInt(duration.group(2)), now);
     }
 
     private static String text(Text name) {
         return name == null ? "" : name.getString();
     }
 
-    private static void acceptGameMessage(String raw) {
+    private static boolean isKnownArcane(String name) {
+        return GLOBAL_COOLDOWNS.containsKey(canonical(name));
+    }
+
+    private static String canonical(String raw) {
+        String name = raw == null ? "" : raw.trim();
+        return ArcaneColors.canonicalName(ALIASES.getOrDefault(name, name));
+    }
+
+    private static void suppressExistingBossBar(UUID id) {
+        SUPPRESSED_BOSS_BARS.suppress(id);
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.inGameHud != null) client.inGameHud.getBossBarHud().handlePacket(BossBarS2CPacket.remove(id));
+    }
+
+    private static void handleGameMessage(String raw) {
         if (!enabled() || raw == null) return;
-        Matcher released = RELEASED.matcher(raw.trim());
+        Matcher released = RELEASED.matcher(raw);
         if (released.matches()) {
-            String name = ArcaneColors.canonicalName(released.group(1));
-            double total = GLOBAL_TOTALS.getOrDefault(name, 0.0);
-            global = total > 0.0 ? new GlobalCooldown(name, total, total, System.nanoTime()) : null;
+            String name = canonical(released.group(1));
+            double seconds = GLOBAL_COOLDOWNS.getOrDefault(name, 0.0);
+            globalCooldown = seconds > 0.0
+                    ? new GlobalCooldown(name, seconds, seconds, System.nanoTime()) : null;
             return;
         }
-        Matcher hint = GLOBAL_HINT.matcher(raw.trim());
+        Matcher hint = GLOBAL_HINT.matcher(raw);
         if (hint.matches()) {
             double remaining = Double.parseDouble(hint.group(1));
             long now = System.nanoTime();
-            if (global == null) global = new GlobalCooldown("公共冷却", remaining, remaining, now);
-            else global.update(remaining, now);
+            if (globalCooldown == null) {
+                globalCooldown = new GlobalCooldown("公共冷却", remaining, remaining, now);
+            } else {
+                globalCooldown.update(remaining, now);
+            }
         }
+    }
+
+    private static void cleanup() {
+        if (STATUSES.isEmpty() && globalCooldown == null) return;
+        long now = System.nanoTime();
+        STATUSES.entrySet().removeIf(entry -> {
+            Status value = entry.getValue();
+            if (value.kind == Kind.PENDING && now - value.createdAt > 1_000_000_000L) return true;
+            return value.exitAt != 0L && now - value.exitAt > EXIT_NANOS;
+        });
+        if (globalCooldown != null && globalCooldown.remaining(now) <= 0.0) globalCooldown = null;
     }
 
     private static boolean enabled() {
         ArcaneHudConfig config = config();
-        return SimesFeatureController.arcaneEnabled() && config != null && config.arcaneStatusEnabled;
+        return SimesFeatureController.arcaneEnabled() && config != null && config.arcaneEnabled
+                && config.arcaneStatusEnabled;
     }
 
     private static boolean shouldHide() {
@@ -152,21 +298,9 @@ public final class SimesArcaneStatusHud {
         return SimesArcaneHud.config();
     }
 
-    private static void removeExistingBossBar(UUID id) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.inGameHud != null) {
-            client.inGameHud.getBossBarHud().handlePacket(BossBarS2CPacket.remove(id));
-        }
-    }
-
-    private static void cleanup() {
-        STATE.tick(System.nanoTime());
-        if (global != null && (!enabled() || global.remaining(System.nanoTime()) <= 0.0)) global = null;
-    }
-
     private static void render(DrawContext context, net.minecraft.client.render.RenderTickCounter tickCounter) {
         ArcaneHudConfig config = config();
-        if (!enabled() || !config.simesMode) return;
+        if (!enabled() || !config.simesMode || (STATUSES.isEmpty() && globalCooldown == null)) return;
         long now = System.nanoTime();
         List<Row> statusRows = statusRows(now);
         List<Row> globalRows = globalRows(now);
@@ -174,8 +308,8 @@ public final class SimesArcaneStatusHud {
         int width = client.getWindow().getScaledWidth();
         int height = client.getWindow().getScaledHeight();
         if (!statusRows.isEmpty()) {
-            renderRows(context, configuredX(width), configuredY(height), config.arcaneStatusScalePercent / 100.0f,
-                    statusRows, LABEL_WIDTH, BAR_WIDTH);
+            renderRows(context, configuredX(width), configuredY(height),
+                    config.arcaneStatusScalePercent / 100.0f, statusRows, LABEL_WIDTH, BAR_WIDTH);
         }
         if (!globalRows.isEmpty()) {
             renderRows(context, configuredGlobalX(width), configuredGlobalY(height),
@@ -185,37 +319,35 @@ public final class SimesArcaneStatusHud {
 
     static void renderPreview(DrawContext context, int x, int y, float scale) {
         renderRows(context, x, y, scale, List.of(
-                new Row("火陨术", "吟唱 火陨术", 0.62f, 1.0f, false),
-                new Row("御风术", "御风 持续 13.2s", 0.53f, 1.0f, false)), LABEL_WIDTH, BAR_WIDTH);
+                new Row("火陨术", "吟唱 火陨术", 0.62f, false),
+                new Row("御风术", "御风 持续 13.2s", 0.53f, false)), LABEL_WIDTH, BAR_WIDTH);
     }
 
     static void renderGlobalPreview(DrawContext context, int x, int y, float scale) {
         renderRows(context, x, y, scale,
-                List.of(new Row("引力术", "公共冷却 8.4s", 0.47f, 1.0f, false)),
+                List.of(new Row("引力术", "公共冷却 8.4s", 0.47f, false)),
                 GLOBAL_LABEL_WIDTH, GLOBAL_BAR_WIDTH);
     }
 
     private static List<Row> statusRows(long now) {
         List<Row> rows = new ArrayList<>();
-        for (ArcaneStatusState.Snapshot value : STATE.snapshots(now)) {
-            double remaining = value.kind() == ArcaneStatusState.Kind.DURATION
-                    ? value.remainingTicks() / 20.0 : 0.0;
-            String label = value.kind() == ArcaneStatusState.Kind.CASTING
-                    ? "吟唱 " + value.name()
-                    : displayName(value.name()) + " 持续 " + formatSeconds(remaining);
-            float alpha = value.exiting()
-                    ? 1.0f - Math.min(1.0f, (now - value.updatedAt()) / (float) FADE_NANOS) : 1.0f;
-            rows.add(new Row(value.name(), label, value.progress(), alpha, value.interrupted()));
+        for (Status value : STATUSES.values()) {
+            if (value.kind == Kind.PENDING) continue;
+            float alpha = value.exitAt == 0L ? 1.0f
+                    : 1.0f - Math.min(1.0f, (now - value.exitAt) / (float) EXIT_NANOS);
+            String label = value.kind == Kind.CASTING ? "吟唱 " + value.name
+                    : displayName(value.name) + " 持续 " + formatSeconds(value.remainingTicks / 20.0);
+            rows.add(new Row(value.name, label, value.progress, value.interrupted, alpha));
         }
         return rows;
     }
 
     private static List<Row> globalRows(long now) {
-        if (global == null) return List.of();
-        double remaining = global.remaining(now);
+        if (globalCooldown == null) return List.of();
+        double remaining = globalCooldown.remaining(now);
         if (remaining < 1.0) return List.of();
-        return List.of(new Row(global.name, "公共冷却 " + formatSeconds(remaining),
-                (float) (remaining / global.total), 1.0f, false));
+        return List.of(new Row(globalCooldown.name, "公共冷却 " + formatSeconds(remaining),
+                (float) (remaining / globalCooldown.total), false));
     }
 
     private static void renderRows(DrawContext context, int x, int baseY, float scale, List<Row> rows,
@@ -223,10 +355,11 @@ public final class SimesArcaneStatusHud {
         MinecraftClient client = MinecraftClient.getInstance();
         context.getMatrices().pushMatrix();
         context.getMatrices().scale(scale, scale);
-        int sx = Math.round(x / scale);
-        int sy = Math.round(baseY / scale);
+        int scaledX = Math.round(x / scale);
+        int scaledY = Math.round(baseY / scale);
         for (int index = 0; index < rows.size(); index++) {
-            drawRow(context, client, sx, sy - index * ROW_HEIGHT, rows.get(index), labelWidth, barWidth);
+            drawRow(context, client, scaledX, scaledY - index * ROW_HEIGHT,
+                    rows.get(index), labelWidth, barWidth);
         }
         context.getMatrices().popMatrix();
     }
@@ -247,7 +380,7 @@ public final class SimesArcaneStatusHud {
         context.fill(barX, barY, barX + barWidth, barY + 12, (alpha << 24) | 0x111111);
         context.fill(barX + 1, barY + 1, barX + barWidth - 1, barY + 11, (alpha << 24) | 0x555555);
         context.fill(barX + 3, barY + 3, barX + barWidth - 3, barY + 9, (alpha << 24) | 0x241A12);
-        int fill = Math.max(0, Math.min(barWidth - 6, Math.round((barWidth - 6) * clamp(row.progress))));
+        int fill = Math.round((barWidth - 6) * clamp(row.progress));
         if (fill > 0) context.fill(barX + 3, barY + 3, barX + 3 + fill, barY + 9,
                 (alpha << 24) | (color & 0xFFFFFF));
     }
@@ -305,7 +438,55 @@ public final class SimesArcaneStatusHud {
                 : (int) Math.round(config.globalCooldownY * height);
     }
 
-    private record Row(String arcaneName, String label, float progress, float alpha, boolean interrupted) {
+    private enum Kind {
+        PENDING,
+        CASTING,
+        DURATION
+    }
+
+    private static final class Status {
+        private Kind kind;
+        private String name;
+        private float progress;
+        private int totalTicks;
+        private int remainingTicks;
+        private final long createdAt;
+        private long exitAt;
+        private boolean interrupted;
+        private boolean suppressed;
+
+        private Status(Kind kind, String name, float progress, long now, boolean suppressed) {
+            this.kind = kind;
+            this.name = name;
+            this.progress = clamp(progress);
+            this.createdAt = now;
+            this.suppressed = suppressed;
+        }
+
+        private static Status pending(long now) {
+            return new Status(Kind.PENDING, "", 1.0f, now, false);
+        }
+
+        private static Status casting(String name, float progress, long now, boolean suppressed) {
+            return new Status(Kind.CASTING, name, progress, now, suppressed);
+        }
+
+        private void activate(Kind newKind, String newName, int ticks, long now) {
+            kind = newKind;
+            name = newName;
+            exitAt = 0L;
+            interrupted = false;
+            if (newKind == Kind.DURATION) {
+                remainingTicks = ticks;
+                totalTicks = Math.max(totalTicks, ticks);
+                progress = totalTicks == 0 ? 0.0f : ticks / (float) totalTicks;
+            }
+        }
+
+        private void finish(long now, boolean wasInterrupted) {
+            exitAt = now;
+            interrupted = wasInterrupted;
+        }
     }
 
     private static final class GlobalCooldown {
@@ -329,6 +510,12 @@ public final class SimesArcaneStatusHud {
             remaining = value;
             total = Math.max(total, value);
             updatedAt = now;
+        }
+    }
+
+    private record Row(String arcaneName, String label, float progress, boolean interrupted, float alpha) {
+        private Row(String arcaneName, String label, float progress, boolean interrupted) {
+            this(arcaneName, label, progress, interrupted, 1.0f);
         }
     }
 }

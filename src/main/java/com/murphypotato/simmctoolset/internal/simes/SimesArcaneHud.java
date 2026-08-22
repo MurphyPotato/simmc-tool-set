@@ -36,11 +36,12 @@ public final class SimesArcaneHud {
     private static final int TOTAL_WIDTH = ICON_SIZE + 3 + NAME_WIDTH + 4 + BAR_WIDTH;
     private static final Identifier ID = Identifier.of("simmc_tool_set", "simes_arcane_hud");
     private static final Map<String, Cooldown> COOLDOWNS = new LinkedHashMap<>();
-    private static List<String> equippedArcanes = List.of();
+    private static volatile List<String> equippedArcanes = List.of();
     private static ArcaneHudConfig config;
     private static boolean initialized;
-    private static int lastStackIdentity;
-    private static int lastLoreHash;
+    private static boolean wandHeld;
+    private static int lastWandIdentity;
+    private static int lastWandComponentsHash;
 
     private SimesArcaneHud() {
     }
@@ -50,6 +51,7 @@ public final class SimesArcaneHud {
         if (initialized) return;
         initialized = true;
         config = ArcaneHudConfig.load();
+        ManaHud.initialize();
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             if (!overlay) accept(message.getString());
         });
@@ -66,6 +68,7 @@ public final class SimesArcaneHud {
 
     public static synchronized void reset() {
         resetState();
+        ManaHud.reset();
     }
 
     private static void resetState() {
@@ -73,8 +76,9 @@ public final class SimesArcaneHud {
             COOLDOWNS.clear();
         }
         equippedArcanes = List.of();
-        lastStackIdentity = 0;
-        lastLoreHash = 0;
+        wandHeld = false;
+        lastWandIdentity = 0;
+        lastWandComponentsHash = 0;
     }
 
     private static synchronized void accept(String raw) {
@@ -86,8 +90,6 @@ public final class SimesArcaneHud {
             finish(ArcaneColors.canonicalName(complete.group(1)));
             return;
         }
-        ArcaneCooldownParser.Result parsed = ArcaneCooldownParser.parse(value);
-        if (!parsed.values().isEmpty()) updateCooldowns(parsed.values());
     }
 
     /** Handles the cancellable Action Bar packet path while preserving unrelated messages. */
@@ -150,9 +152,8 @@ public final class SimesArcaneHud {
                 }
             }
             for (Cooldown cooldown : COOLDOWNS.values()) {
-                // Keep a locally predicted row alive while another equipped spell is reported.
-                if (!seen.contains(cooldown.name) && cooldown.exitStarted == 0L
-                        && cooldown.remainingAt(now) <= 0.05) cooldown.exitStarted = now;
+                // Simes removes cooldown rows that disappear from the next server sample.
+                if (!seen.contains(cooldown.name) && cooldown.exitStarted == 0L) cooldown.exitStarted = now;
             }
         }
     }
@@ -166,31 +167,37 @@ public final class SimesArcaneHud {
 
     private static void updateEquippedArcanes(MinecraftClient client) {
         ItemStack stack = client.player == null ? ItemStack.EMPTY : client.player.getMainHandStack();
-        List<String> detected = extractEquippedArcanes(stack);
-        ItemStack selectedStack = stack;
-        if (detected.isEmpty() && client.player != null) {
-            selectedStack = client.player.getOffHandStack();
-            detected = extractEquippedArcanes(selectedStack);
+        if (!ManaHud.isArcaneCodex(stack)) {
+            wandHeld = false;
+            lastWandIdentity = 0;
+            lastWandComponentsHash = 0;
+            equippedArcanes = List.of();
+            return;
         }
-        LoreComponent lore = selectedStack.get(DataComponentTypes.LORE);
-        int identity = System.identityHashCode(selectedStack);
-        int loreHash = lore == null ? 0 : lore.lines().hashCode();
-        if (identity == lastStackIdentity && loreHash == lastLoreHash) return;
-        lastStackIdentity = identity;
-        lastLoreHash = loreHash;
-        equippedArcanes = List.copyOf(detected);
+        wandHeld = true;
+        int identity = System.identityHashCode(stack);
+        int componentsHash = stack.getComponents().hashCode();
+        if (identity == lastWandIdentity && componentsHash == lastWandComponentsHash) return;
+        lastWandIdentity = identity;
+        lastWandComponentsHash = componentsHash;
+        List<String> detected = extractEquippedArcanes(stack);
+        if (!detected.isEmpty()) equippedArcanes = List.copyOf(detected);
     }
 
     private static List<String> extractEquippedArcanes(ItemStack stack) {
         LoreComponent lore = stack.get(DataComponentTypes.LORE);
         if (lore == null) return List.of();
+        return arcaneNamesFromLore(lore.lines().stream().map(Text::getString).toList());
+    }
+
+    static List<String> arcaneNamesFromLore(List<String> lines) {
         List<String> detected = new ArrayList<>(3);
-        for (Text line : lore.lines()) {
-            String matched = arcaneNameIn(line.getString());
+        for (String line : lines) {
+            String matched = arcaneNameIn(line);
             if (matched != null && !detected.contains(matched)) detected.add(matched);
             if (detected.size() == 3) break;
         }
-        return detected;
+        return List.copyOf(detected);
     }
 
     private static String arcaneNameIn(String text) {
@@ -212,7 +219,7 @@ public final class SimesArcaneHud {
     }
 
     private static void render(DrawContext context, net.minecraft.client.render.RenderTickCounter tickCounter) {
-        if (!enabled() || !config.simesMode || equippedArcanes.isEmpty()) return;
+        if (!enabled() || !config.simesMode || !wandHeld || equippedArcanes.isEmpty()) return;
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) return;
         int width = client.getWindow().getScaledWidth();
