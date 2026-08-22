@@ -179,13 +179,15 @@ public final class ToolSetScreen extends Screen {
                 DiagnosticLog.error("诊断日志导出失败", error);
             }
         }).dimensions(x, diagnosticButtonTop(y, height), Math.min(220, width), 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("复制最近文件路径"), button -> {
-            DiagnosticLog.lastExportPath().ifPresent(path -> {
-                if (client != null) client.keyboard.setClipboard(path.toString());
-                DiagnosticLog.info("已复制诊断日志路径：" + path);
-                clearAndInit();
-            });
-        }).dimensions(x, diagnosticButtonTop(y + 24, height), Math.min(220, width), 20).build());
+        if (diagnosticHasSecondaryButton(height)) {
+            addDrawableChild(ButtonWidget.builder(Text.literal("复制最近文件路径"), button -> {
+                DiagnosticLog.lastExportPath().ifPresent(path -> {
+                    if (client != null) client.keyboard.setClipboard(path.toString());
+                    DiagnosticLog.info("已复制诊断日志路径：" + path);
+                    clearAndInit();
+                });
+            }).dimensions(x, diagnosticButtonTop(y + 24, height), Math.min(220, width), 20).build());
+        }
     }
 
     @Override
@@ -313,6 +315,10 @@ public final class ToolSetScreen extends Screen {
 
     static int diagnosticButtonTop(int requestedTop, int screenHeight) {
         return Math.max(0, Math.min(requestedTop, screenHeight - 20));
+    }
+
+    static boolean diagnosticHasSecondaryButton(int screenHeight) {
+        return screenHeight >= 40;
     }
 
     static int diagnosticVisibleLines(int contentTop, int screenHeight) {

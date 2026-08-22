@@ -96,8 +96,21 @@ final class ToolSetShortcutContractTest {
         assertEquals(0, ToolSetScreen.diagnosticControlsTop(40));
         assertEquals(0, ToolSetScreen.diagnosticContentBottom(40));
         assertEquals(38, ToolSetScreen.diagnosticScissorBottom(38, 40));
+        assertEquals(0, ToolSetScreen.diagnosticButtonTop(ToolSetScreen.diagnosticControlsTop(20), 20));
+        assertEquals(0, ToolSetScreen.diagnosticButtonTop(ToolSetScreen.diagnosticControlsTop(30), 30));
+        assertEquals(0, ToolSetScreen.diagnosticButtonTop(ToolSetScreen.diagnosticControlsTop(40), 40));
         assertEquals(20, ToolSetScreen.diagnosticButtonTop(24, 40));
         assertEquals(0, ToolSetScreen.diagnosticButtonTop(24, 20));
+        assertFalse(ToolSetScreen.diagnosticHasSecondaryButton(20));
+        assertFalse(ToolSetScreen.diagnosticHasSecondaryButton(30));
+        assertTrue(ToolSetScreen.diagnosticHasSecondaryButton(40));
+        assertTrue(ToolSetScreen.diagnosticHasSecondaryButton(360));
+        assertEquals(20, ToolSetScreen.diagnosticButtonTop(
+                ToolSetScreen.diagnosticControlsTop(40) + 24, 40));
+        assertEquals(308, ToolSetScreen.diagnosticButtonTop(
+                ToolSetScreen.diagnosticControlsTop(360), 360));
+        assertEquals(332, ToolSetScreen.diagnosticButtonTop(
+                ToolSetScreen.diagnosticControlsTop(360) + 24, 360));
     }
 
     @Test
