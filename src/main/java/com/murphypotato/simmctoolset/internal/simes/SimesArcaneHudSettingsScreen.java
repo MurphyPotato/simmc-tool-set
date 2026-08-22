@@ -26,12 +26,12 @@ public final class SimesArcaneHudSettingsScreen extends Screen {
         }));
         addDrawableChild(ButtonWidget.builder(modeText(), button -> {
             config().simesMode = !config().simesMode;
-            SimesArcaneStatusHud.reset();
+            SimesArcaneStatusHud.clearVisualState();
             saveAndRefresh();
         }).dimensions(right, 48, 200, 20).build());
         addDrawableChild(toggle(left, 76, "吟唱与持续状态", config().arcaneStatusEnabled, () -> {
             config().arcaneStatusEnabled = !config().arcaneStatusEnabled;
-            SimesArcaneStatusHud.reset();
+            SimesArcaneStatusHud.clearVisualState();
             saveAndRefresh();
         }));
         addDrawableChild(toggle(right, 76, "法杖魔力 HUD", config().manaHudEnabled, () -> {

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -159,6 +160,66 @@ final class ArcaneHudContractTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void visualResetPreservesCancelledBossBarIdsUntilFullLifecycleReset() throws Exception {
+        Field suppressedField = SimesArcaneStatusHud.class.getDeclaredField("SUPPRESSED_BOSS_BARS");
+        Field hiddenField = SimesArcaneStatusHud.class.getDeclaredField("HIDDEN_ARCANE_LEVEL_BARS");
+        suppressedField.setAccessible(true);
+        hiddenField.setAccessible(true);
+        SuppressedBossBarIds suppressed = (SuppressedBossBarIds) suppressedField.get(null);
+        Set<UUID> hidden = (Set<UUID>) hiddenField.get(null);
+        UUID statusId = UUID.randomUUID();
+        UUID levelId = UUID.randomUUID();
+        try {
+            suppressed.suppress(statusId);
+            hidden.add(levelId);
+
+            SimesArcaneStatusHud.clearVisualState();
+
+            assertTrue(suppressed.contains(statusId));
+            assertTrue(hidden.contains(levelId));
+
+            SimesArcaneStatusHud.reset();
+
+            assertFalse(suppressed.contains(statusId));
+            assertFalse(hidden.contains(levelId));
+        } finally {
+            SimesArcaneStatusHud.reset();
+        }
+    }
+
+    @Test
+    void durationSamplesCountDownLocallyAndNewSamplesResetTheBaseline() {
+        assertEquals(40, SimesArcaneStatusHud.remainingDurationTicks(
+                40, 1_000_000_000L, 1_000_000_000L));
+        assertEquals(38, SimesArcaneStatusHud.remainingDurationTicks(
+                40, 1_000_000_000L, 1_100_000_001L));
+        assertEquals(0, SimesArcaneStatusHud.remainingDurationTicks(
+                2, 1_000_000_000L, 2_000_000_000L));
+        assertEquals(20, SimesArcaneStatusHud.remainingDurationTicks(
+                20, 2_000_000_000L, 2_000_000_000L));
+        assertEquals(19, SimesArcaneStatusHud.remainingDurationTicks(
+                20, 2_000_000_000L, 2_050_000_001L));
+    }
+
+    @Test
+    void settingsUseVisualResetInsteadOfReleasingSuppressedBossBars() throws IOException {
+        String settings = Files.readString(Path.of(
+                "src/main/java/com/murphypotato/simmctoolset/internal/simes/SimesArcaneHudSettingsScreen.java"));
+        assertTrue(settings.contains("SimesArcaneStatusHud.clearVisualState()"));
+        assertFalse(settings.contains("SimesArcaneStatusHud.reset()"));
+    }
+
+    @Test
+    void arcaneLifecycleResetAlsoPerformsAFullStatusReset() throws IOException {
+        String arcane = Files.readString(Path.of(
+                "src/main/java/com/murphypotato/simmctoolset/internal/simes/SimesArcaneHud.java"));
+        String reset = arcane.substring(arcane.indexOf("public static synchronized void reset()"),
+                arcane.indexOf("private static void resetState()"));
+        assertTrue(reset.contains("SimesArcaneStatusHud.reset()"));
+    }
+
+    @Test
     void legacyMigrationWhitelistsManaAndPreservesDisplayMode() throws IOException {
         Path legacy = Files.createTempFile("simes-hud", ".json");
         Files.writeString(legacy, """
@@ -220,10 +281,10 @@ final class ArcaneHudContractTest {
     @Test
     void drawsTheFullThirtyTwoPixelArcaneIconIntoTheSixteenPixelSlot() throws IOException {
         Path source = Path.of("src/main/java/com/murphypotato/simmctoolset/internal/simes");
-        for (String file : new String[] {"SimesArcaneHud.java", "SimesArcaneStatusHud.java"}) {
-            assertTrue(Files.readString(source.resolve(file)).contains(
-                    "ICON_SIZE, ICON_SIZE, 32, 32, 32, 32);"), file);
-        }
+        assertTrue(Files.readString(source.resolve("SimesArcaneHud.java")).contains(
+                "ICON_SIZE, ICON_SIZE, 32, 32, 32, 32);"));
+        assertTrue(Files.readString(source.resolve("SimesArcaneStatusHud.java")).contains(
+                "ICON_SIZE, ICON_SIZE, 32, 32, 32, 32, (alpha << 24) | 0xFFFFFF);"));
     }
 
     @Test

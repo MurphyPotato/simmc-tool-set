@@ -69,6 +69,7 @@ public final class SimesArcaneHud {
     public static synchronized void reset() {
         resetState();
         ManaHud.reset();
+        SimesArcaneStatusHud.reset();
     }
 
     private static void resetState() {

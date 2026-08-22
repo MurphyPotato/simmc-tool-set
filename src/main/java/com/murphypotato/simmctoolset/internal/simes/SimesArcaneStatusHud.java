@@ -80,6 +80,12 @@ public final class SimesArcaneStatusHud {
         globalCooldown = null;
     }
 
+    /** Clears rendered state without releasing packet IDs whose ADD never reached vanilla. */
+    static synchronized void clearVisualState() {
+        STATUSES.clear();
+        globalCooldown = null;
+    }
+
     public static synchronized boolean handleBossBar(BossBarS2CPacket packet) {
         if (packet == null || !SimesFeatureController.arcaneEnabled()) return false;
         boolean[] recognized = {false};
@@ -336,7 +342,7 @@ public final class SimesArcaneStatusHud {
             float alpha = value.exitAt == 0L ? 1.0f
                     : 1.0f - Math.min(1.0f, (now - value.exitAt) / (float) EXIT_NANOS);
             String label = value.kind == Kind.CASTING ? "吟唱 " + value.name
-                    : displayName(value.name) + " 持续 " + formatSeconds(value.remainingTicks / 20.0);
+                    : displayName(value.name) + " 持续 " + formatSeconds(value.remainingTicks(now) / 20.0);
             rows.add(new Row(value.name, label, value.progress, value.interrupted, alpha));
         }
         return rows;
@@ -371,7 +377,7 @@ public final class SimesArcaneStatusHud {
         Identifier icon = Identifier.of("simmc_tool_set", "textures/gui/arcane/"
                 + ArcaneColors.iconFile(row.arcaneName));
         context.drawTexture(RenderPipelines.GUI_TEXTURED, icon, x, y - 16, 0, 0,
-                ICON_SIZE, ICON_SIZE, 32, 32, 32, 32);
+                ICON_SIZE, ICON_SIZE, 32, 32, 32, 32, (alpha << 24) | 0xFFFFFF);
         String label = client.textRenderer.trimToWidth(row.label, labelWidth);
         context.drawTextWithShadow(client.textRenderer, Text.literal(label), x + ICON_SIZE + 3,
                 y - 12, (alpha << 24) | (color & 0xFFFFFF));
@@ -396,6 +402,14 @@ public final class SimesArcaneStatusHud {
 
     private static float clamp(float value) {
         return Math.max(0.0f, Math.min(1.0f, value));
+    }
+
+    static int remainingDurationTicks(int sampleTicks, long sampleAt, long now) {
+        if (sampleTicks <= 0) return 0;
+        if (sampleAt <= 0L || now <= sampleAt) return sampleTicks;
+        long elapsedTicks = (now - sampleAt) / 50_000_000L;
+        if (elapsedTicks >= sampleTicks) return 0;
+        return sampleTicks - (int) elapsedTicks;
     }
 
     static int totalWidth() {
@@ -450,6 +464,7 @@ public final class SimesArcaneStatusHud {
         private float progress;
         private int totalTicks;
         private int remainingTicks;
+        private long durationSampleAt;
         private final long createdAt;
         private long exitAt;
         private boolean interrupted;
@@ -478,9 +493,16 @@ public final class SimesArcaneStatusHud {
             interrupted = false;
             if (newKind == Kind.DURATION) {
                 remainingTicks = ticks;
+                durationSampleAt = now;
                 totalTicks = Math.max(totalTicks, ticks);
                 progress = totalTicks == 0 ? 0.0f : ticks / (float) totalTicks;
+            } else {
+                durationSampleAt = 0L;
             }
+        }
+
+        private int remainingTicks(long now) {
+            return remainingDurationTicks(remainingTicks, durationSampleAt, now);
         }
 
         private void finish(long now, boolean wasInterrupted) {
