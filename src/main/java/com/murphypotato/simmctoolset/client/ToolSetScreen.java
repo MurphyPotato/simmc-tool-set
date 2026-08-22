@@ -223,7 +223,8 @@ public final class ToolSetScreen extends Screen {
             case FLEX -> List.of("此板块为未来模块预留。");
             case HOTKEYS -> List.of(
                     "默认：\\+1 奥术 HUD，\\+2 卷轴计算，\\+3 饰品配装，\\+4 发酵与厨具，\\+5 网页地图，\\+` 诊断日志。",
-                    "按住\\再按功能键触发；单独松开\\打开工具组总控。\\、0、O 由 Minecraft-按键控制-按键绑定 修改。"
+                    "按住\\再按功能键触发；单独松开\\打开工具组总控。",
+                    "工具组组合键前缀键 \\、饰品工具直达键 0、打开 Simes 设置键 O，需在 Minecraft-按键控制-按键绑定 中修改。"
             );
             case DIAGNOSTICS -> DiagnosticLog.snapshot().isEmpty()
                     ? List.of("尚无本地诊断记录。", "日志只在点击导出后写入 config/simmc-tool-set/diagnostics/。",

@@ -74,7 +74,7 @@ public final class ToolSetHotkeyScreen extends Screen {
         context.fill(14, 32, width - 14, height - 38, 0xE01F2937);
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 10, 0xFFFFFFFF);
         context.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("这里只修改组合子键；\\、0、O 由 Minecraft-按键控制-按键绑定 修改。"),
+                Text.literal("这里只修改组合子键；工具组组合键前缀键 \\、饰品工具直达键 0、打开 Simes 设置键 O，需在 Minecraft-按键控制-按键绑定 中修改。"),
                 width / 2, 24, 0xFFB8C5D6);
         int left = Math.max(18, width / 2 - 250);
         int rowHeight = 34;
