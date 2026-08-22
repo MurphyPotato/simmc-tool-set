@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.StringJoiner;
 
 /** Native direct keys plus Tool Set-only prefix subkeys. */
 public final class ToolSetKeyRouter {
@@ -151,6 +152,14 @@ public final class ToolSetKeyRouter {
     }
 
     public static synchronized List<ShortcutBinding> bindings() { return List.copyOf(SHORTCUTS.values()); }
+
+    public static synchronized String currentShortcutSummary() {
+        StringJoiner summary = new StringJoiner("，", "当前组合键：", "。");
+        for (ShortcutBinding binding : SHORTCUTS.values()) {
+            summary.add("\\+" + binding.displayName() + " " + binding.label());
+        }
+        return summary.toString();
+    }
 
     public static synchronized boolean setBinding(ShortcutBinding binding, int keyCode, int scanCode) {
         if (binding == null || !SHORTCUTS.containsKey(binding.id())) return false;

@@ -195,7 +195,7 @@ public final class ToolSetScreen extends Screen {
     private void renderPanelText(DrawContext context, int x, int y, int usableWidth) {
         List<String> lines = switch (panel) {
             case OVERVIEW -> List.of(
-                    "组合键：\\+1 奥术 HUD，\\+2 卷轴计算，\\+3 饰品配装，\\+4 发酵与厨具，\\+5 网页地图，\\+` 诊断日志。",
+                    ToolSetKeyRouter.currentShortcutSummary(),
                     "当前状态：" + ToolSetClient.runtimeSummary()
             );
             case ARCANE_HUD -> List.of(
