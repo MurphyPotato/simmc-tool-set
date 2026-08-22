@@ -195,15 +195,13 @@ public final class ToolSetScreen extends Screen {
     private void renderPanelText(DrawContext context, int x, int y, int usableWidth) {
         List<String> lines = switch (panel) {
             case OVERVIEW -> List.of(
-                    "鼠标点击始终是完整入口，快捷键不会锁定或替换任何子板块按钮。",
                     "组合键：\\+1 奥术 HUD，\\+2 卷轴计算，\\+3 饰品配装，\\+4 发酵与厨具，\\+5 网页地图，\\+` 诊断日志。",
-                    "外置维护版会优先接管对应模块；其它模块继续独立运行。",
                     "当前状态：" + ToolSetClient.runtimeSummary()
             );
             case ARCANE_HUD -> List.of(
-                    "授权版奥术状态 HUD 仅在 play.simmc.cn 服务器内激活。",
                     "当前状态：" + SimesFeatureController.arcaneStatus(),
-                    "使用奥术后，服务器的吟唱/持续时间/公共冷却消息会显示在屏幕左上角。"
+                    "使用奥术后，服务器的吟唱/持续时间/公共冷却消息会默认显示在屏幕中间偏下。",
+                    "此版块自Simes mod中移植，原作者7imes"
             );
             case SCROLL -> List.of(
                     ToolSetClient.scrollStatus(),
@@ -218,14 +216,14 @@ public final class ToolSetScreen extends Screen {
             case BREWING -> List.of(
                     "当前状态：" + SimesFeatureController.brewingStatus(),
                     "发酵提示：" + (ToolSetSettings.fermentationEnabled() ? "开" : "关") + "；厨具提示：" + (ToolSetSettings.cookwareEnabled() ? "开" : "关") + "。",
-                    "原生助手会在目标方块附近显示材料、校准状态和服务器确认结果；没有数据时不会伪造计时。"
+                    "原生助手会在目标方块附近显示材料、校准状态和服务器确认结果；没有数据时不会伪造计时。",
+                    "此版块自Simes mod中移植，原作者7imes"
             );
             case MAP -> mapLines();
-            case FLEX -> List.of("此板块为未来已授权模块预留。", "当前不会创建线程、事件或配置。");
+            case FLEX -> List.of("此板块为未来模块预留。");
             case HOTKEYS -> List.of(
                     "默认：\\+1 奥术 HUD，\\+2 卷轴计算，\\+3 饰品配装，\\+4 发酵与厨具，\\+5 网页地图，\\+` 诊断日志。",
-                    "按住\\再按功能键触发；单独松开\\打开工具组总控。\\、0、O 在 Minecraft 控制设置中修改。",
-                    "F1-F12、导航区、SysRq、小键盘和方向键不作为默认键，但可以在专属页面重新绑定。"
+                    "按住\\再按功能键触发；单独松开\\打开工具组总控。\\、0、O 由 Minecraft-按键控制-按键绑定 修改。"
             );
             case DIAGNOSTICS -> DiagnosticLog.snapshot().isEmpty()
                     ? List.of("尚无本地诊断记录。", "日志只在点击导出后写入 config/simmc-tool-set/diagnostics/。",
@@ -250,8 +248,8 @@ public final class ToolSetScreen extends Screen {
                 status.detail(),
                 "运行状态：" + ToolSetClient.mapRuntimeStatus(),
                 "SIMMC 覆盖层会同时绘制到 Xaero 世界地图和小地图；缩放、拖动、点击和鼠标操作仍由 Xaero 处理。",
-                "进入 play.simmc.cn 后点击“立即刷新地图数据”，打开 Xaero 世界地图即可看到标记；小地图覆盖会在同一服务器的主世界自动显示。",
-                "地图来源：YeShengQius/SIMMC-Xaero-Map（Apache-2.0）；Xaero 两个外部依赖不会打包进本 JAR。"
+                "点击“立即刷新地图数据”，打开 Xaero 世界地图即可看到标记；小地图覆盖会在同一服务器的主世界自动显示。",
+                "此版块自SIMMC-Xaero-Map mod中移植，原作者YeShengQiu。"
             ));
         if (status.canEnableExperimental() || status.experimentalEnabled()) {
             lines.add("兼容模式只会在重启后尝试，其他子模块仍可正常使用。");
