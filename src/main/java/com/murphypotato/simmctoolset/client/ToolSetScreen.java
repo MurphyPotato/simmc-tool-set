@@ -51,6 +51,8 @@ public final class ToolSetScreen extends Screen {
     }
 
     public void select(Panel next) {
+        diagnosticScroll = diagnosticScrollOnPanelSelect(panel, next, diagnosticScroll,
+                diagnosticMaxScroll(diagnosticKnownLineCount, diagnosticKnownVisibleLines));
         panel = next;
         clearAndInit();
     }
@@ -176,14 +178,14 @@ public final class ToolSetScreen extends Screen {
             } catch (IOException error) {
                 DiagnosticLog.error("诊断日志导出失败", error);
             }
-        }).dimensions(x, y, Math.min(220, width), 20).build());
+        }).dimensions(x, diagnosticButtonTop(y, height), Math.min(220, width), 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("复制最近文件路径"), button -> {
             DiagnosticLog.lastExportPath().ifPresent(path -> {
                 if (client != null) client.keyboard.setClipboard(path.toString());
                 DiagnosticLog.info("已复制诊断日志路径：" + path);
                 clearAndInit();
             });
-        }).dimensions(x, y + 24, Math.min(220, width), 20).build());
+        }).dimensions(x, diagnosticButtonTop(y + 24, height), Math.min(220, width), 20).build());
     }
 
     @Override
@@ -269,8 +271,8 @@ public final class ToolSetScreen extends Screen {
         diagnosticKnownLineCount = lines.size();
         diagnosticKnownVisibleLines = visibleLines;
 
-        int contentBottom = diagnosticContentBottom(height);
-        context.enableScissor(x, y, width - MARGIN, contentBottom);
+        int contentBottom = diagnosticScissorBottom(y, height);
+        context.enableScissor(x, y, Math.max(x, width - MARGIN), contentBottom);
         int lineY = y;
         for (int index = diagnosticScroll; index < lines.size() && lineY + 10 <= contentBottom; index++) {
             context.drawTextWithShadow(textRenderer, lines.get(index), x, lineY, 0xFFD7DEE8);
@@ -298,11 +300,19 @@ public final class ToolSetScreen extends Screen {
     }
 
     static int diagnosticControlsTop(int screenHeight) {
-        return screenHeight - 52;
+        return Math.max(0, screenHeight - 52);
     }
 
     static int diagnosticContentBottom(int screenHeight) {
-        return diagnosticControlsTop(screenHeight) - 8;
+        return Math.max(0, diagnosticControlsTop(screenHeight) - 8);
+    }
+
+    static int diagnosticScissorBottom(int contentTop, int screenHeight) {
+        return Math.max(contentTop, diagnosticContentBottom(screenHeight));
+    }
+
+    static int diagnosticButtonTop(int requestedTop, int screenHeight) {
+        return Math.max(0, Math.min(requestedTop, screenHeight - 20));
     }
 
     static int diagnosticVisibleLines(int contentTop, int screenHeight) {
@@ -321,6 +331,10 @@ public final class ToolSetScreen extends Screen {
         if (panel != Panel.DIAGNOSTICS || wheelAmount == 0.0) return current;
         int next = current + (wheelAmount > 0.0 ? -3 : 3);
         return Math.max(0, Math.min(maxScroll, next));
+    }
+
+    static int diagnosticScrollOnPanelSelect(Panel previous, Panel next, int current, int maxScroll) {
+        return previous != Panel.DIAGNOSTICS && next == Panel.DIAGNOSTICS ? maxScroll : current;
     }
 
     private List<String> mapLines() {

@@ -78,7 +78,26 @@ final class ToolSetShortcutContractTest {
         assertEquals(37, ToolSetScreen.diagnosticScrollFor(ToolSetScreen.Panel.DIAGNOSTICS, 40, 1, max));
         assertEquals(40, ToolSetScreen.diagnosticScrollFor(ToolSetScreen.Panel.DIAGNOSTICS, 39, -1, max));
         assertEquals(0, ToolSetScreen.diagnosticScrollFor(ToolSetScreen.Panel.DIAGNOSTICS, 1, 1, max));
-        assertEquals(40, ToolSetScreen.diagnosticScrollFor(ToolSetScreen.Panel.DIAGNOSTICS, 39, -1, max));
+        assertEquals(39, ToolSetScreen.diagnosticScrollFor(ToolSetScreen.Panel.DIAGNOSTICS, 39, 0, max));
+    }
+
+    @Test
+    void reenteringDiagnosticsResetsToLatestWithoutResettingInPlaceScroll() {
+        assertEquals(40, ToolSetScreen.diagnosticScrollOnPanelSelect(
+                ToolSetScreen.Panel.MAP, ToolSetScreen.Panel.DIAGNOSTICS, 7, 40));
+        assertEquals(7, ToolSetScreen.diagnosticScrollOnPanelSelect(
+                ToolSetScreen.Panel.DIAGNOSTICS, ToolSetScreen.Panel.DIAGNOSTICS, 7, 40));
+        assertEquals(7, ToolSetScreen.diagnosticScrollOnPanelSelect(
+                ToolSetScreen.Panel.MAP, ToolSetScreen.Panel.OVERVIEW, 7, 40));
+    }
+
+    @Test
+    void diagnosticsKeepSafeBoundsAtVerySmallHeights() {
+        assertEquals(0, ToolSetScreen.diagnosticControlsTop(40));
+        assertEquals(0, ToolSetScreen.diagnosticContentBottom(40));
+        assertEquals(38, ToolSetScreen.diagnosticScissorBottom(38, 40));
+        assertEquals(20, ToolSetScreen.diagnosticButtonTop(24, 40));
+        assertEquals(0, ToolSetScreen.diagnosticButtonTop(24, 20));
     }
 
     @Test
