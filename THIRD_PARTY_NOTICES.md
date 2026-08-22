@@ -38,10 +38,11 @@ relicense the components listed below.
 - **Simes** by 7imes (<https://github.com/Nov7imes/Simes>), Simes
   Source-Available License 1.0, is used under written permission from the
   copyright holder. The Tool Set contains modified source-derived portions for
-  the Arcane HUD, fermentation assistant, and cookware assistant only.
-- Simes market, valuation, balance, automatic-message, and Mana components are
-  excluded. Every migrated or substantially modified Simes-derived source file
-  identifies 7imes, the source link, and the Tool Set modification in its header.
+  the Arcane cooldown/status HUD, wand Mana HUD, fermentation assistant, and
+  cookware assistant only.
+- Simes market, valuation, balance, and automatic-message components are
+  excluded. Migrated source is attributed here and in the applicable
+  source-file headers.
 - The permission and source-availability terms remain subject to the written
   authorization from 7imes; the original Simes license text is retained with
   the project materials for attribution and audit.
