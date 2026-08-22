@@ -101,8 +101,13 @@ final class ArcaneStatusState {
 
         Parsed parsed = classify(rawName);
         if (parsed == null) {
-            entries.remove(id);
-            return entry.kind == Kind.PENDING ? Decision.NONE : new Decision(true, false);
+            if (entry.kind == Kind.PENDING) {
+                entries.remove(id);
+                return Decision.NONE;
+            }
+            // Keep the last known arcane state through transient/unknown name updates.
+            // Simes sends the real name in a later update on the same BossBar ID.
+            return new Decision(true, entry.suppressed);
         }
         activate(entry, parsed, entry.progress, now);
         return markSuppressed(entry, id, hide);
@@ -164,7 +169,7 @@ final class ArcaneStatusState {
         List<Snapshot> result = new ArrayList<>();
         for (Entry entry : entries.values()) {
             if (entry.kind == Kind.PENDING || entry.kind == Kind.LEVEL) continue;
-            result.add(entry.snapshot());
+            result.add(entry.snapshot(now));
         }
         return List.copyOf(result);
     }
@@ -189,10 +194,12 @@ final class ArcaneStatusState {
         if (parsed.kind == Kind.DURATION) {
             entry.totalTicks = parsed.ticks;
             entry.remainingTicks = parsed.ticks;
+            entry.durationUpdatedAt = now;
             entry.progress = clamp(progress);
         } else {
             entry.totalTicks = 0;
             entry.remainingTicks = 0;
+            entry.durationUpdatedAt = 0L;
             entry.progress = clamp(progress);
         }
     }
@@ -258,6 +265,7 @@ final class ArcaneStatusState {
         private int totalTicks;
         private final long createdAt;
         private long updatedAt;
+        private long durationUpdatedAt;
         private long exitAt;
         private boolean interrupted;
         private boolean suppressed;
@@ -281,12 +289,22 @@ final class ArcaneStatusState {
             if (parsed.kind == Kind.DURATION) {
                 entry.totalTicks = parsed.ticks;
                 entry.remainingTicks = parsed.ticks;
+                entry.durationUpdatedAt = now;
             }
             return entry;
         }
 
         private Snapshot snapshot() {
-            return new Snapshot(id, kind, name, progress, remainingTicks, totalTicks, createdAt, updatedAt,
+            return snapshot(updatedAt);
+        }
+
+        private Snapshot snapshot(long now) {
+            int remaining = remainingTicks;
+            if (kind == Kind.DURATION && durationUpdatedAt != 0L && now > durationUpdatedAt) {
+                long elapsedTicks = (now - durationUpdatedAt) / 50_000_000L;
+                remaining = Math.max(0, remainingTicks - (int) Math.min(Integer.MAX_VALUE, elapsedTicks));
+            }
+            return new Snapshot(id, kind, name, progress, remaining, totalTicks, createdAt, updatedAt,
                     exitAt != 0L, interrupted, suppressed);
         }
     }

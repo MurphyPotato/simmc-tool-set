@@ -11,6 +11,7 @@ import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.LoreComponent;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -25,6 +26,9 @@ import java.util.regex.Pattern;
 /** Licensed Simes-derived Arcane cooldown HUD, limited to the authorized HUD scope. */
 public final class SimesArcaneHud {
     private static final Pattern COMPLETE = Pattern.compile("^(.+?)\\s+冷却完成$");
+    private static final Pattern SHIELD_BAR_PREFIX = Pattern.compile("^\\s*(?:🟥\\s*)+");
+    private static final Pattern ARCANE_INPUT_HINT_ONLY = Pattern.compile("(?i)^\\s*(?:(?:上|下|丌|Shift)\\s*)+$");
+    private static final Pattern ARCANE_INPUT_HINT = Pattern.compile("(?i)(?<!\\S)(?:上|下|丌|Shift)(?!\\S)");
     private static final int ICON_SIZE = 16;
     private static final int NAME_WIDTH = 52;
     private static final int BAR_WIDTH = 88;
@@ -46,7 +50,9 @@ public final class SimesArcaneHud {
         if (initialized) return;
         initialized = true;
         config = ArcaneHudConfig.load();
-        ClientReceiveMessageEvents.GAME.register((message, overlay) -> accept(message.getString()));
+        ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
+            if (!overlay) accept(message.getString());
+        });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!enabled()) {
                 resetState();
@@ -88,10 +94,44 @@ public final class SimesArcaneHud {
     public static boolean handleActionBar(Text text) {
         if (!enabled() || text == null) return false;
         String raw = text.getString();
-        ArcaneCooldownParser.Result parsed = ArcaneCooldownParser.parse(raw);
-        if (parsed.values().isEmpty()) return false;
-        accept(raw);
-        return config != null && config.simesMode;
+        boolean shieldBar = shieldEquipped() && (raw.isBlank() || SHIELD_BAR_PREFIX.matcher(raw).find());
+        String cleaned = shieldBar ? SHIELD_BAR_PREFIX.matcher(raw).replaceFirst("").trim() : raw;
+        if (shieldBar && cleaned.isEmpty()) return true;
+
+        ArcaneCooldownParser.Result parsed = ArcaneCooldownParser.parse(cleaned);
+        if (parsed.values().isEmpty()) return config.simesMode && isArcaneInputHintOnly(cleaned);
+        updateCooldowns(parsed.values());
+        if (!config.simesMode) {
+            if (shieldBar) {
+                setVanillaOverlay(cleaned);
+                return true;
+            }
+            return false;
+        }
+        String residual = stripArcaneInputHints(parsed.residual());
+        if (!residual.isEmpty()) setVanillaOverlay(residual);
+        return true;
+    }
+
+    static boolean isArcaneInputHintOnly(String value) {
+        return value != null && ARCANE_INPUT_HINT_ONLY.matcher(value).matches();
+    }
+
+    static String stripArcaneInputHints(String value) {
+        if (value == null || value.isBlank()) return "";
+        return ARCANE_INPUT_HINT.matcher(value).replaceAll(" ").trim().replaceAll("\\s{2,}", " ");
+    }
+
+    private static void setVanillaOverlay(String value) {
+        if (value == null || value.isBlank()) return;
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.inGameHud != null) client.inGameHud.setOverlayMessage(Text.literal(value), false);
+    }
+
+    private static boolean shieldEquipped() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        return client.player != null && (client.player.getMainHandStack().isOf(Items.SHIELD)
+                || client.player.getOffHandStack().isOf(Items.SHIELD));
     }
 
     private static void updateCooldowns(List<ArcaneCooldownParser.Value> values) {
@@ -110,7 +150,9 @@ public final class SimesArcaneHud {
                 }
             }
             for (Cooldown cooldown : COOLDOWNS.values()) {
-                if (!seen.contains(cooldown.name) && cooldown.exitStarted == 0L) cooldown.exitStarted = now;
+                // Keep a locally predicted row alive while another equipped spell is reported.
+                if (!seen.contains(cooldown.name) && cooldown.exitStarted == 0L
+                        && cooldown.remainingAt(now) <= 0.05) cooldown.exitStarted = now;
             }
         }
     }
@@ -144,18 +186,20 @@ public final class SimesArcaneHud {
         if (lore == null) return List.of();
         List<String> detected = new ArrayList<>(3);
         for (Text line : lore.lines()) {
-            String plain = line.getString();
-            for (String spell : ArcaneColors.spellNames()) {
-                if (plain.contains(spell) && !detected.contains(spell)) {
-                    detected.add(spell);
-                    break;
-                }
-            }
+            String matched = arcaneNameIn(line.getString());
+            if (matched != null && !detected.contains(matched)) detected.add(matched);
             if (detected.size() == 3) break;
         }
         return detected;
     }
 
+    private static String arcaneNameIn(String text) {
+        if (text == null) return null;
+        for (String spell : ArcaneColors.spellNames()) {
+            if (text.contains(spell)) return spell;
+        }
+        return text.contains("蛛化术") ? ArcaneColors.canonicalName("蛛化术") : null;
+    }
     private static void cleanup() {
         long now = System.nanoTime();
         synchronized (COOLDOWNS) {
@@ -217,7 +261,7 @@ public final class SimesArcaneHud {
                 ICON_SIZE, ICON_SIZE, ICON_SIZE, ICON_SIZE, 32, 32);
         String shownName = client.textRenderer.trimToWidth(name, NAME_WIDTH);
         context.drawTextWithShadow(client.textRenderer, Text.literal(shownName), x + ICON_SIZE + 3,
-                y - 12, (a << 24) | color);
+                y - 12, 0xFF000000 | color);
         if (a == 0) return;
         context.fill(barX, barY, barX + BAR_WIDTH, barY + 12, (a << 24) | 0x111111);
         context.fill(barX + 1, barY + 1, barX + BAR_WIDTH - 1, barY + 11, (a << 24) | 0x555555);

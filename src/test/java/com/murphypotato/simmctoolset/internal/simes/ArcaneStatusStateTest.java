@@ -60,6 +60,30 @@ final class ArcaneStatusStateTest {
     }
 
     @Test
+    void preservesKnownStatusThroughUnknownNameAndRecoversLater() {
+        ArcaneStatusState state = new ArcaneStatusState(KNOWN);
+        UUID id = UUID.randomUUID();
+
+        state.add(id, "正在吟唱 火球术", 0.5f, false, 100L, false);
+        assertTrue(state.updateName(id, "未知 BossBar", 200L, false).recognized());
+        assertFalse(state.updateName(id, "未知 BossBar", 201L, false).cancel());
+        assertEquals("火球术", state.snapshot(id).name());
+        assertTrue(state.updateName(id, "御风术剩余: 20 tick", 300L, false).recognized());
+        assertEquals(ArcaneStatusState.Kind.DURATION, state.snapshot(id).kind());
+    }
+
+    @Test
+    void durationSnapshotsUseEventTimeForMonotonicCountdown() {
+        ArcaneStatusState state = new ArcaneStatusState(KNOWN);
+        UUID id = UUID.randomUUID();
+
+        state.add(id, "火球术剩余: 40 tick", 1.0f, false, 1_000_000_000L, false);
+        assertEquals(40, state.snapshots(1_000_000_000L).getFirst().remainingTicks());
+        assertEquals(38, state.snapshots(1_100_000_001L).getFirst().remainingTicks());
+        assertEquals(37, state.snapshots(1_150_000_001L).getFirst().remainingTicks());
+        assertEquals(37, state.snapshots(1_150_000_002L).getFirst().remainingTicks());
+    }
+    @Test
     void refreshesUpdateBaselineAndResetsDurationWhenCastingChangesKind() {
         ArcaneStatusState state = new ArcaneStatusState(KNOWN);
         UUID id = UUID.randomUUID();

@@ -241,7 +241,7 @@ public final class SimesArcaneStatusHud {
                 ICON_SIZE, ICON_SIZE, ICON_SIZE, ICON_SIZE, 32, 32);
         String label = client.textRenderer.trimToWidth(row.label, labelWidth);
         context.drawTextWithShadow(client.textRenderer, Text.literal(label), x + ICON_SIZE + 3,
-                y - 12, (alpha << 24) | 0xFFFFFF);
+                y - 12, (alpha << 24) | (color & 0xFFFFFF));
         int barX = x + ICON_SIZE + 3 + labelWidth + 4;
         int barY = y - 14;
         context.fill(barX, barY, barX + barWidth, barY + 12, (alpha << 24) | 0x111111);

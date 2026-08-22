@@ -25,6 +25,12 @@ final class ArcaneHudContractTest {
     }
 
     @Test
+    void stripsOnlyArcaneInputHintsFromActionBarResidualText() {
+        assertTrue(SimesArcaneHud.isArcaneInputHintOnly("上 Shift"));
+        assertEquals("ready", SimesArcaneHud.stripArcaneInputHints("上 ready Shift"));
+        assertEquals("ready | status", SimesArcaneHud.stripArcaneInputHints("ready | status"));
+    }
+    @Test
     void canonicalizesTheTwoKnownZhuhuaSpellNames() {
         assertEquals("蜘化术", ArcaneColors.canonicalName("蛛化术"));
         assertEquals(ArcaneColors.forName("蜘化术"), ArcaneColors.forName("蛛化术"));
