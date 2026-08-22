@@ -43,7 +43,7 @@ final class ToolSetShortcutContractTest {
         int end = router.indexOf("public static synchronized boolean setBinding", start);
         String formatter = router.substring(start, end);
 
-        assertTrue(screen.contains("ToolSetKeyRouter.currentShortcutSummary()"));
+        assertEquals(2, count(screen, "ToolSetKeyRouter.currentShortcutSummary()"));
         assertTrue(formatter.contains("SHORTCUTS.values()"));
         assertTrue(formatter.contains("binding.displayName()"));
         assertTrue(formatter.contains("binding.label()"));
