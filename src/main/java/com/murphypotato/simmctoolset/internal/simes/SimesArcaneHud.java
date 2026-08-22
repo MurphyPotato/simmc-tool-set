@@ -228,7 +228,9 @@ public final class SimesArcaneHud {
         float scale = SimesHudLayoutScreen.runtimeScale(
                 config.cooldownScalePercent / 100.0f, width, TOTAL_WIDTH);
         int x = SimesHudLayoutScreen.runtimeX(configuredX(width), width, TOTAL_WIDTH, scale);
-        renderRows(context, x, configuredY(height), scale,
+        int y = SimesHudLayoutScreen.runtimeBottomY(
+                configuredY(height), height, equippedArcanes.size() * ROW_HEIGHT, scale);
+        renderRows(context, x, y, scale,
                 System.nanoTime(), equippedArcanes, false);
     }
 

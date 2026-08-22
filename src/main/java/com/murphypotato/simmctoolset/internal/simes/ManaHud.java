@@ -117,9 +117,11 @@ public final class ManaHud {
         else trailingMana += (displayedMana - trailingMana) * Math.min(1.0, dt / 0.35);
         MinecraftClient client = MinecraftClient.getInstance();
         int width = client.getWindow().getScaledWidth();
+        int height = client.getWindow().getScaledHeight();
         float scale = SimesHudLayoutScreen.runtimeScale(config.manaHudScalePercent / 100.0f, width, TOTAL_WIDTH);
         int x = SimesHudLayoutScreen.runtimeX(configuredX(width), width, TOTAL_WIDTH, scale);
-        renderPanel(context, x, configuredY(client.getWindow().getScaledHeight()), scale,
+        int y = SimesHudLayoutScreen.runtimeTopY(configuredY(height), height, TOTAL_HEIGHT, scale);
+        renderPanel(context, x, y, scale,
                 displayedMana, trailingMana, maximum, regeneration, now);
     }
 

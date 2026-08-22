@@ -235,6 +235,16 @@ public final class SimesHudLayoutScreen extends Screen {
         return Math.max(0, Math.min(Math.max(0, screenWidth - Math.round(panelWidth * scale)), configuredX));
     }
 
+    static int runtimeTopY(int configuredY, int screenHeight, int panelHeight, float scale) {
+        int maximum = Math.max(0, screenHeight - Math.round(panelHeight * scale));
+        return Math.max(0, Math.min(maximum, configuredY));
+    }
+
+    static int runtimeBottomY(int configuredY, int screenHeight, int panelHeight, float scale) {
+        int minimum = Math.min(Math.max(0, screenHeight), Math.round(panelHeight * scale));
+        return Math.max(minimum, Math.min(Math.max(minimum, screenHeight), configuredY));
+    }
+
     private double previewMinimumY(int panelHeight) {
         return 108.0 + panelHeight + 4.0;
     }

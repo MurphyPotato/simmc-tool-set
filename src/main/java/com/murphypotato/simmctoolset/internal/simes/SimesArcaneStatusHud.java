@@ -383,13 +383,17 @@ public final class SimesArcaneStatusHud {
             float scale = SimesHudLayoutScreen.runtimeScale(
                     config.arcaneStatusScalePercent / 100.0f, width, totalWidth());
             int x = SimesHudLayoutScreen.runtimeX(configuredX(width), width, totalWidth(), scale);
-            renderRows(context, x, configuredY(height), scale, statusRows, LABEL_WIDTH, BAR_WIDTH);
+            int y = SimesHudLayoutScreen.runtimeBottomY(
+                    configuredY(height), height, statusRows.size() * ROW_HEIGHT, scale);
+            renderRows(context, x, y, scale, statusRows, LABEL_WIDTH, BAR_WIDTH);
         }
         if (!globalRows.isEmpty()) {
             float scale = SimesHudLayoutScreen.runtimeScale(
                     config.globalCooldownScalePercent / 100.0f, width, globalTotalWidth());
             int x = SimesHudLayoutScreen.runtimeX(configuredGlobalX(width), width, globalTotalWidth(), scale);
-            renderRows(context, x, configuredGlobalY(height), scale,
+            int y = SimesHudLayoutScreen.runtimeBottomY(
+                    configuredGlobalY(height), height, globalRows.size() * ROW_HEIGHT, scale);
+            renderRows(context, x, y, scale,
                     globalRows, GLOBAL_LABEL_WIDTH, GLOBAL_BAR_WIDTH);
         }
     }

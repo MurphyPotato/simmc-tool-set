@@ -238,10 +238,14 @@ final class ArcaneHudContractTest {
     }
 
     @Test
-    void runtimeLayoutClampsLargeScaleAndRightEdge() {
+    void runtimeLayoutClampsLargeScaleAndAllAnchoredEdges() {
         assertEquals(0.5f, SimesHudLayoutScreen.runtimeScale(2.0f, 44, 88), 0.0001f);
         assertEquals(0, SimesHudLayoutScreen.runtimeX(1, 44, 88, 0.5f));
         assertEquals(72, SimesHudLayoutScreen.runtimeX(100, 160, 88, 1.0f));
+        assertEquals(0, SimesHudLayoutScreen.runtimeTopY(0, 100, 20, 2.0f));
+        assertEquals(60, SimesHudLayoutScreen.runtimeTopY(100, 100, 20, 2.0f));
+        assertEquals(80, SimesHudLayoutScreen.runtimeBottomY(0, 100, 40, 2.0f));
+        assertEquals(100, SimesHudLayoutScreen.runtimeBottomY(100, 100, 40, 2.0f));
     }
 
     @Test
