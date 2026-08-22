@@ -2,6 +2,9 @@ package com.murphypotato.simmctoolset.internal.simes;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -57,6 +60,15 @@ final class ArcaneHudContractTest {
                 || field.getName().contains("market")
                 || field.getName().contains("value")
                 || field.getName().contains("autoMessage")));
+    }
+
+    @Test
+    void drawsTheFullThirtyTwoPixelArcaneIconIntoTheSixteenPixelSlot() throws IOException {
+        Path source = Path.of("src/main/java/com/murphypotato/simmctoolset/internal/simes");
+        for (String file : new String[] {"SimesArcaneHud.java", "SimesArcaneStatusHud.java"}) {
+            assertTrue(Files.readString(source.resolve(file)).contains(
+                    "ICON_SIZE, ICON_SIZE, 32, 32, 32, 32);"), file);
+        }
     }
 
     @Test

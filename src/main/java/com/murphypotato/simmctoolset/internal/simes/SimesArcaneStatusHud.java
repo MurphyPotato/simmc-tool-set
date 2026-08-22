@@ -238,7 +238,7 @@ public final class SimesArcaneStatusHud {
         Identifier icon = Identifier.of("simmc_tool_set", "textures/gui/arcane/"
                 + ArcaneColors.iconFile(row.arcaneName));
         context.drawTexture(RenderPipelines.GUI_TEXTURED, icon, x, y - 16, 0, 0,
-                ICON_SIZE, ICON_SIZE, ICON_SIZE, ICON_SIZE, 32, 32);
+                ICON_SIZE, ICON_SIZE, 32, 32, 32, 32);
         String label = client.textRenderer.trimToWidth(row.label, labelWidth);
         context.drawTextWithShadow(client.textRenderer, Text.literal(label), x + ICON_SIZE + 3,
                 y - 12, (alpha << 24) | (color & 0xFFFFFF));
