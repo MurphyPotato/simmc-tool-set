@@ -22,8 +22,8 @@
 | 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.4` |
 | 当前实现提交 | `9f31f87`；从 v1.1.3 文档基线 `b9acb09` 开始 |
 | 当前标签 | 尚未创建；旧 `v1.0.3-fabric-mc1.21.8` 保持不变 |
-| 构建 JAR | v1.1.4 完整 Xaero 构建已通过；外部候选 JAR 与校验文件将在最终审计后生成 |
-| 构建 JAR SHA-256 | 待候选产物生成；所有旧版本校验文件保持不变 |
+| 构建 JAR | `release/simmc-tool-set-fabric-1.1.4-fabric-mc1.21.8.jar`，1,348,895 bytes；尚未创建标签或线上 Release |
+| 构建 JAR SHA-256 | `75A9A3CE3F1DC75B103EEF9B6C467B303F455F3BF4912D8FB746AE46F5844042`；所有旧版本校验文件保持不变 |
 | 最近验证 | v1.1.4 全依赖及无 Xaero 构建均通过；`verifyUnitTests` 49/49，地图原生 smoke 与兼容场景 3/3 通过；真实客户端/目标服务器仍未验证 |
 | 真实客户端联调 | 隔离 `runClient` 已到渲染资源加载阶段，无 Tool Set 崩溃；热键页/Simes 页视觉与目标服务器功能仍需人工验收；不得启动、修改或复用用户客户端 |
 
