@@ -1,13 +1,18 @@
 package com.murphypotato.simmctoolset.internal.simes;
 
+import net.minecraft.client.gui.hud.ClientBossBar;
+import net.minecraft.entity.boss.BossBar;
+import net.minecraft.text.Text;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.UUID;
@@ -15,6 +20,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class ArcaneHudContractTest {
@@ -155,12 +161,51 @@ final class ArcaneHudContractTest {
         assertFalse(Files.exists(directory.resolve("ArcaneStatusState.java")));
         assertTrue(source.contains("Map<UUID, Status> STATUSES"));
         assertTrue(source.contains("Set<UUID> HIDDEN_ARCANE_LEVEL_BARS"));
+        assertTrue(source.contains("Map<UUID, ClientBossBar> PENDING_BOSS_BARS"));
         assertTrue(source.contains("Map<UUID, ClientBossBar> HIDDEN_BOSS_BARS"));
         assertTrue(source.contains("new SuppressedBossBarIds()"));
         assertTrue(source.contains("Status.pending"));
         assertTrue(source.contains("Kind.PENDING"));
         assertTrue(source.contains("suppressExistingBossBar"));
         assertTrue(source.contains("SUPPRESSED_BOSS_BARS.release(id)"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void pendingBossBarPromotionPreservesTheExactServerSnapshot() throws Exception {
+        Field pendingField = SimesArcaneStatusHud.class.getDeclaredField("PENDING_BOSS_BARS");
+        Field hiddenField = SimesArcaneStatusHud.class.getDeclaredField("HIDDEN_BOSS_BARS");
+        Field suppressedField = SimesArcaneStatusHud.class.getDeclaredField("SUPPRESSED_BOSS_BARS");
+        Method suppress = SimesArcaneStatusHud.class.getDeclaredMethod("suppressExistingBossBar", UUID.class);
+        pendingField.setAccessible(true);
+        hiddenField.setAccessible(true);
+        suppressedField.setAccessible(true);
+        suppress.setAccessible(true);
+        Map<UUID, ClientBossBar> pending = (Map<UUID, ClientBossBar>) pendingField.get(null);
+        Map<UUID, ClientBossBar> hidden = (Map<UUID, ClientBossBar>) hiddenField.get(null);
+        SuppressedBossBarIds suppressed = (SuppressedBossBarIds) suppressedField.get(null);
+        UUID id = UUID.randomUUID();
+        ClientBossBar original = new ClientBossBar(id, Text.literal("正在吟唱 火球术"), 0.42f,
+                BossBar.Color.PURPLE, BossBar.Style.NOTCHED_10, true, true, true);
+        try {
+            pending.put(id, original);
+
+            suppress.invoke(null, id);
+
+            ClientBossBar promoted = hidden.get(id);
+            assertSame(original, promoted);
+            assertFalse(pending.containsKey(id));
+            assertTrue(suppressed.contains(id));
+            assertEquals("正在吟唱 火球术", promoted.getName().getString());
+            assertEquals(0.42f, promoted.getPercent(), 0.0001f);
+            assertEquals(BossBar.Color.PURPLE, promoted.getColor());
+            assertEquals(BossBar.Style.NOTCHED_10, promoted.getStyle());
+            assertTrue(promoted.shouldDarkenSky());
+            assertTrue(promoted.hasDragonMusic());
+            assertTrue(promoted.shouldThickenFog());
+        } finally {
+            SimesArcaneStatusHud.reset();
+        }
     }
 
     @Test

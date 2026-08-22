@@ -57,6 +57,7 @@ public final class SimesArcaneStatusHud {
 
     private static final Map<UUID, Status> STATUSES = new LinkedHashMap<>();
     private static final Set<UUID> HIDDEN_ARCANE_LEVEL_BARS = new HashSet<>();
+    private static final Map<UUID, ClientBossBar> PENDING_BOSS_BARS = new LinkedHashMap<>();
     private static final Map<UUID, ClientBossBar> HIDDEN_BOSS_BARS = new LinkedHashMap<>();
     private static final SuppressedBossBarIds SUPPRESSED_BOSS_BARS = new SuppressedBossBarIds();
     private static GlobalCooldown globalCooldown;
@@ -78,6 +79,7 @@ public final class SimesArcaneStatusHud {
     public static synchronized void reset() {
         STATUSES.clear();
         HIDDEN_ARCANE_LEVEL_BARS.clear();
+        PENDING_BOSS_BARS.clear();
         HIDDEN_BOSS_BARS.clear();
         SUPPRESSED_BOSS_BARS.clear();
         globalCooldown = null;
@@ -93,6 +95,7 @@ public final class SimesArcaneStatusHud {
         }
         STATUSES.clear();
         HIDDEN_ARCANE_LEVEL_BARS.clear();
+        PENDING_BOSS_BARS.clear();
         HIDDEN_BOSS_BARS.clear();
         SUPPRESSED_BOSS_BARS.clear();
         globalCooldown = null;
@@ -131,11 +134,14 @@ public final class SimesArcaneStatusHud {
                     cancel[0] = hide;
                 } else if (raw.isBlank() && style == BossBar.Style.NOTCHED_10 && percent >= 0.99f) {
                     STATUSES.put(id, Status.pending(now));
+                    PENDING_BOSS_BARS.put(id, new ClientBossBar(id, name, percent, color, style,
+                            darkenSky, dragonMusic, thickenFog));
                 }
             }
 
             @Override
             public void remove(UUID id) {
+                PENDING_BOSS_BARS.remove(id);
                 HIDDEN_BOSS_BARS.remove(id);
                 if (SUPPRESSED_BOSS_BARS.release(id)) {
                     HIDDEN_ARCANE_LEVEL_BARS.remove(id);
@@ -160,6 +166,8 @@ public final class SimesArcaneStatusHud {
 
             @Override
             public void updateProgress(UUID id, float percent) {
+                ClientBossBar pending = PENDING_BOSS_BARS.get(id);
+                if (pending != null) pending.setPercent(percent);
                 if (SUPPRESSED_BOSS_BARS.contains(id)) {
                     Status value = STATUSES.get(id);
                     if (value != null) value.progress = clamp(percent);
@@ -184,6 +192,8 @@ public final class SimesArcaneStatusHud {
 
             @Override
             public void updateName(UUID id, Text name) {
+                ClientBossBar pending = PENDING_BOSS_BARS.get(id);
+                if (pending != null) pending.setName(name);
                 if (SUPPRESSED_BOSS_BARS.contains(id)) {
                     updateSuppressedName(id, name, now);
                     ClientBossBar bar = HIDDEN_BOSS_BARS.get(id);
@@ -203,18 +213,18 @@ public final class SimesArcaneStatusHud {
                 Matcher casting = CASTING.matcher(raw);
                 Matcher duration = DURATION.matcher(raw);
                 if (casting.matches() && isKnownArcane(casting.group(1))) {
-                    boolean hide = shouldHide();
+                    boolean hide = shouldHide() && suppressExistingBossBar(id);
                     value.suppressed = hide;
                     value.activate(Kind.CASTING, canonical(casting.group(1)), 0, now);
-                    if (hide) suppressExistingBossBar(id);
+                    if (!hide) PENDING_BOSS_BARS.remove(id);
                     recognized[0] = true;
                     cancel[0] = hide;
                 } else if (duration.matches() && isKnownArcane(duration.group(1))) {
-                    boolean hide = shouldHide();
+                    boolean hide = shouldHide() && suppressExistingBossBar(id);
                     value.suppressed = hide;
                     value.activate(Kind.DURATION, canonical(duration.group(1)),
                             Integer.parseInt(duration.group(2)), now);
-                    if (hide) suppressExistingBossBar(id);
+                    if (!hide) PENDING_BOSS_BARS.remove(id);
                     recognized[0] = true;
                     cancel[0] = hide;
                 } else if (value.kind != Kind.PENDING) {
@@ -222,12 +232,13 @@ public final class SimesArcaneStatusHud {
                     cancel[0] = value.suppressed;
                 } else {
                     STATUSES.remove(id);
+                    PENDING_BOSS_BARS.remove(id);
                 }
             }
 
             @Override
             public void updateStyle(UUID id, BossBar.Color color, BossBar.Style style) {
-                ClientBossBar bar = HIDDEN_BOSS_BARS.get(id);
+                ClientBossBar bar = trackedBossBar(id);
                 if (bar != null) {
                     bar.setColor(color);
                     bar.setStyle(style);
@@ -237,7 +248,7 @@ public final class SimesArcaneStatusHud {
 
             @Override
             public void updateProperties(UUID id, boolean darkenSky, boolean dragonMusic, boolean thickenFog) {
-                ClientBossBar bar = HIDDEN_BOSS_BARS.get(id);
+                ClientBossBar bar = trackedBossBar(id);
                 if (bar != null) {
                     bar.setDarkenSky(darkenSky);
                     bar.setDragonMusic(dragonMusic);
@@ -284,18 +295,21 @@ public final class SimesArcaneStatusHud {
         return ArcaneColors.canonicalName(ALIASES.getOrDefault(name, name));
     }
 
-    private static void suppressExistingBossBar(UUID id) {
-        Status value = STATUSES.get(id);
-        if (value != null && !HIDDEN_BOSS_BARS.containsKey(id)) {
-            String name = value.kind == Kind.CASTING ? "正在吟唱 " + value.name : value.name;
-            rememberHiddenBossBar(id, Text.literal(name), value.progress,
-                    BossBar.Color.WHITE, BossBar.Style.PROGRESS, false, false, false);
-        }
+    private static boolean suppressExistingBossBar(UUID id) {
+        ClientBossBar pending = PENDING_BOSS_BARS.remove(id);
+        if (pending == null) return false;
+        HIDDEN_BOSS_BARS.put(id, pending);
         SUPPRESSED_BOSS_BARS.suppress(id);
         MinecraftClient client = MinecraftClient.getInstance();
         if (client != null && client.inGameHud != null) {
             client.inGameHud.getBossBarHud().handlePacket(BossBarS2CPacket.remove(id));
         }
+        return true;
+    }
+
+    private static ClientBossBar trackedBossBar(UUID id) {
+        ClientBossBar hidden = HIDDEN_BOSS_BARS.get(id);
+        return hidden != null ? hidden : PENDING_BOSS_BARS.get(id);
     }
 
     private static void rememberHiddenBossBar(UUID id, Text name, float percent, BossBar.Color color,
@@ -332,7 +346,10 @@ public final class SimesArcaneStatusHud {
         long now = System.nanoTime();
         STATUSES.entrySet().removeIf(entry -> {
             Status value = entry.getValue();
-            if (value.kind == Kind.PENDING && now - value.createdAt > 1_000_000_000L) return true;
+            if (value.kind == Kind.PENDING && now - value.createdAt > 1_000_000_000L) {
+                PENDING_BOSS_BARS.remove(entry.getKey());
+                return true;
+            }
             return value.exitAt != 0L && now - value.exitAt > EXIT_NANOS;
         });
         if (globalCooldown != null && globalCooldown.remaining(now) <= 0.0) globalCooldown = null;
