@@ -19,12 +19,12 @@
 | Java | 21；已使用项目 JDK `I:\mc smc服\simmc moster hunter 2.0\tools\android-env\jdk-21` 构建 |
 | Fabric Loader | 0.17.3 |
 | Fabric API | 0.136.1+1.21.8 |
-| 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.2` |
-| 当前实现提交 | `2c6a0f0`；从 v1.1.1 基线 `83eed04` 开始 |
+| 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.3` |
+| 当前实现提交 | `941fbb5`；从 v1.1.2 基线 `c1e4219` 开始 |
 | 当前标签 | 尚未创建；旧 `v1.0.3-fabric-mc1.21.8` 保持不变 |
-| 构建 JAR | `release/simmc-tool-set-fabric-1.1.2-fabric-mc1.21.8.jar`，1,339,859 bytes；尚未创建标签或线上 Release |
-| 构建 JAR SHA-256 | `16277E283AE86F1003C46F0C10C5106CAFF23C558742C493F51409D7A0C9E444`；旧 v1.1.1 校验不变 |
-| 最近验证 | 本轮全依赖 `verifyUnitTests` 25/25、地图 smoke、3 个兼容场景和 `build -x test` 通过；真实发酵/厨具目标服务器提示仍未验证 |
+| 构建 JAR | `release/simmc-tool-set-fabric-1.1.3-fabric-mc1.21.8.jar`，1,341,050 bytes；尚未创建标签或线上 Release |
+| 构建 JAR SHA-256 | `5A99DB749B7E04BFCFAF7113C9A374F1A08CFEA00F649F1B93B430D38CE7BD43`；v1.1.2 与旧版本校验不变 |
+| 最近验证 | v1.1.3 `verifyUnitTests` 30/30、`verifyMapCompatibility` 3/3、`build -x test` 通过；真实客户端/目标服务器仍未验证 |
 | 真实客户端联调 | 隔离 `runClient` 已到渲染资源加载阶段，无 Tool Set 崩溃；热键页/Simes 页视觉与目标服务器功能仍需人工验收；不得启动、修改或复用用户客户端 |
 
 ## 2. 总体架构
@@ -147,6 +147,14 @@
 - v1.1.1 已恢复 `\\`/`0`/内部 `O` 的原生按键注册，组合子键独立保存；修复自绘文字 Alpha 为 0 导致的空白标签；统一 Simes 设置页加入发酵桶和蒸煮煎锅开关；信息卡恢复食材图标、行距和 10 格距离限制。
 - v1.1.1 已通过全依赖和无 Xaero/Mod Menu 两套 `verifyUnitTests` 25/25、地图 smoke、3 个兼容场景与 `build -x test`；已生成外部候选 JAR 和 SHA-256，尚未创建标签或线上 Release。
 
+### v1.1.3 本轮已确认与修复
+
+- P4 文案清单已静态逐条对照：旧鼠标/服务器/外置接管/地图依赖/未来授权说明已删除或改写；奥术、发酵与厨具、SIMMC Map 作者说明已加入；工具组原生入口说明已统一。
+- P3 动态快捷键已接入同一 ToolSetKeyRouter.currentShortcutSummary()：总览与工具组按键页都读取当前六个组合子键，重绑定、取消绑定、恢复默认和重启读取共享同一来源。
+- P1 奥术 HUD 源码已补齐 Action Bar 残余、BossBar 未知名称恢复、持续状态按事件时间倒计时、短 CD 保活、图标/Lore 识别和完整 HUD 图标采样；对应单元测试通过。Mana、市场、估值、余额和自动消息仍按项目边界排除。
+- P2 奥术图标裁剪与冷却延迟由上述 P1 修复顺带覆盖；新增契约测试确认 32x32 纹理完整绘制到 16x16 槽位。
+- 用户本轮指定的地图按钮长短对齐按 P2 暂不单独修复，当前“立即刷新地图数据”仍是 220 宽而其它地图按钮为 260 宽，状态保持“未修复”，不得误报为完成。
+- P1 发酵/厨具“无信息卡”仍按清单标记“未正确测试，暂不修复”；本轮没有整体重移植 Simes 发酵/厨具实现。P0 当前无条目。
 ### v1.1.2 本轮已确认与修复
 
 - 外置 Simes 存在时，旧的内部设置入口现在会安全拒绝打开；内置配置为空不会再触发设置页空指针。
@@ -184,6 +192,7 @@
 - Gradle wrapper 必须设置 `GRADLE_USER_HOME` 指向已有项目缓存；否则即使本机已有 Gradle 9.5.0，也可能再次尝试联网下载并因沙箱网络权限失败。
 - Loom 项目缓存缺少 `mojang_versions_manifest.json` 时，即使其余 Minecraft 缓存存在也会在配置阶段失败；可从本机已有 Gradle Fabric Loom 缓存复制同一清单后使用 `--offline` 验证，无需重新联网下载。
 - 必要时允许在仓库隔离 `run/` 目录运行自建开发客户端；禁止启动、修改或复用用户客户端目录。隔离客户端到达资源加载阶段只能证明相应启动阶段，不等于用户环境、UI、目标服务器功能或完整矩阵验收。
+- v1.1.3 构建期间 Xaero Mixin remap 输出了 GuiMap 方法不存在和 renderOutsidePip 未完全限定警告，但 verifyMapCompatibility 与 build 均成功；该输出需在真实地图 UI 验收时继续观察，不能当作已验证兼容。
 
 ## 11. 验收门槛
 
