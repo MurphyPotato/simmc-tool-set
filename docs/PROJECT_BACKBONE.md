@@ -19,12 +19,12 @@
 | Java | 21；已使用项目 JDK `I:\mc smc服\simmc moster hunter 2.0\tools\android-env\jdk-21` 构建 |
 | Fabric Loader | 0.17.3 |
 | Fabric API | 0.136.1+1.21.8 |
-| 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.4` |
+| 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.5` |
 | 当前实现提交 | `9f31f87`；从 v1.1.3 文档基线 `b9acb09` 开始 |
 | 当前标签 | 尚未创建；旧 `v1.0.3-fabric-mc1.21.8` 保持不变 |
 | 构建 JAR | `release/simmc-tool-set-fabric-1.1.4-fabric-mc1.21.8.jar`，1,348,895 bytes；尚未创建标签或线上 Release |
-| 构建 JAR SHA-256 | `75A9A3CE3F1DC75B103EEF9B6C467B303F455F3BF4912D8FB746AE46F5844042`；所有旧版本校验文件保持不变 |
-| 最近验证 | v1.1.4 全依赖及无 Xaero 构建均通过；`verifyUnitTests` 49/49，地图原生 smoke 与兼容场景 3/3 通过；真实客户端/目标服务器仍未验证 |
+| 构建 JAR SHA-256 | v1.1.5 候选 `EFAB78BFC7803A21B30E39419A433CBF423B4DF61036FEDB8BC1F0FD185706C9`；所有旧版本校验文件保持不变 |
+| 最近验证 | v1.1.5 全依赖及无 Xaero 构建均通过；`verifyUnitTests` 53/53，`MapCompatibilitySmoke` 7/7；完整 Xaero 的 MapNativeSmoke 通过；真实客户端/目标服务器仍未验证 |
 | 真实客户端联调 | 隔离 `runClient` 已到渲染资源加载阶段，无 Tool Set 崩溃；热键页/Simes 页视觉与目标服务器功能仍需人工验收；不得启动、修改或复用用户客户端 |
 
 ## 2. 总体架构
@@ -104,12 +104,13 @@
 - 地图板块位于发酵与厨具下方，默认组合键为 `\` + `5`。
 - 已取得 SIMMC Map 授权并有仓库：`https://github.com/MurphyPotato/SIMMC-Xaero-Map`；本地源文件位于 `I:\mc smc服\simmc moster hunter 2.0\simmc-tool-set_project\子版块源码or源文件or接口\SIMMC-Xaero-Map-main`。
 - 已验证运行组合：Xaero World Map `1.39.13` + Xaero Minimap `25.2.16`，Minecraft 1.21.8 Fabric。
-- 两个 Xaero 都存在且版本不匹配时：显示“版本不完全兼容，可能启动失败，且可能导致游戏崩溃”的警告，并继续尝试运行地图子模块；失败时只停用地图，不得影响其它模块。
+- v1.1.5 第一阶段对两个 Xaero 都存在但版本不匹配/未知的组合显示安全停用警告，不应用 `MixinGuiMap` 和 `MixinMinimapModuleRenderer`，不初始化内置地图；其它模块继续运行。第二阶段能力探测和 ABI 适配尚未实现。
 - 缺少任一 Xaero 时显示缺失警告，地图实现不启动；其它子模块继续运行。
 - 独立 SIMMC Map 已安装时由独立版接管，整合包不得重复加载内部地图实现。
 - SIMMC 覆盖层同时面向 Xaero 世界地图和小地图；缩放、拖动、点击和鼠标归属仍由 Xaero 处理。
 - 地图连接、刷新、公开标记、切服/离服清理和运行失败状态必须在地图页和诊断中可见。
 - Xaero 与 Mod Menu 外部 JAR 不打包进 Tool Set；`jsoup 1.18.3` 作为构建所需嵌入依赖保留。
+- 第一阶段只保留已验证组合 Xaero World Map `1.39.13` + Minimap `25.2.16` 的地图行为；不能将安全停用误称为未知版本功能兼容。
 - 安装 Mod Menu 时，其 Tool Set 配置入口必须直接打开总控首页并保留同一个父 Screen；没有 Mod Menu 时构建必须剔除入口类和 `fabric.mod.json` 中的对应 entrypoint。
 
 ## 7. 配置、诊断与隐私
@@ -157,6 +158,12 @@
 - P1.4 已新增四 HUD 同屏布局页，支持选择、拖动、50%-200% 独立缩放、10% 步进、单项和全部重置。
 - 全依赖与无 Xaero 两套构建均通过；全依赖 `verifyUnitTests` 49/49、`MapNativeSmoke` 和 `MapCompatibilitySmoke` 3/3 通过。真实客户端和目标服务器行为仍未验证。
 
+### v1.1.5 本轮已确认与修复
+
+- P2.1 恢复授权 Simes 冷却片段的 `matcher.find()` 语义；混合 Action Bar 首包立即建立冷却状态，未匹配残余保留给原版 Action Bar；公共冷却链保持独立。53/53 契约测试通过，目标服务器仍需实测。
+- P0.1 第一阶段已完成：仅已验证 Xaero 组合应用地图 Mixin 并初始化地图；不兼容、未知、缺失、外置地图和旧 experimental 设置均安全停用内置地图，状态页显示其他模块继续运行。
+- v1.1.5 全依赖与无 Xaero 构建均通过，MapCompatibilitySmoke 7/7；候选 JAR 已放入外部 `release/` 并匹配 SHA-256。未创建标签或线上 Release。
+
 ### v1.1.3 本轮已确认与修复
 
 - P4 文案清单已静态逐条对照：旧鼠标/服务器/外置接管/地图依赖/未来授权说明已删除或改写；奥术、发酵与厨具、SIMMC Map 作者说明已加入；工具组原生入口说明已统一。
@@ -176,7 +183,8 @@
 - `I:\mc 起源服务器\versions\1.21.8-Fabric 0.17.3` 是用户客户端，只由用户手动启动和验收；Codex 不得启动、修改或复用该目录。必要的开发期运行验证只能使用仓库隔离 `run/` 目录和当前自建产物。
 - 验证标题界面、世界内、背包、容器和地图页面的点击、Esc、返回父 Screen 与容器拖拽。
 - 验证奥术实际使用后的 HUD、发酵/厨具实际提示和服务器切换清理。
-- 验证 Xaero 已验证组合下世界地图和小地图覆盖确实可见，并记录不兼容版本启动结果。
+- 验证 Xaero 已验证组合下世界地图和小地图覆盖确实可见；用隔离客户端确认不兼容/未知组合安全启动且其它模块可用。
+- 实现第二阶段 Xaero 能力探测、ABI 指纹和 World Map/Minimap 独立适配器；本轮未实现。
 - 完成 mod 3 外置桥接的真实构建、提交/版本事实确认和整合客户端矩阵。
 - 测试干净安装、仅内置模块、mod 3 外置、mod 4 外置、两者外置、Simes 外置、Xaero 缺失和不兼容组合。
 - v1.1.1 的本地候选 JAR 和 `.jar.sha256` 保持不变；v1.1.2 创建新候选后，创建 `v1.1.2-fabric-mc1.21.8` 标签或线上 Release 前仍须完成真实客户端证据。
