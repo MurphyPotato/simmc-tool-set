@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -34,6 +35,78 @@ final class ArcaneHudContractTest {
         assertEquals(2.5, values.get(0).remaining());
         assertEquals("治愈术", values.get(1).name());
         assertEquals("ready", result.residual());
+    }
+
+    @Test
+    void parsesMixedFirstPacketAndPreservesInputAndMouseHints() {
+        ArcaneCooldownParser.Result result = ArcaneCooldownParser.parse(
+                "雷击 冷却剩余：4.7s 按 Shift 取消吟唱｜治愈术 冷却剩余: 54.1 秒 | [鼠标提示]");
+
+        assertEquals(List.of(
+                new ArcaneCooldownParser.Value("雷击", 4.7),
+                new ArcaneCooldownParser.Value("治愈术", 54.1)), result.values());
+        assertEquals("按 Shift 取消吟唱 | [鼠标提示]", result.residual());
+    }
+
+    @Test
+    void acceptsLicensedSeparatorColonAndUnitVariantsWithoutSimilarTextFalsePositives() {
+        ArcaneCooldownParser.Result variants = ArcaneCooldownParser.parse(
+                "雷电射线冷却剩余:0.9S|火球术 冷却 剩余： 1 秒｜引力术冷却剩余：18s");
+        assertEquals(List.of("雷电射线", "火球术", "引力术"),
+                variants.values().stream().map(ArcaneCooldownParser.Value::name).toList());
+        assertEquals("", variants.residual());
+
+        for (String nonCooldown : List.of(
+                "雷击 冷却：4.7s", "雷击 剩余：4.7s", "雷击 冷却剩余：约4.7s", "释放 御风术")) {
+            ArcaneCooldownParser.Result result = ArcaneCooldownParser.parse(nonCooldown);
+            assertTrue(result.values().isEmpty(), nonCooldown);
+            assertEquals(nonCooldown, result.residual());
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void firstMixedCooldownPacketCreatesVisibleStateForNextRenderFrame() throws Exception {
+        ArcaneCooldownParser.Result firstPacket = ArcaneCooldownParser.parse(
+                "雷击 冷却剩余：4.7s 按 Shift 取消吟唱");
+        Method update = SimesArcaneHud.class.getDeclaredMethod("updateCooldowns", List.class);
+        Field cooldownsField = SimesArcaneHud.class.getDeclaredField("COOLDOWNS");
+        update.setAccessible(true);
+        cooldownsField.setAccessible(true);
+        Map<String, Object> cooldowns = (Map<String, Object>) cooldownsField.get(null);
+        try {
+            cooldowns.clear();
+            update.invoke(null, firstPacket.values());
+
+            Object cooldown = cooldowns.get("雷击");
+            assertTrue(cooldown != null);
+            Field createdAtField = cooldown.getClass().getDeclaredField("createdAt");
+            Method remainingAt = cooldown.getClass().getDeclaredMethod("remainingAt", long.class);
+            Method alpha = cooldown.getClass().getDeclaredMethod("alpha", long.class);
+            createdAtField.setAccessible(true);
+            remainingAt.setAccessible(true);
+            alpha.setAccessible(true);
+            long nextFrame = createdAtField.getLong(cooldown) + 16_666_667L;
+            assertTrue((double) remainingAt.invoke(cooldown, nextFrame) > 4.6);
+            assertTrue((float) alpha.invoke(cooldown, nextFrame) > 0.0f);
+        } finally {
+            cooldowns.clear();
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publicCooldownReleaseMessageRemainsAnIndependentPath() throws Exception {
+        Field releasedField = SimesArcaneStatusHud.class.getDeclaredField("RELEASED");
+        Field cooldownsField = SimesArcaneStatusHud.class.getDeclaredField("GLOBAL_COOLDOWNS");
+        releasedField.setAccessible(true);
+        cooldownsField.setAccessible(true);
+
+        Pattern released = (Pattern) releasedField.get(null);
+        Map<String, Double> globalCooldowns = (Map<String, Double>) cooldownsField.get(null);
+        assertTrue(released.matcher("释放 御风术").matches());
+        assertEquals(40.0, globalCooldowns.get("御风术"));
+        assertTrue(ArcaneCooldownParser.parse("释放 御风术").values().isEmpty());
     }
 
     @Test
