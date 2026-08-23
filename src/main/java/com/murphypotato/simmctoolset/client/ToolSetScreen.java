@@ -140,7 +140,6 @@ public final class ToolSetScreen extends Screen {
     }
 
     private void addMapControls(int x, int y, int width) {
-        MapCompatibility.Status status = MapCompatibility.status();
         if (ToolSetClient.isMapInternal()) {
             int controlWidth = mapControlWidth(width);
             addDrawableChild(toggle(x, y, controlWidth, "SIMMC 覆盖层（世界地图与小地图）", ToolSetClient.mapWorldOverlayEnabled(),
@@ -153,19 +152,6 @@ public final class ToolSetScreen extends Screen {
                 ToolSetClient.refreshMap();
                 DiagnosticLog.info("已从工具组地图页面请求刷新");
             }).dimensions(x, y + 72, controlWidth, 20).build());
-        }
-        if (status.canEnableExperimental()) {
-            addDrawableChild(ButtonWidget.builder(Text.literal("尝试兼容模式（需重启）"), button -> {
-                ToolSetSettings.setMapExperimentalEnabled(true);
-                DiagnosticLog.info("已开启 Xaero 实验兼容模式，重启后尝试加载");
-                clearAndInit();
-            }).dimensions(x, y + (ToolSetClient.isMapInternal() ? 96 : 0), Math.min(300, width), 20).build());
-        }
-        if (status.experimentalEnabled()) {
-            addDrawableChild(ButtonWidget.builder(Text.literal("关闭兼容模式"), button -> {
-                ToolSetSettings.setMapExperimentalEnabled(false);
-                clearAndInit();
-            }).dimensions(x, y + (ToolSetClient.isMapInternal() ? 120 : 24), Math.min(220, width), 20).build());
         }
     }
 
@@ -348,14 +334,13 @@ public final class ToolSetScreen extends Screen {
         List<String> lines = new ArrayList<>(List.of(
                 "地图状态：" + status.displayName(),
                 status.detail(),
-                "运行状态：" + ToolSetClient.mapRuntimeStatus(),
-                "SIMMC 覆盖层会同时绘制到 Xaero 世界地图和小地图；缩放、拖动、点击和鼠标操作仍由 Xaero 处理。",
-                "点击“立即刷新地图数据”，打开 Xaero 世界地图即可看到标记；小地图覆盖会在同一服务器的主世界自动显示。",
-                "此版块自SIMMC-Xaero-Map mod中移植，原作者YeShengQiu。"
+                "运行状态：" + ToolSetClient.mapRuntimeStatus()
             ));
-        if (status.canEnableExperimental() || status.experimentalEnabled()) {
-            lines.add("兼容模式只会在重启后尝试，其他子模块仍可正常使用。");
+        if (ToolSetClient.isMapInternal()) {
+            lines.add("SIMMC 覆盖层会同时绘制到 Xaero 世界地图和小地图；缩放、拖动、点击和鼠标操作仍由 Xaero 处理。");
+            lines.add("点击“立即刷新地图数据”，打开 Xaero 世界地图即可看到标记；小地图覆盖会在同一服务器的主世界自动显示。");
         }
+        lines.add("此版块自SIMMC-Xaero-Map mod中移植，原作者YeShengQiu。");
         return List.copyOf(lines);
     }
 

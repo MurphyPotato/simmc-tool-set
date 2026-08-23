@@ -12,8 +12,9 @@ public final class MapCompatibility {
     public static final String EXTERNAL_MAP_ID = "simmcmap";
     public static final String VERIFIED_WORLD_MAP_VERSION = "1.39.13";
     public static final String VERIFIED_MINIMAP_VERSION = "25.2.16";
-    private static final String VERSION_WARNING =
-            "版本不完全兼容，可能启动失败，且可能导致游戏崩溃，如遇上述情况，请确保Xaero World Map 1.39.13 + Xaero Minimap 25.2.16。";
+    private static final String SAFE_DISABLE_WARNING =
+            "检测到未经验证的 Xaero 版本组合。地图已安全停用，未应用 MixinGuiMap 和 "
+                    + "MixinMinimapModuleRenderer；其他 Tool Set 模块继续启动。";
 
     private MapCompatibility() {
     }
@@ -27,14 +28,22 @@ public final class MapCompatibility {
     }
 
     public static boolean shouldInitializeInternalMap() {
-        return status().shouldLoadMap();
+        return shouldInitializeInternalMap(status());
     }
 
     public static boolean shouldApplyInternalMapMixins() {
-        return status().shouldLoadMap();
+        return shouldApplyInternalMapMixins(status());
     }
 
-    static Status evaluate(String worldMapVersion, String minimapVersion, boolean experimental) {
+    static boolean shouldInitializeInternalMap(Status status) {
+        return status.shouldLoadMap();
+    }
+
+    static boolean shouldApplyInternalMapMixins(Status status) {
+        return status.shouldApplyMixins();
+    }
+
+    static Status evaluate(String worldMapVersion, String minimapVersion, boolean ignoredExperimental) {
         if (worldMapVersion == null && minimapVersion == null) return Status.missingBoth();
         if (worldMapVersion == null) return Status.missingWorldMap(minimapVersion);
         if (minimapVersion == null) return Status.missingMinimap(worldMapVersion);
@@ -42,8 +51,7 @@ public final class MapCompatibility {
                 && VERIFIED_MINIMAP_VERSION.equals(minimapVersion)) {
             return Status.verified(worldMapVersion, minimapVersion);
         }
-        return experimental ? Status.experimental(worldMapVersion, minimapVersion)
-                : Status.incompatible(worldMapVersion, minimapVersion);
+        return Status.incompatible(worldMapVersion, minimapVersion);
     }
 
     private static Optional<String> versionOf(String modId) {
@@ -58,10 +66,6 @@ public final class MapCompatibility {
     public record Status(Mode mode, String worldMapVersion, String minimapVersion, boolean experimentalEnabled) {
         static Status verified(String worldMapVersion, String minimapVersion) {
             return new Status(Mode.VERIFIED, worldMapVersion, minimapVersion, false);
-        }
-
-        static Status experimental(String worldMapVersion, String minimapVersion) {
-            return new Status(Mode.EXPERIMENTAL, worldMapVersion, minimapVersion, true);
         }
 
         static Status incompatible(String worldMapVersion, String minimapVersion) {
@@ -85,19 +89,22 @@ public final class MapCompatibility {
         }
 
         public boolean shouldLoadMap() {
-            // A version mismatch is explicitly attempted after warning the player.
-            return mode == Mode.VERIFIED || mode == Mode.EXPERIMENTAL || mode == Mode.INCOMPATIBLE;
+            return mode == Mode.VERIFIED;
+        }
+
+        public boolean shouldApplyMixins() {
+            return mode == Mode.VERIFIED;
         }
 
         public boolean canEnableExperimental() {
-            return mode == Mode.INCOMPATIBLE;
+            return false;
         }
 
         public String displayName() {
             return switch (mode) {
                 case VERIFIED -> "已验证兼容";
-                case EXPERIMENTAL -> "已开启实验兼容，需重启";
-                case INCOMPATIBLE -> "兼容性警告";
+                case EXPERIMENTAL -> "实验兼容已被安全门控停用";
+                case INCOMPATIBLE -> "兼容性警告：地图已安全停用";
                 case MISSING_WORLD_MAP -> "缺少 Xaero 世界地图";
                 case MISSING_MINIMAP -> "缺少 Xaero 小地图";
                 case MISSING_BOTH -> "缺少 Xaero 世界地图和小地图";
@@ -108,9 +115,10 @@ public final class MapCompatibility {
         public String detail() {
             return switch (mode) {
                 case VERIFIED -> "Xaero World Map " + worldMapVersion + " + Xaero Minimap " + minimapVersion + ".";
-                case EXPERIMENTAL -> VERSION_WARNING + "将在重启后尝试加载地图子模块。";
+                case EXPERIMENTAL -> SAFE_DISABLE_WARNING + "旧实验兼容设置不会绕过此安全门控。";
                 case INCOMPATIBLE -> "检测到 Xaero World Map " + worldMapVersion + " + Xaero Minimap "
-                        + minimapVersion + "。" + VERSION_WARNING + "当前仍会尝试运行地图子模块。";
+                        + minimapVersion + "。" + SAFE_DISABLE_WARNING
+                        + "旧实验兼容设置不会绕过此安全门控。";
                 case MISSING_WORLD_MAP -> "检测到 Xaero Minimap " + minimapVersion + "，但缺少 Xaero World Map "
                         + VERIFIED_WORLD_MAP_VERSION + "；地图子模块不会启动。";
                 case MISSING_MINIMAP -> "检测到 Xaero World Map " + worldMapVersion + "，但缺少 Xaero Minimap "

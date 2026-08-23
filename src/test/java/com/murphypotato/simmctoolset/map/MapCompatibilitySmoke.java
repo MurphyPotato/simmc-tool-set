@@ -16,25 +16,56 @@ public final class MapCompatibilitySmoke {
         MapCompatibility.Status verified = MapCompatibility.evaluate("1.39.13", "25.2.16", false);
         require(verified.mode() == MapCompatibility.Mode.VERIFIED, "verified pair mode");
         require(verified.shouldLoadMap(), "verified pair loads");
+        require(verified.shouldApplyMixins(), "verified pair applies mixins");
+        require(MapCompatibility.shouldInitializeInternalMap(verified), "verified pair initializes map");
+        require(MapCompatibility.shouldApplyInternalMapMixins(verified), "verified pair mixin gate");
         require(!verified.canEnableExperimental(), "verified pair needs no experimental mode");
 
         MapCompatibility.Status incompatible = MapCompatibility.evaluate("1.39.12", "25.2.16", false);
         require(incompatible.mode() == MapCompatibility.Mode.INCOMPATIBLE, "incompatible pair mode");
-        require(incompatible.shouldLoadMap(), "incompatible pair is attempted after warning");
-        require(incompatible.detail().contains("版本不完全兼容"), "compatibility warning text");
-        require(incompatible.detail().contains("可能导致游戏崩溃"), "crash warning text");
+        require(!incompatible.shouldLoadMap(), "incompatible pair does not initialize map");
+        require(!incompatible.shouldApplyMixins(), "incompatible pair does not apply mixins");
+        require(!MapCompatibility.shouldInitializeInternalMap(incompatible), "incompatible initialization gate");
+        require(!MapCompatibility.shouldApplyInternalMapMixins(incompatible), "incompatible mixin gate");
+        require(incompatible.displayName().contains("兼容性警告"), "compatibility warning title");
+        require(incompatible.detail().contains("地图已安全停用"), "safe disable detail");
+        require(incompatible.detail().contains("其他 Tool Set 模块继续启动"), "other modules unaffected detail");
+
+        MapCompatibility.Status legacyExperimental = MapCompatibility.evaluate("1.44.2", "26.4.2", true);
+        require(legacyExperimental.mode() == MapCompatibility.Mode.INCOMPATIBLE,
+                "legacy experimental setting stays incompatible");
+        require(!legacyExperimental.shouldLoadMap(), "legacy experimental setting cannot initialize map");
+        require(!legacyExperimental.shouldApplyMixins(), "legacy experimental setting cannot apply mixins");
+        require(!legacyExperimental.canEnableExperimental(), "experimental bypass is unavailable");
+        require(!legacyExperimental.experimentalEnabled(), "experimental bypass is not enabled");
 
         MapCompatibility.Status missing = MapCompatibility.evaluate(null, "25.2.16", false);
         require(missing.mode() == MapCompatibility.Mode.MISSING_WORLD_MAP, "missing world map mode");
         require(!missing.shouldLoadMap(), "missing world map does not load");
+        require(!missing.shouldApplyMixins(), "missing world map does not apply mixins");
         require(!missing.detail().isBlank(), "missing dependency detail");
+
+        MapCompatibility.Status missingMinimap = MapCompatibility.evaluate("1.39.13", null, false);
+        require(missingMinimap.mode() == MapCompatibility.Mode.MISSING_MINIMAP, "missing minimap mode");
+        require(!missingMinimap.shouldLoadMap(), "missing minimap does not load");
+        require(!missingMinimap.shouldApplyMixins(), "missing minimap does not apply mixins");
+
+        MapCompatibility.Status missingBoth = MapCompatibility.evaluate(null, null, false);
+        require(missingBoth.mode() == MapCompatibility.Mode.MISSING_BOTH, "missing both mode");
+        require(!missingBoth.shouldLoadMap(), "missing both does not load");
+        require(!missingBoth.shouldApplyMixins(), "missing both does not apply mixins");
+
+        MapCompatibility.Status external = MapCompatibility.Status.externalMap();
+        require(external.mode() == MapCompatibility.Mode.EXTERNAL_MAP, "external map mode");
+        require(!external.shouldLoadMap(), "external map isolates internal initialization");
+        require(!external.shouldApplyMixins(), "external map isolates internal mixins");
 
         try {
             nativeMapSmoke();
         } catch (Exception exception) {
             throw new AssertionError("native map smoke", exception);
         }
-        System.out.println("MapCompatibilitySmoke: 3 scenarios passed");
+        System.out.println("MapCompatibilitySmoke: 7 scenarios passed");
     }
 
     private static void nativeMapSmoke() throws Exception {

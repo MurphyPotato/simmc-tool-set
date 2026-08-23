@@ -163,7 +163,7 @@ public final class ToolSetClient implements ClientModInitializer {
     }
 
     public static String mapRuntimeStatus() {
-        if (!mapInternal) return "地图实现未加载（请先安装并确认 Xaero 两个版本）";
+        if (!mapInternal) return "地图未初始化；其他 Tool Set 模块继续运行";
         return MapModule.runtimeStatus();
     }
 
