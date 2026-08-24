@@ -28,12 +28,23 @@ def optionalLocalMod = { String displayName, String pattern ->
     matches ? matches[0] : null
 }
 
-def xaeroWorldMapJar = optionalLocalMod(
-    "Xaero World Map 1.39.13 for Fabric 1.21.8",
+def explicitXaero = { String propertyName, String displayName, String defaultPattern ->
+    def configured = findProperty(propertyName)
+    if (configured != null) {
+        def selected = file(configured)
+        if (!selected.isFile()) throw new GradleException("${displayName} JAR does not exist: ${selected}")
+        return selected
+    }
+    optionalLocalMod(displayName, defaultPattern)
+}
+def xaeroWorldMapJar = explicitXaero(
+    "xaero_world_map_jar",
+    "Xaero World Map",
     /(?i)^XaerosWorldMap_1\.39\.13_Fabric_1\.21\.8\.jar$/
 )
-def xaeroMinimapJar = optionalLocalMod(
-    "Xaero Minimap 25.2.16 for Fabric 1.21.8",
+def xaeroMinimapJar = explicitXaero(
+    "xaero_minimap_jar",
+    "Xaero Minimap",
     /(?i)^Xaeros_Minimap_25\.2\.16_Fabric_1\.21\.8\.jar$/
 )
 def xaeroMapAvailable = xaeroWorldMapJar != null && xaeroMinimapJar != null

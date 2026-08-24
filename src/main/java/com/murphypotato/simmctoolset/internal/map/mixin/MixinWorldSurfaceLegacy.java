@@ -18,7 +18,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import xaero.map.gui.MapMouseButtonPress;
-import xaero.map.render.util.GuiRenderUtil;
 
 /** World A-C surface anchor. It has no link to profiled Xaero classes. */
 @Mixin(targets = "xaero.map.gui.GuiMap", priority = 1100, remap = false)

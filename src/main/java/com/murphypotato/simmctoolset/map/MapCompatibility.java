@@ -49,7 +49,8 @@ public final class MapCompatibility {
         if (!status().shouldLoadMap()) return false;
         XaeroCapabilitySnapshot capabilities = capabilities();
         if (mixinClassName.endsWith("MixinGuiMap")) {
-            return capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_VIEW);
+            return capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_VIEW)
+                    && capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_NAVIGATION);
         }
         if (mixinClassName.endsWith("MixinWorldSurfaceLegacy")) {
             return capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_SURFACE_LEGACY);
@@ -65,8 +66,7 @@ public final class MapCompatibility {
         }
         if (mixinClassName.endsWith("MixinMinimapModuleRenderer")) {
             return capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_RENDER_COMMON)
-                    && (capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_HOOK_DEPTH_TRACE)
-                    || capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_HOOK_PIP))
+                    && capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_HOOK_PIP)
                     && (capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_SHAPE_LEGACY)
                     || capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_SHAPE_PROFILE));
         }
@@ -91,11 +91,11 @@ public final class MapCompatibility {
 
     private static boolean supportsRuntime(XaeroCapabilitySnapshot capabilities) {
         boolean world = capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_VIEW)
+                && capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_NAVIGATION)
                 && (capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_SURFACE_LEGACY)
                 || capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_SURFACE_PROFILED));
         boolean minimap = capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_RENDER_COMMON)
-                && (capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_HOOK_DEPTH_TRACE)
-                || capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_HOOK_PIP))
+                && capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_HOOK_PIP)
                 && (capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_SHAPE_LEGACY)
                 || capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_SHAPE_PROFILE));
         return world && minimap;
