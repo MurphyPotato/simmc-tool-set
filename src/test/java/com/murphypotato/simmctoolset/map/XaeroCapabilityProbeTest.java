@@ -63,8 +63,10 @@ class XaeroCapabilityProbeTest {
 
     @Test
     void detectsWorldDWithOtherConfigReadsAndRejectsDuplicateTargetChains() {
-        assertCapabilities(new Fixture().worldD(1, 1, 3),
+        Fixture executable = new Fixture().worldD(1, 1, 3);
+        assertCapabilities(executable,
                 WORLD_VIEW, WORLD_SURFACE_PROFILED, WORLD_NAVIGATION, WORLD_ZOOM_PROFILED);
+        assertDoesNotThrow(executable::executeWorldProfiledReads);
 
         XaeroCapabilitySnapshot duplicate =
                 XaeroCapabilityProbe.probe(new Fixture().worldD(2, 2, 2).loader());
@@ -72,6 +74,18 @@ class XaeroCapabilityProbeTest {
         assertTrue(duplicate.has(WORLD_NAVIGATION));
         assertFalse(duplicate.has(WORLD_SURFACE_PROFILED));
         assertFalse(duplicate.has(WORLD_ZOOM_PROFILED));
+    }
+
+    @Test
+    void rejectsVerifierValidBrokenWorldProfileChains() {
+        Fixture fixture = new Fixture().worldDWithBrokenTargetChains();
+        XaeroCapabilitySnapshot broken =
+                XaeroCapabilityProbe.probe(fixture.loader());
+        assertTrue(broken.has(WORLD_VIEW));
+        assertTrue(broken.has(WORLD_NAVIGATION));
+        assertFalse(broken.has(WORLD_SURFACE_PROFILED));
+        assertFalse(broken.has(WORLD_ZOOM_PROFILED));
+        assertDoesNotThrow(fixture::executeWorldProfiledReads);
     }
 
     @Test
@@ -85,6 +99,9 @@ class XaeroCapabilityProbeTest {
                 .has(MINIMAP_SHAPE_PROFILE));
         assertFalse(XaeroCapabilityProbe.probe(new Fixture().minimapProfile(2, 2).loader())
                 .has(MINIMAP_SHAPE_PROFILE));
+        Fixture brokenShape = new Fixture().minimapProfileWithBrokenShapeChain();
+        assertFalse(XaeroCapabilityProbe.probe(brokenShape.loader()).has(MINIMAP_SHAPE_PROFILE));
+        assertDoesNotThrow(() -> brokenShape.verifyClass(MINIMAP_RENDERER));
     }
 
     @Test
@@ -157,6 +174,17 @@ class XaeroCapabilityProbeTest {
             if (name.startsWith("xaero.")) xaeroClassLoadRequested = true;
             return super.loadClass(name, resolve);
         }
+
+        @Override
+        protected Class<?> findClass(String name) throws ClassNotFoundException {
+            byte[] bytes = resources.get(name.replace('.', '/') + ".class");
+            if (bytes == null) throw new ClassNotFoundException(name);
+            return defineClass(name, bytes, 0, bytes.length);
+        }
+
+        private Class<?> loadVerifiedClass(String name) throws ClassNotFoundException {
+            return loadClass(name, true);
+        }
     }
 
     private static final class Fixture {
@@ -165,18 +193,24 @@ class XaeroCapabilityProbeTest {
         private Fixture world(boolean legacySurface, boolean profiledSurface,
                               boolean legacyZoom, boolean profiledZoom, int profiledAnchorCount) {
             return world(legacySurface, profiledSurface, legacyZoom, profiledZoom,
-                    profiledAnchorCount, profiledZoom ? 1 : 0, 0);
+                    profiledAnchorCount, profiledZoom ? 1 : 0, 0, false, false);
         }
 
         private Fixture worldD(int surfaceAnchorCount, int zoomAnchorCount, int otherConfigReads) {
             return world(false, true, false, true,
-                    surfaceAnchorCount, zoomAnchorCount, otherConfigReads);
+                    surfaceAnchorCount, zoomAnchorCount, otherConfigReads, false, false);
+        }
+
+        private Fixture worldDWithBrokenTargetChains() {
+            return world(false, true, false, true, 1, 1, 2, true, true);
         }
 
         private Fixture world(boolean legacySurface, boolean profiledSurface,
                               boolean legacyZoom, boolean profiledZoom, int profiledAnchorCount,
-                              int profiledZoomAnchorCount, int otherConfigReads) {
+                              int profiledZoomAnchorCount, int otherConfigReads,
+                              boolean brokenSurfaceChain, boolean brokenZoomChain) {
             clazz(GUI_MAP, visitor -> {
+                method(visitor, "<init>", "()V", code -> { });
                 field(visitor, "cameraX", "D");
                 field(visitor, "cameraZ", "D");
                 field(visitor, "scale", "D");
@@ -194,9 +228,11 @@ class XaeroCapabilityProbeTest {
                     }
                     if (profiledSurface) {
                         for (int i = 0; i < otherConfigReads; i++) {
-                            profileBoolean(code, WORLD_OPTIONS, "OTHER_" + i);
+                            profileBoolean(code, WORLD_OPTIONS, "OTHER_" + i, false);
                         }
-                        for (int i = 0; i < profiledAnchorCount; i++) profileBoolean(code, WORLD_OPTIONS, "ARROW");
+                        for (int i = 0; i < profiledAnchorCount; i++) {
+                            profileBoolean(code, WORLD_OPTIONS, "ARROW", brokenSurfaceChain);
+                        }
                     }
                 });
                 method(visitor, "changeZoom", "(DI)V", code -> {
@@ -216,10 +252,11 @@ class XaeroCapabilityProbeTest {
                         code.visitLdcInsn(0.0625d);
                         code.visitInsn(Opcodes.POP2);
                         for (int i = 0; i < otherConfigReads; i++) {
-                            profileBoolean(code, WORLD_OPTIONS, "OTHER_" + i);
+                            profileBoolean(code, WORLD_OPTIONS, "OTHER_" + i, false);
                         }
                         for (int i = 0; i < profiledZoomAnchorCount; i++) {
-                            profileBoolean(code, WORLD_OPTIONS, "UNLIMITED_ZOOM_OUT");
+                            profileBoolean(code, WORLD_OPTIONS,
+                                    "UNLIMITED_ZOOM_OUT", brokenZoomChain);
                         }
                         code.visitLdcInsn(0.001953125d);
                         code.visitInsn(Opcodes.POP2);
@@ -249,22 +286,31 @@ class XaeroCapabilityProbeTest {
                 });
                 clientConfigClasses();
             }
+            clazz("net/minecraft/class_332", visitor -> { });
+            clazz("net/minecraft/class_5321", visitor -> { });
+            clazz("xaero/map/animation/Animation", visitor -> { });
             return this;
         }
 
         private Fixture minimap(boolean depthTrace, boolean pip, boolean legacyShape,
                                 boolean profiledShape, boolean fabricHud) {
             return minimap(depthTrace, pip, legacyShape, profiledShape, fabricHud,
-                    profiledShape ? 1 : 0, 0);
+                    profiledShape ? 1 : 0, 0, false);
         }
 
         private Fixture minimapProfile(int shapeReadCount, int otherConfigReads) {
-            return minimap(false, true, false, true, false, shapeReadCount, otherConfigReads);
+            return minimap(false, true, false, true, false,
+                    shapeReadCount, otherConfigReads, false);
+        }
+
+        private Fixture minimapProfileWithBrokenShapeChain() {
+            return minimap(false, true, false, true, false, 1, 2, true);
         }
 
         private Fixture minimap(boolean depthTrace, boolean pip, boolean legacyShape,
                                 boolean profiledShape, boolean fabricHud,
-                                int shapeReadCount, int otherConfigReads) {
+                                int shapeReadCount, int otherConfigReads,
+                                boolean brokenShapeChain) {
             clazz(MODULE_RENDERER, visitor -> method(visitor, "render", RENDER, code -> {
                 if (depthTrace) {
                     code.visitInsn(Opcodes.ACONST_NULL);
@@ -336,13 +382,14 @@ class XaeroCapabilityProbeTest {
                                 "()Lxaero/lib/client/config/ClientConfigManager;", false);
                         code.visitVarInsn(Opcodes.ASTORE, 13);
                         for (int i = 0; i < otherConfigReads; i++) {
-                            profileInteger(code, 13, "OTHER_" + i);
+                            profileInteger(code, 13, "OTHER_" + i, false);
                         }
                         for (int i = 0; i < shapeReadCount; i++) {
-                            profileInteger(code, 13, "SHAPE");
+                            profileInteger(code, 13, "SHAPE", brokenShapeChain);
                         }
                     });
                 });
+                clazz("xaero/common/graphics/CustomVertexConsumers", visitor -> { });
             }
             if (fabricHud) clazz("xaero/common/events/ModClientEventsFabric", visitor ->
                     method(visitor, "register", "()V", code -> {
@@ -427,18 +474,50 @@ class XaeroCapabilityProbeTest {
             clazz("xaero/lib/common/config/channel/ConfigChannel", visitor -> method(visitor,
                     "getClientConfigManager", "()Lxaero/lib/client/config/ClientConfigManager;",
                     code -> code.visitInsn(Opcodes.ARETURN)));
-            clazz("xaero/lib/client/config/ClientConfigManager", visitor -> method(visitor, "getEffective",
-                    "(Lxaero/lib/common/config/option/ConfigOption;)Ljava/lang/Object;",
-                    code -> code.visitInsn(Opcodes.ARETURN)));
+            clazz("xaero/lib/common/config/option/ConfigOption", visitor -> { });
+            clazz("xaero/lib/common/config/option/BooleanConfigOption",
+                    "xaero/lib/common/config/option/ConfigOption", visitor -> { });
+            clazz("xaero/lib/common/config/option/RangeConfigOption",
+                    "xaero/lib/common/config/option/ConfigOption", visitor -> { });
+            clazz("xaero/lib/client/config/ClientConfigManager", visitor -> {
+                method(visitor, "<init>", "()V", code -> { });
+                method(visitor, "getEffective",
+                        "(Lxaero/lib/common/config/option/ConfigOption;)Ljava/lang/Object;",
+                        code -> {
+                            code.visitInsn(Opcodes.POP);
+                            code.visitFieldInsn(Opcodes.GETSTATIC,
+                                    "java/lang/Boolean", "FALSE", "Ljava/lang/Boolean;");
+                            code.visitInsn(Opcodes.ARETURN);
+                        });
+            });
         }
 
         private ResourceClassLoader loader() {
             return new ResourceClassLoader(resources);
         }
 
+        private void executeWorldProfiledReads() throws ReflectiveOperationException {
+            ResourceClassLoader loader = loader();
+            Class<?> guiMap = loader.loadClass(GUI_MAP.replace('/', '.'));
+            Object instance = guiMap.getConstructor().newInstance();
+            Class<?> drawContext = loader.loadClass("net.minecraft.class_332");
+            guiMap.getMethod("method_25394", drawContext, int.class, int.class, float.class)
+                    .invoke(instance, null, 0, 0, 0.0f);
+            guiMap.getMethod("changeZoom", double.class, int.class)
+                    .invoke(instance, 1.0d, 0);
+        }
+
+        private void verifyClass(String internalName) throws ClassNotFoundException {
+            loader().loadVerifiedClass(internalName.replace('/', '.'));
+        }
+
         private void clazz(String name, Consumer<ClassVisitor> body) {
+            clazz(name, "java/lang/Object", body);
+        }
+
+        private void clazz(String name, String superName, Consumer<ClassVisitor> body) {
             ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-            writer.visit(Opcodes.V21, Opcodes.ACC_PUBLIC, name, null, "java/lang/Object", null);
+            writer.visit(Opcodes.V21, Opcodes.ACC_PUBLIC, name, null, superName, null);
             body.accept(writer);
             writer.visitEnd();
             resources.put(name + ".class", writer.toByteArray());
@@ -470,10 +549,18 @@ class XaeroCapabilityProbeTest {
             method.visitEnd();
         }
 
-        private static void profileBoolean(MethodVisitor method, String owner, String name) {
-            method.visitInsn(Opcodes.ACONST_NULL);
+        private static void profileBoolean(MethodVisitor method, String owner, String name,
+                                           boolean brokenChain) {
+            method.visitTypeInsn(Opcodes.NEW, "xaero/lib/client/config/ClientConfigManager");
+            method.visitInsn(Opcodes.DUP);
+            method.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                    "xaero/lib/client/config/ClientConfigManager", "<init>", "()V", false);
             method.visitFieldInsn(Opcodes.GETSTATIC, owner, name,
                     "Lxaero/lib/common/config/option/BooleanConfigOption;");
+            if (brokenChain) {
+                method.visitInsn(Opcodes.POP);
+                method.visitInsn(Opcodes.ACONST_NULL);
+            }
             method.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "xaero/lib/client/config/ClientConfigManager",
                     "getEffective", "(Lxaero/lib/common/config/option/ConfigOption;)Ljava/lang/Object;", false);
             method.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Boolean");
@@ -481,10 +568,15 @@ class XaeroCapabilityProbeTest {
             method.visitInsn(Opcodes.POP);
         }
 
-        private static void profileInteger(MethodVisitor method, int managerLocal, String name) {
+        private static void profileInteger(MethodVisitor method, int managerLocal, String name,
+                                           boolean brokenChain) {
             method.visitVarInsn(Opcodes.ALOAD, managerLocal);
             method.visitFieldInsn(Opcodes.GETSTATIC, MINIMAP_OPTIONS, name,
                     "Lxaero/lib/common/config/option/RangeConfigOption;");
+            if (brokenChain) {
+                method.visitInsn(Opcodes.POP);
+                method.visitInsn(Opcodes.ACONST_NULL);
+            }
             method.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
                     "xaero/lib/client/config/ClientConfigManager",
                     "getEffective", "(Lxaero/lib/common/config/option/ConfigOption;)Ljava/lang/Object;", false);

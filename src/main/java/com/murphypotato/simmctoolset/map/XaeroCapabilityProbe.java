@@ -3,6 +3,8 @@ package com.murphypotato.simmctoolset.map;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.Handle;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -283,6 +285,21 @@ public final class XaeroCapabilityProbe {
         private MethodVisitor visitor() {
             return new MethodVisitor(Opcodes.ASM9) {
                 @Override
+                public void visitInsn(int opcode) {
+                    instructions.add(opcodeOnly(opcode));
+                }
+
+                @Override
+                public void visitIntInsn(int opcode, int operand) {
+                    instructions.add(opcodeOnly(opcode));
+                }
+
+                @Override
+                public void visitVarInsn(int opcode, int varIndex) {
+                    instructions.add(opcodeOnly(opcode));
+                }
+
+                @Override
                 public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
                     Instruction instruction = new Instruction(opcode, owner, name, descriptor);
                     fields.merge(instruction, 1, Integer::sum);
@@ -298,6 +315,18 @@ public final class XaeroCapabilityProbe {
                 }
 
                 @Override
+                public void visitInvokeDynamicInsn(String name, String descriptor,
+                                                   Handle bootstrapMethodHandle,
+                                                   Object... bootstrapMethodArguments) {
+                    instructions.add(opcodeOnly(Opcodes.INVOKEDYNAMIC));
+                }
+
+                @Override
+                public void visitJumpInsn(int opcode, Label label) {
+                    instructions.add(opcodeOnly(opcode));
+                }
+
+                @Override
                 public void visitTypeInsn(int opcode, String type) {
                     instructions.add(new Instruction(opcode, type, "", ""));
                 }
@@ -305,8 +334,34 @@ public final class XaeroCapabilityProbe {
                 @Override
                 public void visitLdcInsn(Object value) {
                     constants.merge(value, 1, Integer::sum);
+                    instructions.add(opcodeOnly(Opcodes.LDC));
+                }
+
+                @Override
+                public void visitIincInsn(int varIndex, int increment) {
+                    instructions.add(opcodeOnly(Opcodes.IINC));
+                }
+
+                @Override
+                public void visitTableSwitchInsn(int min, int max, Label defaultLabel,
+                                                 Label... labels) {
+                    instructions.add(opcodeOnly(Opcodes.TABLESWITCH));
+                }
+
+                @Override
+                public void visitLookupSwitchInsn(Label defaultLabel, int[] keys, Label[] labels) {
+                    instructions.add(opcodeOnly(Opcodes.LOOKUPSWITCH));
+                }
+
+                @Override
+                public void visitMultiANewArrayInsn(String descriptor, int numDimensions) {
+                    instructions.add(opcodeOnly(Opcodes.MULTIANEWARRAY));
                 }
             };
+        }
+
+        private static Instruction opcodeOnly(int opcode) {
+            return new Instruction(opcode, "", "", "");
         }
 
         private int fieldCount(int opcode, String owner, String name, String descriptor) {
