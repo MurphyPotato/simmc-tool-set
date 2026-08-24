@@ -57,6 +57,7 @@ def modMenuAvailable = modMenuJar != null
 if (!xaeroMapAvailable) {
     logger.lifecycle("Xaero JARs not both present in ${xaeroLibDir}: building without the optional map implementation")
     sourceSets.main.java.exclude("com/murphypotato/simmctoolset/internal/map/**")
+    sourceSets.test.java.exclude("com/murphypotato/simmctoolset/internal/map/**")
 } else {
     logger.lifecycle("Xaero map implementation enabled from ${xaeroLibDir}/${xaeroWorldMapJar.name} and ${xaeroLibDir}/${xaeroMinimapJar.name}")
     if (modMenuJar == null) {
