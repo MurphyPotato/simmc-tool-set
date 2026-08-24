@@ -5,6 +5,7 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -24,11 +25,17 @@ class XaeroCapabilityProbeTest {
     private static final String MODULE_SESSION = "xaero/hud/minimap/module/MinimapSession";
     private static final String MODULE_CONTEXT = "xaero/hud/render/module/ModuleRenderContext";
     private static final String PROCESSOR = "xaero/common/minimap/MinimapProcessor";
+    private static final String MINIMAP_RENDERER = "xaero/common/minimap/render/MinimapRenderer";
+    private static final String MINIMAP_OPTIONS =
+            "xaero/hud/minimap/common/config/option/MinimapProfiledConfigOptions";
     private static final String RENDER =
             "(Lxaero/hud/minimap/module/MinimapSession;Lxaero/hud/render/module/ModuleRenderContext;"
                     + "Lnet/minecraft/class_332;F)V";
     private static final String OUTSIDE_PIP =
             "(Lxaero/hud/minimap/module/MinimapSession;IIIIDFIFLnet/minecraft/class_332;)V";
+    private static final String RENDER_MINIMAP =
+            "(Lxaero/hud/minimap/module/MinimapSession;Lxaero/common/minimap/MinimapProcessor;"
+                    + "IIIIDFIFLxaero/common/graphics/CustomVertexConsumers;)V";
 
     @Test
     void detectsLegacyAndProfiledFamilies() {
@@ -52,6 +59,32 @@ class XaeroCapabilityProbeTest {
         Fixture depthTrace = new Fixture().minimap(true, false, true, false, false);
         assertCapabilities(depthTrace,
                 MINIMAP_RENDER_COMMON, MINIMAP_HOOK_DEPTH_TRACE, MINIMAP_SHAPE_LEGACY);
+    }
+
+    @Test
+    void detectsWorldDWithOtherConfigReadsAndRejectsDuplicateTargetChains() {
+        assertCapabilities(new Fixture().worldD(1, 1, 3),
+                WORLD_VIEW, WORLD_SURFACE_PROFILED, WORLD_NAVIGATION, WORLD_ZOOM_PROFILED);
+
+        XaeroCapabilitySnapshot duplicate =
+                XaeroCapabilityProbe.probe(new Fixture().worldD(2, 2, 2).loader());
+        assertTrue(duplicate.has(WORLD_VIEW));
+        assertTrue(duplicate.has(WORLD_NAVIGATION));
+        assertFalse(duplicate.has(WORLD_SURFACE_PROFILED));
+        assertFalse(duplicate.has(WORLD_ZOOM_PROFILED));
+    }
+
+    @Test
+    void detectsMinimapBAndCAndRejectsBrokenProfileShapeReads() {
+        assertCapabilities(new Fixture().minimap(false, true, true, false, false),
+                MINIMAP_RENDER_COMMON, MINIMAP_HOOK_PIP, MINIMAP_SHAPE_LEGACY);
+        assertCapabilities(new Fixture().minimapProfile(1, 3),
+                MINIMAP_RENDER_COMMON, MINIMAP_HOOK_PIP, MINIMAP_SHAPE_PROFILE);
+
+        assertFalse(XaeroCapabilityProbe.probe(new Fixture().minimapProfile(0, 2).loader())
+                .has(MINIMAP_SHAPE_PROFILE));
+        assertFalse(XaeroCapabilityProbe.probe(new Fixture().minimapProfile(2, 2).loader())
+                .has(MINIMAP_SHAPE_PROFILE));
     }
 
     @Test
@@ -131,6 +164,18 @@ class XaeroCapabilityProbeTest {
 
         private Fixture world(boolean legacySurface, boolean profiledSurface,
                               boolean legacyZoom, boolean profiledZoom, int profiledAnchorCount) {
+            return world(legacySurface, profiledSurface, legacyZoom, profiledZoom,
+                    profiledAnchorCount, profiledZoom ? 1 : 0, 0);
+        }
+
+        private Fixture worldD(int surfaceAnchorCount, int zoomAnchorCount, int otherConfigReads) {
+            return world(false, true, false, true,
+                    surfaceAnchorCount, zoomAnchorCount, otherConfigReads);
+        }
+
+        private Fixture world(boolean legacySurface, boolean profiledSurface,
+                              boolean legacyZoom, boolean profiledZoom, int profiledAnchorCount,
+                              int profiledZoomAnchorCount, int otherConfigReads) {
             clazz(GUI_MAP, visitor -> {
                 field(visitor, "cameraX", "D");
                 field(visitor, "cameraZ", "D");
@@ -143,9 +188,14 @@ class XaeroCapabilityProbeTest {
                 method(visitor, "getScaleMultiplier", "(I)D", code -> code.visitInsn(Opcodes.DRETURN));
                 method(visitor, "method_25394", "(Lnet/minecraft/class_332;IIF)V", code -> {
                     if (legacySurface) {
+                        code.visitInsn(Opcodes.ACONST_NULL);
                         code.visitFieldInsn(Opcodes.GETFIELD, "xaero/map/settings/ModSettings", "renderArrow", "Z");
+                        code.visitInsn(Opcodes.POP);
                     }
                     if (profiledSurface) {
+                        for (int i = 0; i < otherConfigReads; i++) {
+                            profileBoolean(code, WORLD_OPTIONS, "OTHER_" + i);
+                        }
                         for (int i = 0; i < profiledAnchorCount; i++) profileBoolean(code, WORLD_OPTIONS, "ARROW");
                     }
                 });
@@ -157,6 +207,7 @@ class XaeroCapabilityProbeTest {
                         code.visitInsn(Opcodes.POP2);
                     }
                     if (profiledZoom) {
+                        code.visitVarInsn(Opcodes.ALOAD, 0);
                         code.visitMethodInsn(Opcodes.INVOKEVIRTUAL, GUI_MAP, "applyZoomLimits", "()V", false);
                     }
                 });
@@ -164,7 +215,12 @@ class XaeroCapabilityProbeTest {
                     method(visitor, "applyZoomLimits", "()V", code -> {
                         code.visitLdcInsn(0.0625d);
                         code.visitInsn(Opcodes.POP2);
-                        profileBoolean(code, WORLD_OPTIONS, "UNLIMITED_ZOOM_OUT");
+                        for (int i = 0; i < otherConfigReads; i++) {
+                            profileBoolean(code, WORLD_OPTIONS, "OTHER_" + i);
+                        }
+                        for (int i = 0; i < profiledZoomAnchorCount; i++) {
+                            profileBoolean(code, WORLD_OPTIONS, "UNLIMITED_ZOOM_OUT");
+                        }
                         code.visitLdcInsn(0.001953125d);
                         code.visitInsn(Opcodes.POP2);
                     });
@@ -175,14 +231,21 @@ class XaeroCapabilityProbeTest {
             if (profiledSurface) {
                 clazz("xaero/lib/client/render/util/GuiRenderUtil",
                         visitor -> method(visitor, "flushGUI", "()V", code -> { }));
-                clazz(WORLD_OPTIONS, visitor -> field(visitor, "ARROW",
-                        "Lxaero/lib/common/config/option/BooleanConfigOption;"));
-                clientConfigClasses();
             }
-            if (profiledZoom) {
+            if (profiledSurface || profiledZoom) {
                 clazz(WORLD_OPTIONS, visitor -> {
-                    field(visitor, "ARROW", "Lxaero/lib/common/config/option/BooleanConfigOption;");
-                    field(visitor, "UNLIMITED_ZOOM_OUT", "Lxaero/lib/common/config/option/BooleanConfigOption;");
+                    if (profiledSurface) {
+                        staticField(visitor, "ARROW",
+                                "Lxaero/lib/common/config/option/BooleanConfigOption;");
+                    }
+                    if (profiledZoom) {
+                        staticField(visitor, "UNLIMITED_ZOOM_OUT",
+                                "Lxaero/lib/common/config/option/BooleanConfigOption;");
+                    }
+                    for (int i = 0; i < otherConfigReads; i++) {
+                        staticField(visitor, "OTHER_" + i,
+                                "Lxaero/lib/common/config/option/BooleanConfigOption;");
+                    }
                 });
                 clientConfigClasses();
             }
@@ -191,11 +254,39 @@ class XaeroCapabilityProbeTest {
 
         private Fixture minimap(boolean depthTrace, boolean pip, boolean legacyShape,
                                 boolean profiledShape, boolean fabricHud) {
+            return minimap(depthTrace, pip, legacyShape, profiledShape, fabricHud,
+                    profiledShape ? 1 : 0, 0);
+        }
+
+        private Fixture minimapProfile(int shapeReadCount, int otherConfigReads) {
+            return minimap(false, true, false, true, false, shapeReadCount, otherConfigReads);
+        }
+
+        private Fixture minimap(boolean depthTrace, boolean pip, boolean legacyShape,
+                                boolean profiledShape, boolean fabricHud,
+                                int shapeReadCount, int otherConfigReads) {
             clazz(MODULE_RENDERER, visitor -> method(visitor, "render", RENDER, code -> {
-                if (depthTrace) code.visitMethodInsn(Opcodes.INVOKEVIRTUAL, PROCESSOR, "getDepthSkipper",
-                        "()Lxaero/hud/render/util/GuiDepthSkipper;", false);
-                if (pip) code.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
-                        "xaero/common/minimap/render/MinimapRenderer", "renderOutsidePip", OUTSIDE_PIP, false);
+                if (depthTrace) {
+                    code.visitInsn(Opcodes.ACONST_NULL);
+                    code.visitMethodInsn(Opcodes.INVOKEVIRTUAL, PROCESSOR, "getDepthSkipper",
+                            "()Lxaero/hud/render/util/GuiDepthSkipper;", false);
+                    code.visitInsn(Opcodes.POP);
+                }
+                if (pip) {
+                    code.visitInsn(Opcodes.ACONST_NULL);
+                    code.visitInsn(Opcodes.ACONST_NULL);
+                    code.visitInsn(Opcodes.ICONST_0);
+                    code.visitInsn(Opcodes.ICONST_0);
+                    code.visitInsn(Opcodes.ICONST_0);
+                    code.visitInsn(Opcodes.ICONST_0);
+                    code.visitInsn(Opcodes.DCONST_0);
+                    code.visitInsn(Opcodes.FCONST_0);
+                    code.visitInsn(Opcodes.ICONST_0);
+                    code.visitInsn(Opcodes.FCONST_0);
+                    code.visitInsn(Opcodes.ACONST_NULL);
+                    code.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                            MINIMAP_RENDERER, "renderOutsidePip", OUTSIDE_PIP, false);
+                }
             }));
             clazz(MODULE_CONTEXT, visitor -> {
                 field(visitor, "x", "I");
@@ -209,8 +300,10 @@ class XaeroCapabilityProbeTest {
             clazz(PROCESSOR, visitor -> method(visitor, "getMinimapZoom", "()D",
                     code -> code.visitInsn(Opcodes.DRETURN)));
             clazz("xaero/common/HudMod", visitor -> {
+                if (legacyShape || profiledShape) {
+                    staticField(visitor, "INSTANCE", "Lxaero/common/HudMod;");
+                }
                 if (legacyShape) {
-                    field(visitor, "INSTANCE", "Lxaero/common/HudMod;");
                     method(visitor, "getSettings", "()Lxaero/common/settings/ModSettings;",
                             code -> code.visitInsn(Opcodes.ARETURN));
                 }
@@ -221,14 +314,45 @@ class XaeroCapabilityProbeTest {
             if (legacyShape) clazz("xaero/common/settings/ModSettings",
                     visitor -> field(visitor, "minimapShape", "I"));
             if (profiledShape) {
-                clazz("xaero/hud/minimap/common/config/option/MinimapProfiledConfigOptions",
-                        visitor -> field(visitor, "SHAPE", "Lxaero/lib/common/config/option/RangeConfigOption;"));
+                clazz(MINIMAP_OPTIONS, visitor -> {
+                    staticField(visitor, "SHAPE", "Lxaero/lib/common/config/option/RangeConfigOption;");
+                    for (int i = 0; i < otherConfigReads; i++) {
+                        staticField(visitor, "OTHER_" + i,
+                                "Lxaero/lib/common/config/option/RangeConfigOption;");
+                    }
+                });
                 clientConfigClasses();
+                clazz(MINIMAP_RENDERER, visitor -> {
+                    field(visitor, "modMain", "Lxaero/common/HudMod;");
+                    method(visitor, "renderMinimap", RENDER_MINIMAP, code -> {
+                        code.visitVarInsn(Opcodes.ALOAD, 0);
+                        code.visitFieldInsn(Opcodes.GETFIELD, MINIMAP_RENDERER,
+                                "modMain", "Lxaero/common/HudMod;");
+                        code.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "xaero/common/HudMod",
+                                "getHudConfigs", "()Lxaero/lib/common/config/channel/ConfigChannel;", false);
+                        code.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                                "xaero/lib/common/config/channel/ConfigChannel",
+                                "getClientConfigManager",
+                                "()Lxaero/lib/client/config/ClientConfigManager;", false);
+                        code.visitVarInsn(Opcodes.ASTORE, 13);
+                        for (int i = 0; i < otherConfigReads; i++) {
+                            profileInteger(code, 13, "OTHER_" + i);
+                        }
+                        for (int i = 0; i < shapeReadCount; i++) {
+                            profileInteger(code, 13, "SHAPE");
+                        }
+                    });
+                });
             }
             if (fabricHud) clazz("xaero/common/events/ModClientEventsFabric", visitor ->
                     method(visitor, "register", "()V", code -> {
                         code.visitLdcInsn("xaerohud");
+                        code.visitInsn(Opcodes.POP);
                         code.visitLdcInsn("hud");
+                        code.visitInsn(Opcodes.POP);
+                        code.visitInsn(Opcodes.ACONST_NULL);
+                        code.visitInsn(Opcodes.ACONST_NULL);
+                        code.visitInsn(Opcodes.ACONST_NULL);
                         code.visitMethodInsn(Opcodes.INVOKESTATIC,
                                 "net/fabricmc/fabric/api/client/rendering/v1/hud/HudElementRegistry",
                                 "attachElementAfter",
@@ -313,7 +437,7 @@ class XaeroCapabilityProbeTest {
         }
 
         private void clazz(String name, Consumer<ClassVisitor> body) {
-            ClassWriter writer = new ClassWriter(0);
+            ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
             writer.visit(Opcodes.V21, Opcodes.ACC_PUBLIC, name, null, "java/lang/Object", null);
             body.accept(writer);
             writer.visitEnd();
@@ -324,17 +448,30 @@ class XaeroCapabilityProbeTest {
             visitor.visitField(Opcodes.ACC_PUBLIC, name, descriptor, null, null).visitEnd();
         }
 
+        private static void staticField(ClassVisitor visitor, String name, String descriptor) {
+            visitor.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+                    name, descriptor, null, null).visitEnd();
+        }
+
         private static void method(ClassVisitor visitor, String name, String descriptor,
                                    Consumer<MethodVisitor> instructions) {
             MethodVisitor method = visitor.visitMethod(Opcodes.ACC_PUBLIC, name, descriptor, null, null);
             method.visitCode();
+            if ("<init>".equals(name)) {
+                method.visitVarInsn(Opcodes.ALOAD, 0);
+                method.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                        "java/lang/Object", "<init>", "()V", false);
+            } else {
+                pushDefault(method, descriptor);
+            }
             instructions.accept(method);
             if (descriptor.endsWith("V")) method.visitInsn(Opcodes.RETURN);
-            method.visitMaxs(16, 16);
+            method.visitMaxs(0, 0);
             method.visitEnd();
         }
 
         private static void profileBoolean(MethodVisitor method, String owner, String name) {
+            method.visitInsn(Opcodes.ACONST_NULL);
             method.visitFieldInsn(Opcodes.GETSTATIC, owner, name,
                     "Lxaero/lib/common/config/option/BooleanConfigOption;");
             method.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "xaero/lib/client/config/ClientConfigManager",
@@ -342,6 +479,31 @@ class XaeroCapabilityProbeTest {
             method.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Boolean");
             method.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z", false);
             method.visitInsn(Opcodes.POP);
+        }
+
+        private static void profileInteger(MethodVisitor method, int managerLocal, String name) {
+            method.visitVarInsn(Opcodes.ALOAD, managerLocal);
+            method.visitFieldInsn(Opcodes.GETSTATIC, MINIMAP_OPTIONS, name,
+                    "Lxaero/lib/common/config/option/RangeConfigOption;");
+            method.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                    "xaero/lib/client/config/ClientConfigManager",
+                    "getEffective", "(Lxaero/lib/common/config/option/ConfigOption;)Ljava/lang/Object;", false);
+            method.visitTypeInsn(Opcodes.CHECKCAST, "java/lang/Integer");
+            method.visitMethodInsn(Opcodes.INVOKEVIRTUAL,
+                    "java/lang/Integer", "intValue", "()I", false);
+            method.visitInsn(Opcodes.POP);
+        }
+
+        private static void pushDefault(MethodVisitor method, String descriptor) {
+            switch (Type.getReturnType(descriptor).getSort()) {
+                case Type.VOID -> { }
+                case Type.BOOLEAN, Type.BYTE, Type.CHAR, Type.SHORT, Type.INT ->
+                        method.visitInsn(Opcodes.ICONST_0);
+                case Type.FLOAT -> method.visitInsn(Opcodes.FCONST_0);
+                case Type.LONG -> method.visitInsn(Opcodes.LCONST_0);
+                case Type.DOUBLE -> method.visitInsn(Opcodes.DCONST_0);
+                default -> method.visitInsn(Opcodes.ACONST_NULL);
+            }
         }
     }
 }

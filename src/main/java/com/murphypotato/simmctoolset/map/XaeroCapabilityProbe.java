@@ -26,6 +26,9 @@ public final class XaeroCapabilityProbe {
     private static final String MODULE_SESSION = "xaero/hud/minimap/module/MinimapSession";
     private static final String MODULE_CONTEXT = "xaero/hud/render/module/ModuleRenderContext";
     private static final String PROCESSOR = "xaero/common/minimap/MinimapProcessor";
+    private static final String MINIMAP_RENDERER = "xaero/common/minimap/render/MinimapRenderer";
+    private static final String MINIMAP_OPTIONS =
+            "xaero/hud/minimap/common/config/option/MinimapProfiledConfigOptions";
     private static final String CONFIG_CHANNEL = "xaero/lib/common/config/channel/ConfigChannel";
     private static final String CONFIG_MANAGER = "xaero/lib/client/config/ClientConfigManager";
     private static final String BOOL_OPTION = "Lxaero/lib/common/config/option/BooleanConfigOption;";
@@ -36,6 +39,9 @@ public final class XaeroCapabilityProbe {
                     + "Lnet/minecraft/class_332;F)V";
     private static final String OUTSIDE_PIP =
             "(Lxaero/hud/minimap/module/MinimapSession;IIIIDFIFLnet/minecraft/class_332;)V";
+    private static final String RENDER_MINIMAP =
+            "(Lxaero/hud/minimap/module/MinimapSession;Lxaero/common/minimap/MinimapProcessor;"
+                    + "IIIIDFIFLxaero/common/graphics/CustomVertexConsumers;)V";
 
     private XaeroCapabilityProbe() { }
 
@@ -63,6 +69,7 @@ public final class XaeroCapabilityProbe {
                 && worldRender.sequenceCount(
                 new Instruction(Opcodes.GETSTATIC, WORLD_OPTIONS, "ARROW", BOOL_OPTION),
                 new Instruction(Opcodes.INVOKEVIRTUAL, CONFIG_MANAGER, "getEffective", GET_EFFECTIVE),
+                new Instruction(Opcodes.CHECKCAST, "java/lang/Boolean", "", ""),
                 new Instruction(Opcodes.INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z")) == 1
                 && scanner.read(WORLD_OPTIONS).hasField("ARROW", BOOL_OPTION)
                 && scanner.read(CONFIG_MANAGER).hasMethod("getEffective", GET_EFFECTIVE)
@@ -83,6 +90,7 @@ public final class XaeroCapabilityProbe {
                 && limits.sequenceCount(
                 new Instruction(Opcodes.GETSTATIC, WORLD_OPTIONS, "UNLIMITED_ZOOM_OUT", BOOL_OPTION),
                 new Instruction(Opcodes.INVOKEVIRTUAL, CONFIG_MANAGER, "getEffective", GET_EFFECTIVE),
+                new Instruction(Opcodes.CHECKCAST, "java/lang/Boolean", "", ""),
                 new Instruction(Opcodes.INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z")) == 1
                 && scanner.read(WORLD_OPTIONS).hasField("UNLIMITED_ZOOM_OUT", BOOL_OPTION)
                 && scanner.read(CONFIG_MANAGER).hasMethod("getEffective", GET_EFFECTIVE);
@@ -108,9 +116,28 @@ public final class XaeroCapabilityProbe {
         boolean legacyShape = hudMod.hasField("INSTANCE", "Lxaero/common/HudMod;")
                 && hudMod.hasMethod("getSettings", "()Lxaero/common/settings/ModSettings;")
                 && scanner.read("xaero/common/settings/ModSettings").hasField("minimapShape", "I");
-        boolean profiledShape = hudMod.hasMethod("getHudConfigs",
+        ClassInfo shapeRenderer = scanner.read(MINIMAP_RENDERER);
+        MethodInfo shapeRead = shapeRenderer.method("renderMinimap", RENDER_MINIMAP);
+        boolean profiledShape = hudMod.hasField("INSTANCE", "Lxaero/common/HudMod;")
+                && hudMod.hasMethod("getHudConfigs",
                 "()Lxaero/lib/common/config/channel/ConfigChannel;")
-                && scanner.read("xaero/hud/minimap/common/config/option/MinimapProfiledConfigOptions")
+                && shapeRenderer.hasField("modMain", "Lxaero/common/HudMod;")
+                && shapeRead.sequenceCount(
+                new Instruction(Opcodes.GETFIELD, MINIMAP_RENDERER,
+                        "modMain", "Lxaero/common/HudMod;"),
+                new Instruction(Opcodes.INVOKEVIRTUAL, "xaero/common/HudMod",
+                        "getHudConfigs", "()Lxaero/lib/common/config/channel/ConfigChannel;"),
+                new Instruction(Opcodes.INVOKEVIRTUAL, CONFIG_CHANNEL,
+                        "getClientConfigManager", "()Lxaero/lib/client/config/ClientConfigManager;")) == 1
+                && shapeRead.sequenceCount(
+                new Instruction(Opcodes.GETSTATIC, MINIMAP_OPTIONS,
+                        "SHAPE", "Lxaero/lib/common/config/option/RangeConfigOption;"),
+                new Instruction(Opcodes.INVOKEVIRTUAL, CONFIG_MANAGER,
+                        "getEffective", GET_EFFECTIVE),
+                new Instruction(Opcodes.CHECKCAST, "java/lang/Integer", "", ""),
+                new Instruction(Opcodes.INVOKEVIRTUAL, "java/lang/Integer",
+                        "intValue", "()I")) == 1
+                && scanner.read(MINIMAP_OPTIONS)
                 .hasField("SHAPE", "Lxaero/lib/common/config/option/RangeConfigOption;")
                 && scanner.read(CONFIG_CHANNEL).hasMethod("getClientConfigManager",
                 "()Lxaero/lib/client/config/ClientConfigManager;")
@@ -268,6 +295,11 @@ public final class XaeroCapabilityProbe {
                     Instruction instruction = new Instruction(opcode, owner, name, descriptor);
                     calls.merge(instruction, 1, Integer::sum);
                     instructions.add(instruction);
+                }
+
+                @Override
+                public void visitTypeInsn(int opcode, String type) {
+                    instructions.add(new Instruction(opcode, type, "", ""));
                 }
 
                 @Override
