@@ -1,8 +1,11 @@
 package com.murphypotato.simmctoolset.map;
 
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -102,6 +105,58 @@ class XaeroCapabilityProbeTest {
         Fixture brokenShape = new Fixture().minimapProfileWithBrokenShapeChain();
         assertFalse(XaeroCapabilityProbe.probe(brokenShape.loader()).has(MINIMAP_SHAPE_PROFILE));
         assertDoesNotThrow(() -> brokenShape.verifyClass(MINIMAP_RENDERER));
+    }
+
+    @Test
+    void rejectsIncompatibleMemberAccessAndStaticShapes() {
+        assertFalse(XaeroCapabilityProbe.probe(new Fixture()
+                        .world(false, true, false, true, 1)
+                        .fieldAccess(GUI_MAP, "destScale", "D", Opcodes.ACC_PUBLIC).loader())
+                .has(WORLD_NAVIGATION));
+        assertFalse(XaeroCapabilityProbe.probe(new Fixture()
+                        .world(true, false, true, false, 1)
+                        .methodAccess("xaero/map/render/util/GuiRenderUtil",
+                                "flushGUI", "()V", Opcodes.ACC_PUBLIC).loader())
+                .has(WORLD_SURFACE_LEGACY));
+        assertFalse(XaeroCapabilityProbe.probe(new Fixture()
+                        .minimap(false, true, true, false, false)
+                        .fieldAccess("xaero/common/HudMod", "INSTANCE",
+                                "Lxaero/common/HudMod;", Opcodes.ACC_PUBLIC).loader())
+                .has(MINIMAP_SHAPE_LEGACY));
+        assertFalse(XaeroCapabilityProbe.probe(new Fixture()
+                        .minimap(false, true, false, false, false)
+                        .fieldAccess(MODULE_CONTEXT, "w", "I", Opcodes.ACC_PRIVATE).loader())
+                .has(MINIMAP_RENDER_COMMON));
+
+        assertFalse(XaeroCapabilityProbe.probe(new Fixture().waypoint()
+                        .methodAccess("xaero/common/XaeroMinimapSession", "getCurrentSession",
+                                "()Lxaero/common/XaeroMinimapSession;",
+                                Opcodes.ACC_PUBLIC).loader())
+                .has(WAYPOINT_WRITE));
+        assertFalse(XaeroCapabilityProbe.probe(new Fixture().waypoint()
+                        .methodAccess("xaero/common/XaeroMinimapSession", "getCurrentSession",
+                                "()Lxaero/common/XaeroMinimapSession;",
+                                Opcodes.ACC_STATIC).loader())
+                .has(WAYPOINT_WRITE));
+        assertFalse(XaeroCapabilityProbe.probe(new Fixture().waypoint()
+                        .methodAccess("xaero/hud/minimap/waypoint/set/WaypointSet", "add",
+                                "(Lxaero/common/minimap/waypoints/Waypoint;)V",
+                                Opcodes.ACC_PRIVATE).loader())
+                .has(WAYPOINT_WRITE));
+        assertFalse(XaeroCapabilityProbe.probe(new Fixture().waypoint()
+                        .methodAccess("xaero/common/minimap/waypoints/Waypoint", "<init>",
+                                "(IIILjava/lang/String;Ljava/lang/String;"
+                                        + "Lxaero/hud/minimap/waypoint/WaypointColor;"
+                                        + "Lxaero/hud/minimap/waypoint/WaypointPurpose;ZZ)V",
+                                Opcodes.ACC_PRIVATE).loader())
+                .has(WAYPOINT_WRITE));
+    }
+
+    @Test
+    void rejectsDetachedFabricHudStringsAndRegistration() {
+        XaeroCapabilitySnapshot snapshot =
+                XaeroCapabilityProbe.probe(new Fixture().decoyFabricHud().loader());
+        assertFalse(snapshot.has(MINIMAP_FABRIC_HUD));
     }
 
     @Test
@@ -217,7 +272,7 @@ class XaeroCapabilityProbeTest {
                 field(visitor, "screenScale", "D");
                 field(visitor, "lastViewedDimensionId", "Lnet/minecraft/class_5321;");
                 field(visitor, "userScale", "D");
-                field(visitor, "destScale", "D");
+                staticField(visitor, "destScale", "D");
                 field(visitor, "zoomAnim", "Lxaero/map/animation/Animation;");
                 method(visitor, "getScaleMultiplier", "(I)D", code -> code.visitInsn(Opcodes.DRETURN));
                 method(visitor, "method_25394", "(Lnet/minecraft/class_332;IIF)V", code -> {
@@ -264,10 +319,10 @@ class XaeroCapabilityProbeTest {
                 }
             });
             if (legacySurface) clazz("xaero/map/render/util/GuiRenderUtil",
-                    visitor -> method(visitor, "flushGUI", "()V", code -> { }));
+                    visitor -> staticMethod(visitor, "flushGUI", "()V", code -> { }));
             if (profiledSurface) {
                 clazz("xaero/lib/client/render/util/GuiRenderUtil",
-                        visitor -> method(visitor, "flushGUI", "()V", code -> { }));
+                        visitor -> staticMethod(visitor, "flushGUI", "()V", code -> { }));
             }
             if (profiledSurface || profiledZoom) {
                 clazz(WORLD_OPTIONS, visitor -> {
@@ -393,6 +448,34 @@ class XaeroCapabilityProbeTest {
             }
             if (fabricHud) clazz("xaero/common/events/ModClientEventsFabric", visitor ->
                     method(visitor, "register", "()V", code -> {
+                        code.visitFieldInsn(Opcodes.GETSTATIC,
+                                "net/fabricmc/fabric/api/client/rendering/v1/hud/VanillaHudElements",
+                                "MISC_OVERLAYS", "Lnet/minecraft/class_2960;");
+                        code.visitLdcInsn("xaerohud");
+                        code.visitLdcInsn("hud");
+                        code.visitMethodInsn(Opcodes.INVOKESTATIC, "net/minecraft/class_2960",
+                                "method_60655", "(Ljava/lang/String;Ljava/lang/String;)"
+                                        + "Lnet/minecraft/class_2960;", false);
+                        code.visitVarInsn(Opcodes.ALOAD, 0);
+                        code.visitInvokeDynamicInsn("render",
+                                "(Lxaero/common/events/ModClientEventsFabric;)"
+                                        + "Lnet/fabricmc/fabric/api/client/rendering/v1/hud/HudElement;",
+                                new Handle(Opcodes.H_INVOKESTATIC, "example/Bootstrap", "bootstrap",
+                                        "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;"
+                                                + "Ljava/lang/invoke/MethodType;)"
+                                                + "Ljava/lang/invoke/CallSite;", false));
+                        code.visitMethodInsn(Opcodes.INVOKESTATIC,
+                                "net/fabricmc/fabric/api/client/rendering/v1/hud/HudElementRegistry",
+                                "attachElementAfter",
+                                "(Lnet/minecraft/class_2960;Lnet/minecraft/class_2960;"
+                                        + "Lnet/fabricmc/fabric/api/client/rendering/v1/hud/HudElement;)V", true);
+                    }));
+            return this;
+        }
+
+        private Fixture decoyFabricHud() {
+            clazz("xaero/common/events/ModClientEventsFabric", visitor ->
+                    method(visitor, "register", "()V", code -> {
                         code.visitLdcInsn("xaerohud");
                         code.visitInsn(Opcodes.POP);
                         code.visitLdcInsn("hud");
@@ -404,7 +487,8 @@ class XaeroCapabilityProbeTest {
                                 "net/fabricmc/fabric/api/client/rendering/v1/hud/HudElementRegistry",
                                 "attachElementAfter",
                                 "(Lnet/minecraft/class_2960;Lnet/minecraft/class_2960;"
-                                        + "Lnet/fabricmc/fabric/api/client/rendering/v1/hud/HudElement;)V", true);
+                                        + "Lnet/fabricmc/fabric/api/client/rendering/v1/hud/HudElement;)V",
+                                true);
                     }));
             return this;
         }
@@ -419,7 +503,7 @@ class XaeroCapabilityProbeTest {
 
         private Fixture waypoint(boolean saveMethod) {
             clazz("xaero/common/XaeroMinimapSession", visitor -> {
-                method(visitor, "getCurrentSession", "()Lxaero/common/XaeroMinimapSession;",
+                staticMethod(visitor, "getCurrentSession", "()Lxaero/common/XaeroMinimapSession;",
                         code -> code.visitInsn(Opcodes.ARETURN));
                 method(visitor, "getMinimapProcessor", "()Lxaero/common/minimap/MinimapProcessor;",
                         code -> code.visitInsn(Opcodes.ARETURN));
@@ -453,9 +537,9 @@ class XaeroCapabilityProbeTest {
                 method(visitor, "remove", "(Lxaero/common/minimap/waypoints/Waypoint;)V", code -> { });
             });
             clazz("xaero/hud/minimap/waypoint/WaypointColor", visitor ->
-                    field(visitor, "AQUA", "Lxaero/hud/minimap/waypoint/WaypointColor;"));
+                    staticField(visitor, "AQUA", "Lxaero/hud/minimap/waypoint/WaypointColor;"));
             clazz("xaero/hud/minimap/waypoint/WaypointPurpose", visitor ->
-                    field(visitor, "NORMAL", "Lxaero/hud/minimap/waypoint/WaypointPurpose;"));
+                    staticField(visitor, "NORMAL", "Lxaero/hud/minimap/waypoint/WaypointPurpose;"));
             clazz("xaero/hud/minimap/world/io/MinimapWorldManagerIO", visitor -> {
                 if (saveMethod) method(visitor, "saveWorld", "(Lxaero/hud/minimap/world/MinimapWorld;)V", code -> { });
             });
@@ -511,6 +595,44 @@ class XaeroCapabilityProbeTest {
             loader().loadVerifiedClass(internalName.replace('/', '.'));
         }
 
+        private Fixture fieldAccess(String owner, String name, String descriptor, int access) {
+            return memberAccess(owner, false, name, descriptor, access);
+        }
+
+        private Fixture methodAccess(String owner, String name, String descriptor, int access) {
+            return memberAccess(owner, true, name, descriptor, access);
+        }
+
+        private Fixture memberAccess(String owner, boolean method, String name,
+                                     String descriptor, int access) {
+            byte[] original = resources.get(owner + ".class");
+            ClassReader reader = new ClassReader(original);
+            ClassWriter writer = new ClassWriter(0);
+            reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
+                @Override
+                public FieldVisitor visitField(int currentAccess, String currentName,
+                                               String currentDescriptor, String signature,
+                                               Object value) {
+                    int replacement = !method && currentName.equals(name)
+                            && currentDescriptor.equals(descriptor) ? access : currentAccess;
+                    return super.visitField(replacement, currentName, currentDescriptor,
+                            signature, value);
+                }
+
+                @Override
+                public MethodVisitor visitMethod(int currentAccess, String currentName,
+                                                 String currentDescriptor, String signature,
+                                                 String[] exceptions) {
+                    int replacement = method && currentName.equals(name)
+                            && currentDescriptor.equals(descriptor) ? access : currentAccess;
+                    return super.visitMethod(replacement, currentName, currentDescriptor,
+                            signature, exceptions);
+                }
+            }, 0);
+            resources.put(owner + ".class", writer.toByteArray());
+            return this;
+        }
+
         private void clazz(String name, Consumer<ClassVisitor> body) {
             clazz(name, "java/lang/Object", body);
         }
@@ -534,7 +656,18 @@ class XaeroCapabilityProbeTest {
 
         private static void method(ClassVisitor visitor, String name, String descriptor,
                                    Consumer<MethodVisitor> instructions) {
-            MethodVisitor method = visitor.visitMethod(Opcodes.ACC_PUBLIC, name, descriptor, null, null);
+            method(visitor, Opcodes.ACC_PUBLIC, name, descriptor, instructions);
+        }
+
+        private static void staticMethod(ClassVisitor visitor, String name, String descriptor,
+                                         Consumer<MethodVisitor> instructions) {
+            method(visitor, Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+                    name, descriptor, instructions);
+        }
+
+        private static void method(ClassVisitor visitor, int access, String name,
+                                   String descriptor, Consumer<MethodVisitor> instructions) {
+            MethodVisitor method = visitor.visitMethod(access, name, descriptor, null, null);
             method.visitCode();
             if ("<init>".equals(name)) {
                 method.visitVarInsn(Opcodes.ALOAD, 0);

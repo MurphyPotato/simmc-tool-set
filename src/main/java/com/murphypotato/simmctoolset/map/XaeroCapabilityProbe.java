@@ -13,11 +13,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 import static com.murphypotato.simmctoolset.map.XaeroCapabilitySnapshot.Capability.*;
 
@@ -53,19 +51,25 @@ public final class XaeroCapabilityProbe {
                 EnumSet.noneOf(XaeroCapabilitySnapshot.Capability.class);
 
         ClassInfo world = scanner.read(GUI_MAP);
-        if (world.fields("cameraX:D", "cameraZ:D", "scale:D", "screenScale:D",
+        if (world.fields(0, Opcodes.ACC_STATIC,
+                "cameraX:D", "cameraZ:D", "scale:D", "screenScale:D",
                 "lastViewedDimensionId:Lnet/minecraft/class_5321;")) {
             found.add(WORLD_VIEW);
         }
-        if (world.fields("userScale:D", "destScale:D", "zoomAnim:Lxaero/map/animation/Animation;")
-                && world.hasMethod("getScaleMultiplier", "(I)D")) {
+        if (world.hasField("userScale", "D", 0, Opcodes.ACC_STATIC)
+                && world.hasField("destScale", "D", Opcodes.ACC_STATIC, 0)
+                && world.hasField("zoomAnim", "Lxaero/map/animation/Animation;",
+                0, Opcodes.ACC_STATIC)
+                && world.hasMethod("getScaleMultiplier", "(I)D", 0, Opcodes.ACC_STATIC)) {
             found.add(WORLD_NAVIGATION);
         }
 
-        MethodInfo worldRender = world.method("method_25394", "(Lnet/minecraft/class_332;IIF)V");
+        MethodInfo worldRender = world.method("method_25394",
+                "(Lnet/minecraft/class_332;IIF)V", 0, Opcodes.ACC_STATIC);
         boolean legacySurface = worldRender.fieldCount(Opcodes.GETFIELD,
                 "xaero/map/settings/ModSettings", "renderArrow", "Z") == 1
-                && scanner.read("xaero/map/render/util/GuiRenderUtil").hasMethod("flushGUI", "()V");
+                && scanner.read("xaero/map/render/util/GuiRenderUtil").hasMethod(
+                "flushGUI", "()V", Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, 0);
         boolean profiledSurface = worldRender.fieldCount(Opcodes.GETSTATIC, WORLD_OPTIONS,
                 "ARROW", BOOL_OPTION) == 1
                 && worldRender.sequenceCount(
@@ -73,16 +77,19 @@ public final class XaeroCapabilityProbe {
                 new Instruction(Opcodes.INVOKEVIRTUAL, CONFIG_MANAGER, "getEffective", GET_EFFECTIVE),
                 new Instruction(Opcodes.CHECKCAST, "java/lang/Boolean", "", ""),
                 new Instruction(Opcodes.INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z")) == 1
-                && scanner.read(WORLD_OPTIONS).hasField("ARROW", BOOL_OPTION)
-                && scanner.read(CONFIG_MANAGER).hasMethod("getEffective", GET_EFFECTIVE)
+                && scanner.read(WORLD_OPTIONS).hasField("ARROW", BOOL_OPTION,
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, 0)
+                && scanner.read(CONFIG_MANAGER).hasMethod("getEffective", GET_EFFECTIVE,
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC)
                 && scanner.read("xaero/lib/client/render/util/GuiRenderUtil")
-                .hasMethod("flushGUI", "()V");
+                .hasMethod("flushGUI", "()V",
+                        Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, 0);
         addExclusive(found, legacySurface, WORLD_SURFACE_LEGACY,
                 profiledSurface, WORLD_SURFACE_PROFILED);
 
-        MethodInfo changeZoom = world.method("changeZoom", "(DI)V");
+        MethodInfo changeZoom = world.method("changeZoom", "(DI)V", 0, Opcodes.ACC_STATIC);
         boolean legacyZoom = changeZoom.constantCount(0.0625d) == 2;
-        MethodInfo limits = world.method("applyZoomLimits", "()V");
+        MethodInfo limits = world.method("applyZoomLimits", "()V", 0, Opcodes.ACC_STATIC);
         boolean profiledZoom = changeZoom.callCount(Opcodes.INVOKEVIRTUAL, GUI_MAP,
                 "applyZoomLimits", "()V") == 1
                 && limits.constantCount(0.0625d) == 1
@@ -94,18 +101,23 @@ public final class XaeroCapabilityProbe {
                 new Instruction(Opcodes.INVOKEVIRTUAL, CONFIG_MANAGER, "getEffective", GET_EFFECTIVE),
                 new Instruction(Opcodes.CHECKCAST, "java/lang/Boolean", "", ""),
                 new Instruction(Opcodes.INVOKEVIRTUAL, "java/lang/Boolean", "booleanValue", "()Z")) == 1
-                && scanner.read(WORLD_OPTIONS).hasField("UNLIMITED_ZOOM_OUT", BOOL_OPTION)
-                && scanner.read(CONFIG_MANAGER).hasMethod("getEffective", GET_EFFECTIVE);
+                && scanner.read(WORLD_OPTIONS).hasField("UNLIMITED_ZOOM_OUT", BOOL_OPTION,
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, 0)
+                && scanner.read(CONFIG_MANAGER).hasMethod("getEffective", GET_EFFECTIVE,
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC);
         addExclusive(found, legacyZoom, WORLD_ZOOM_LEGACY, profiledZoom, WORLD_ZOOM_PROFILED);
 
         ClassInfo minimapRenderer = scanner.read(MODULE_RENDERER);
-        MethodInfo render = minimapRenderer.method("render", RENDER);
-        if (minimapRenderer.hasMethod("render", RENDER)
+        MethodInfo render = minimapRenderer.method("render", RENDER, 0, Opcodes.ACC_STATIC);
+        if (minimapRenderer.hasMethod("render", RENDER, 0, Opcodes.ACC_STATIC)
                 && scanner.read(MODULE_CONTEXT)
-                .fields("x:I", "y:I", "w:I", "screenWidth:I", "screenHeight:I")
+                .fields(Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC,
+                        "x:I", "y:I", "w:I", "screenWidth:I", "screenHeight:I")
                 && scanner.read(MODULE_SESSION).hasMethod("getProcessor",
-                "()Lxaero/common/minimap/MinimapProcessor;")
-                && scanner.read(PROCESSOR).hasMethod("getMinimapZoom", "()D")) {
+                "()Lxaero/common/minimap/MinimapProcessor;",
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC)
+                && scanner.read(PROCESSOR).hasMethod("getMinimapZoom", "()D",
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC)) {
             found.add(MINIMAP_RENDER_COMMON);
         }
         boolean depthTrace = render.callCount(Opcodes.INVOKEVIRTUAL, PROCESSOR, "getDepthSkipper",
@@ -115,15 +127,22 @@ public final class XaeroCapabilityProbe {
         addExclusive(found, depthTrace, MINIMAP_HOOK_DEPTH_TRACE, pip, MINIMAP_HOOK_PIP);
 
         ClassInfo hudMod = scanner.read("xaero/common/HudMod");
-        boolean legacyShape = hudMod.hasField("INSTANCE", "Lxaero/common/HudMod;")
-                && hudMod.hasMethod("getSettings", "()Lxaero/common/settings/ModSettings;")
-                && scanner.read("xaero/common/settings/ModSettings").hasField("minimapShape", "I");
+        boolean legacyShape = hudMod.hasField("INSTANCE", "Lxaero/common/HudMod;",
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, 0)
+                && hudMod.hasMethod("getSettings", "()Lxaero/common/settings/ModSettings;",
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC)
+                && scanner.read("xaero/common/settings/ModSettings").hasField(
+                "minimapShape", "I", Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC);
         ClassInfo shapeRenderer = scanner.read(MINIMAP_RENDERER);
-        MethodInfo shapeRead = shapeRenderer.method("renderMinimap", RENDER_MINIMAP);
-        boolean profiledShape = hudMod.hasField("INSTANCE", "Lxaero/common/HudMod;")
+        MethodInfo shapeRead = shapeRenderer.method(
+                "renderMinimap", RENDER_MINIMAP, 0, Opcodes.ACC_STATIC);
+        boolean profiledShape = hudMod.hasField("INSTANCE", "Lxaero/common/HudMod;",
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, 0)
                 && hudMod.hasMethod("getHudConfigs",
-                "()Lxaero/lib/common/config/channel/ConfigChannel;")
-                && shapeRenderer.hasField("modMain", "Lxaero/common/HudMod;")
+                "()Lxaero/lib/common/config/channel/ConfigChannel;",
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC)
+                && shapeRenderer.hasField("modMain", "Lxaero/common/HudMod;",
+                0, Opcodes.ACC_STATIC)
                 && shapeRead.sequenceCount(
                 new Instruction(Opcodes.GETFIELD, MINIMAP_RENDERER,
                         "modMain", "Lxaero/common/HudMod;"),
@@ -140,20 +159,35 @@ public final class XaeroCapabilityProbe {
                 new Instruction(Opcodes.INVOKEVIRTUAL, "java/lang/Integer",
                         "intValue", "()I")) == 1
                 && scanner.read(MINIMAP_OPTIONS)
-                .hasField("SHAPE", "Lxaero/lib/common/config/option/RangeConfigOption;")
+                .hasField("SHAPE", "Lxaero/lib/common/config/option/RangeConfigOption;",
+                        Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, 0)
                 && scanner.read(CONFIG_CHANNEL).hasMethod("getClientConfigManager",
-                "()Lxaero/lib/client/config/ClientConfigManager;")
-                && scanner.read(CONFIG_MANAGER).hasMethod("getEffective", GET_EFFECTIVE);
+                "()Lxaero/lib/client/config/ClientConfigManager;",
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC)
+                && scanner.read(CONFIG_MANAGER).hasMethod("getEffective", GET_EFFECTIVE,
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC);
         addExclusive(found, legacyShape, MINIMAP_SHAPE_LEGACY,
                 profiledShape, MINIMAP_SHAPE_PROFILE);
 
         MethodInfo fabricHud = scanner.read("xaero/common/events/ModClientEventsFabric")
-                .method("register", "()V");
-        if (fabricHud.constantCount("xaerohud") == 1 && fabricHud.constantCount("hud") == 1
-                && fabricHud.callCount(Opcodes.INVOKESTATIC,
-                "net/fabricmc/fabric/api/client/rendering/v1/hud/HudElementRegistry",
-                "attachElementAfter", "(Lnet/minecraft/class_2960;Lnet/minecraft/class_2960;"
-                        + "Lnet/fabricmc/fabric/api/client/rendering/v1/hud/HudElement;)V") == 1) {
+                .method("register", "()V", Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC);
+        if (fabricHud.sequenceCount(
+                new Instruction(Opcodes.GETSTATIC,
+                        "net/fabricmc/fabric/api/client/rendering/v1/hud/VanillaHudElements",
+                        "MISC_OVERLAYS", "Lnet/minecraft/class_2960;"),
+                new Instruction(Opcodes.LDC, "", "xaerohud", ""),
+                new Instruction(Opcodes.LDC, "", "hud", ""),
+                new Instruction(Opcodes.INVOKESTATIC, "net/minecraft/class_2960",
+                        "method_60655", "(Ljava/lang/String;Ljava/lang/String;)"
+                        + "Lnet/minecraft/class_2960;"),
+                new Instruction(Opcodes.ALOAD, "", "0", ""),
+                new Instruction(Opcodes.INVOKEDYNAMIC, "",
+                        "render", "(Lxaero/common/events/ModClientEventsFabric;)"
+                        + "Lnet/fabricmc/fabric/api/client/rendering/v1/hud/HudElement;"),
+                new Instruction(Opcodes.INVOKESTATIC,
+                        "net/fabricmc/fabric/api/client/rendering/v1/hud/HudElementRegistry",
+                        "attachElementAfter", "(Lnet/minecraft/class_2960;Lnet/minecraft/class_2960;"
+                        + "Lnet/fabricmc/fabric/api/client/rendering/v1/hud/HudElement;)V")) == 1) {
             found.add(MINIMAP_FABRIC_HUD);
         }
 
@@ -162,32 +196,45 @@ public final class XaeroCapabilityProbe {
     }
 
     private static boolean hasWaypointWrite(Scanner scanner) {
-        return scanner.read("xaero/common/XaeroMinimapSession").methods(
-                "getCurrentSession:()Lxaero/common/XaeroMinimapSession;",
-                "getMinimapProcessor:()Lxaero/common/minimap/MinimapProcessor;")
+        ClassInfo rootSession = scanner.read("xaero/common/XaeroMinimapSession");
+        return rootSession.hasMethod("getCurrentSession",
+                "()Lxaero/common/XaeroMinimapSession;",
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, 0)
+                && rootSession.hasMethod("getMinimapProcessor",
+                "()Lxaero/common/minimap/MinimapProcessor;",
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC)
                 && scanner.read(PROCESSOR).hasMethod("getSession",
-                "()Lxaero/hud/minimap/module/MinimapSession;")
+                "()Lxaero/hud/minimap/module/MinimapSession;",
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC)
                 && scanner.read(MODULE_SESSION).methods(
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC,
                 "getWorldManager:()Lxaero/hud/minimap/world/MinimapWorldManager;",
                 "getWorldManagerIO:()Lxaero/hud/minimap/world/io/MinimapWorldManagerIO;")
                 && scanner.read("xaero/hud/minimap/world/MinimapWorldManager").hasMethod(
-                "getCurrentWorld", "()Lxaero/hud/minimap/world/MinimapWorld;")
+                "getCurrentWorld", "()Lxaero/hud/minimap/world/MinimapWorld;",
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC)
                 && scanner.read("xaero/hud/minimap/world/MinimapWorld").methods(
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC,
                 "getCurrentWaypointSet:()Lxaero/hud/minimap/waypoint/set/WaypointSet;",
                 "addWaypointSet:(Ljava/lang/String;)V",
                 "setCurrentWaypointSetId:(Ljava/lang/String;)V")
                 && scanner.read("xaero/common/minimap/waypoints/Waypoint").hasMethod("<init>",
                 "(IIILjava/lang/String;Ljava/lang/String;Lxaero/hud/minimap/waypoint/WaypointColor;"
-                        + "Lxaero/hud/minimap/waypoint/WaypointPurpose;ZZ)V")
+                        + "Lxaero/hud/minimap/waypoint/WaypointPurpose;ZZ)V",
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC)
                 && scanner.read("xaero/hud/minimap/waypoint/set/WaypointSet").methods(
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC,
                 "add:(Lxaero/common/minimap/waypoints/Waypoint;)V",
                 "remove:(Lxaero/common/minimap/waypoints/Waypoint;)V")
                 && scanner.read("xaero/hud/minimap/waypoint/WaypointColor").hasField("AQUA",
-                "Lxaero/hud/minimap/waypoint/WaypointColor;")
+                "Lxaero/hud/minimap/waypoint/WaypointColor;",
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, 0)
                 && scanner.read("xaero/hud/minimap/waypoint/WaypointPurpose").hasField("NORMAL",
-                "Lxaero/hud/minimap/waypoint/WaypointPurpose;")
+                "Lxaero/hud/minimap/waypoint/WaypointPurpose;",
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, 0)
                 && scanner.read("xaero/hud/minimap/world/io/MinimapWorldManagerIO").hasMethod(
-                "saveWorld", "(Lxaero/hud/minimap/world/MinimapWorld;)V");
+                "saveWorld", "(Lxaero/hud/minimap/world/MinimapWorld;)V",
+                Opcodes.ACC_PUBLIC, Opcodes.ACC_STATIC);
     }
 
     private static void addExclusive(EnumSet<XaeroCapabilitySnapshot.Capability> found,
@@ -224,7 +271,7 @@ public final class XaeroCapabilityProbe {
 
     private static final class ClassInfo {
         private static final ClassInfo EMPTY = new ClassInfo();
-        private final Set<Member> fields = new HashSet<>();
+        private final Map<Member, Integer> fields = new HashMap<>();
         private final Map<Member, MethodInfo> methods = new HashMap<>();
 
         private ClassVisitor visitor() {
@@ -232,55 +279,70 @@ public final class XaeroCapabilityProbe {
                 @Override
                 public FieldVisitor visitField(int access, String name, String descriptor,
                                                String signature, Object value) {
-                    fields.add(new Member(name, descriptor));
+                    fields.put(new Member(name, descriptor), access);
                     return null;
                 }
 
                 @Override
                 public MethodVisitor visitMethod(int access, String name, String descriptor,
                                                  String signature, String[] exceptions) {
-                    MethodInfo info = new MethodInfo();
+                    MethodInfo info = new MethodInfo(access);
                     methods.put(new Member(name, descriptor), info);
                     return info.visitor();
                 }
             };
         }
 
-        private boolean hasField(String name, String descriptor) {
-            return fields.contains(new Member(name, descriptor));
+        private boolean hasField(String name, String descriptor, int required, int forbidden) {
+            Integer access = fields.get(new Member(name, descriptor));
+            return access != null && accessMatches(access, required, forbidden);
         }
 
-        private boolean hasMethod(String name, String descriptor) {
-            return methods.containsKey(new Member(name, descriptor));
+        private boolean hasMethod(String name, String descriptor, int required, int forbidden) {
+            MethodInfo info = methods.get(new Member(name, descriptor));
+            return info != null && accessMatches(info.access, required, forbidden);
         }
 
-        private MethodInfo method(String name, String descriptor) {
-            return methods.getOrDefault(new Member(name, descriptor), MethodInfo.EMPTY);
+        private MethodInfo method(String name, String descriptor, int required, int forbidden) {
+            MethodInfo info = methods.get(new Member(name, descriptor));
+            return info != null && accessMatches(info.access, required, forbidden)
+                    ? info : MethodInfo.EMPTY;
         }
 
-        private boolean fields(String... members) {
+        private boolean fields(int required, int forbidden, String... members) {
             for (String member : members) {
                 int split = member.indexOf(':');
-                if (!hasField(member.substring(0, split), member.substring(split + 1))) return false;
+                if (!hasField(member.substring(0, split), member.substring(split + 1),
+                        required, forbidden)) return false;
             }
             return true;
         }
 
-        private boolean methods(String... members) {
+        private boolean methods(int required, int forbidden, String... members) {
             for (String member : members) {
                 int split = member.indexOf(':');
-                if (!hasMethod(member.substring(0, split), member.substring(split + 1))) return false;
+                if (!hasMethod(member.substring(0, split), member.substring(split + 1),
+                        required, forbidden)) return false;
             }
             return true;
+        }
+
+        private static boolean accessMatches(int access, int required, int forbidden) {
+            return (access & required) == required && (access & forbidden) == 0;
         }
     }
 
     private static final class MethodInfo {
-        private static final MethodInfo EMPTY = new MethodInfo();
+        private static final MethodInfo EMPTY = new MethodInfo(0);
+        private final int access;
         private final Map<Instruction, Integer> fields = new HashMap<>();
         private final Map<Instruction, Integer> calls = new HashMap<>();
         private final Map<Object, Integer> constants = new HashMap<>();
         private final List<Instruction> instructions = new ArrayList<>();
+
+        private MethodInfo(int access) {
+            this.access = access;
+        }
 
         private MethodVisitor visitor() {
             return new MethodVisitor(Opcodes.ASM9) {
@@ -296,7 +358,7 @@ public final class XaeroCapabilityProbe {
 
                 @Override
                 public void visitVarInsn(int opcode, int varIndex) {
-                    instructions.add(opcodeOnly(opcode));
+                    instructions.add(new Instruction(opcode, "", Integer.toString(varIndex), ""));
                 }
 
                 @Override
@@ -318,7 +380,8 @@ public final class XaeroCapabilityProbe {
                 public void visitInvokeDynamicInsn(String name, String descriptor,
                                                    Handle bootstrapMethodHandle,
                                                    Object... bootstrapMethodArguments) {
-                    instructions.add(opcodeOnly(Opcodes.INVOKEDYNAMIC));
+                    instructions.add(new Instruction(
+                            Opcodes.INVOKEDYNAMIC, "", name, descriptor));
                 }
 
                 @Override
@@ -334,7 +397,8 @@ public final class XaeroCapabilityProbe {
                 @Override
                 public void visitLdcInsn(Object value) {
                     constants.merge(value, 1, Integer::sum);
-                    instructions.add(opcodeOnly(Opcodes.LDC));
+                    instructions.add(new Instruction(Opcodes.LDC, "",
+                            value instanceof String string ? string : "", ""));
                 }
 
                 @Override
