@@ -1,0 +1,1 @@
+package xaero.lib.client.render.util; public final class GuiRenderUtil { private GuiRenderUtil() {} public static void flushGUI() {} }

@@ -11,6 +11,8 @@ public final class WorldViewAdapter {
                                                                double scale, double screenScale,
                                                                int width, int height) {
         double factor = Double.isFinite(screenScale) && screenScale > 0 ? screenScale : 1.0;
+        if (!Double.isFinite(cameraX) || !Double.isFinite(cameraZ) || !Double.isFinite(scale)
+                || !Double.isFinite(screenScale)) return Optional.empty();
         double mapScale = scale / factor;
         if (!Double.isFinite(mapScale) || mapScale <= 0 || width <= 0 || height <= 0) return Optional.empty();
         return Optional.of(new WorldMapOverlayRenderer.View(cameraX, cameraZ, mapScale, width, height));
