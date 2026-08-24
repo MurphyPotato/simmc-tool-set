@@ -62,6 +62,7 @@ public final class MapCompatibilitySmoke {
 
         try {
             nativeMapSmoke();
+            xaeroCapabilityProbeSmoke();
         } catch (Exception exception) {
             throw new AssertionError("native map smoke", exception);
         }
@@ -104,6 +105,12 @@ public final class MapCompatibilitySmoke {
             }
         }
         System.out.println("MapNativeSmoke: config/cache/null-view scenarios passed");
+    }
+
+    private static void xaeroCapabilityProbeSmoke() {
+        XaeroCapabilitySnapshot snapshot = XaeroCapabilityProbe.probe(new ClassLoader(null) { });
+        require(snapshot.capabilities().isEmpty(), "empty classpath has no Xaero capabilities");
+        System.out.println("XaeroCapabilityProbeSmoke: empty classpath scenario passed");
     }
 
     private static void configMigration(Path temp) throws Exception {
