@@ -19,12 +19,12 @@
 | Java | 21；已使用项目 JDK `I:\mc smc服\simmc moster hunter 2.0\tools\android-env\jdk-21` 构建 |
 | Fabric Loader | 0.17.3 |
 | Fabric API | 0.136.1+1.21.8 |
-| 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.5` |
-| 当前实现提交 | `9f31f87`；从 v1.1.3 文档基线 `b9acb09` 开始 |
+| 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.6`（本地、未发布） |
+| 当前实现提交 | `c11587d`；以 v1.1.5 P0 第一阶段和第二阶段能力适配为基线 |
 | 当前标签 | 尚未创建；旧 `v1.0.3-fabric-mc1.21.8` 保持不变 |
-| 构建 JAR | `release/simmc-tool-set-fabric-1.1.4-fabric-mc1.21.8.jar`，1,348,895 bytes；尚未创建标签或线上 Release |
-| 构建 JAR SHA-256 | v1.1.5 候选 `EFAB78BFC7803A21B30E39419A433CBF423B4DF61036FEDB8BC1F0FD185706C9`；所有旧版本校验文件保持不变 |
-| 最近验证 | v1.1.5 全依赖及无 Xaero 构建均通过；`verifyUnitTests` 53/53，`MapCompatibilitySmoke` 7/7；完整 Xaero 的 MapNativeSmoke 通过；真实客户端/目标服务器仍未验证 |
+| 构建 JAR | v1.1.6 尚未生成发布候选；不创建标签或线上 Release |
+| 构建 JAR SHA-256 | v1.1.5 候选 `EFAB78BFC7803A21B30E39419A433CBF423B4DF61036FEDB8BC1F0FD185706C9` 保留不变 |
+| 最近验证 | 无 Xaero 62/62；五组代表 Xaero 组合各 72/72，`MapCompatibilitySmoke` 7/7，MapNativeSmoke 通过；真实客户端仍未验证 |
 | 真实客户端联调 | 隔离 `runClient` 已到渲染资源加载阶段，无 Tool Set 崩溃；热键页/Simes 页视觉与目标服务器功能仍需人工验收；不得启动、修改或复用用户客户端 |
 
 ## 2. 总体架构
@@ -164,6 +164,15 @@
 - P0.1 第一阶段已完成：仅已验证 Xaero 组合应用地图 Mixin 并初始化地图；不兼容、未知、缺失、外置地图和旧 experimental 设置均安全停用内置地图，状态页显示其他模块继续运行。
 - v1.1.5 全依赖与无 Xaero 构建均通过，MapCompatibilitySmoke 7/7；候选 JAR 已放入外部 `release/` 并匹配 SHA-256。未创建标签或线上 Release。
 
+### v1.1.6 第二阶段 Xaero 兼容本轮已确认
+
+- v1.1.5 清单 DOCX 中 P4/P3/P2/P1 均为“暂无”，本轮唯一需求是 P0 多 Xaero 组合兼容；不虚构其它等级修复。
+- 已加入 ASM 能力探针，按 World surface/view/navigation/zoom、Minimap overlay/shape/PIP、Waypoint 独立健康位选择非致命 Mixin/适配器；未知能力只停用受影响部分。
+- 已静态覆盖 31 个外层 Xaero JAR 的结构调查结果，并以 1.39.13+25.2.16、1.40.4+25.3.5、1.42.0+26.2.0、1.43.0+26.3.0、1.45.0+26.4.2 作为构建代表组合。
+- 五组代表组合各通过 72/72 `verifyUnitTests` 和 `verifyMapCompatibility` 7/7；无 Xaero 通过 62/62 和 7/7；无 Xaero 同时剔除地图生产源与测试源。
+- 25.2.10-25.2.12 的 depth-trace 家族仍安全停用，等待真实注入锚点和实机证据；未完成 World/Minimap UI、裁剪、centered enlarged、路点持久化和未知 ABI 实机验收。
+- v1.1.6 仍是本地未发布实现候选，不能称为所有 Xaero 版本完整兼容。
+
 ### v1.1.3 本轮已确认与修复
 
 - P4 文案清单已静态逐条对照：旧鼠标/服务器/外置接管/地图依赖/未来授权说明已删除或改写；奥术、发酵与厨具、SIMMC Map 作者说明已加入；工具组原生入口说明已统一。
@@ -184,7 +193,8 @@
 - 验证标题界面、世界内、背包、容器和地图页面的点击、Esc、返回父 Screen 与容器拖拽。
 - 验证奥术实际使用后的 HUD、发酵/厨具实际提示和服务器切换清理。
 - 验证 Xaero 已验证组合下世界地图和小地图覆盖确实可见；用隔离客户端确认不兼容/未知组合安全启动且其它模块可用。
-- 实现第二阶段 Xaero 能力探测、ABI 指纹和 World Map/Minimap 独立适配器；本轮未实现。
+- 完成第二阶段代表组合的隔离客户端启动与地图界面证据；验证 XaeroLib 1.6.0/1.6.1 Loader 解析、World 顶部按钮、World/Minimap 覆盖、圆方裁剪、centered enlarged、路点持久化和未知 ABI 独立降级。
+- 实现并验证 Minimap 25.2.10-25.2.12 depth-trace 家族，或继续保持该家族安全停用并记录原因。
 - 完成 mod 3 外置桥接的真实构建、提交/版本事实确认和整合客户端矩阵。
 - 测试干净安装、仅内置模块、mod 3 外置、mod 4 外置、两者外置、Simes 外置、Xaero 缺失和不兼容组合。
 - v1.1.1 的本地候选 JAR 和 `.jar.sha256` 保持不变；v1.1.2 创建新候选后，创建 `v1.1.2-fabric-mc1.21.8` 标签或线上 Release 前仍须完成真实客户端证据。
@@ -207,6 +217,7 @@
 - 本轮 Fabric Loom 首次重映射在系统临时目录报 `AccessDeniedException`；将 `TEMP/TMP` 指向项目内 `.gradle-local/loom-tmp` 后 `build -x test` 成功。
 - 本轮 Gradle `test` 仍报告 `ClassNotFoundException: worker.org.gradle.process.internal.worker.GradleWorkerMain`；继续使用 `verifyUnitTests` 通过 JUnit Platform Launcher 直接执行测试，并以 `build -x test` 完成构建。后续以该任务的实际计数作为本机单元测试证据。
 - 无 Xaero/Mod Menu 构建必须通过资源处理剔除地图 Mixin 和 Mod Menu entrypoint；该矩阵已实际通过。
+- 无 Xaero 构建还必须剔除对应地图测试源，否则 `compileTestJava` 会错误引用可选 Xaero 类型。
 - Gradle wrapper 必须设置 `GRADLE_USER_HOME` 指向已有项目缓存；否则即使本机已有 Gradle 9.5.0，也可能再次尝试联网下载并因沙箱网络权限失败。
 - Loom 项目缓存缺少 `mojang_versions_manifest.json` 时，即使其余 Minecraft 缓存存在也会在配置阶段失败；可从本机已有 Gradle Fabric Loom 缓存复制同一清单后使用 `--offline` 验证，无需重新联网下载。
 - 必要时允许在仓库隔离 `run/` 目录运行自建开发客户端；禁止启动、修改或复用用户客户端目录。隔离客户端到达资源加载阶段只能证明相应启动阶段，不等于用户环境、UI、目标服务器功能或完整矩阵验收。
@@ -243,6 +254,8 @@ DOCX 等级与用户最新消息冲突时保留原等级，但以用户最新消
 | P2 | 体验或中等修改 | 本轮不单独分配 | 若被其他修复顺带覆盖，必须单独复核 | 否则未修复/待验证 |
 | P1 | 不可用或较大恢复 | 1 个 gpt5.6-Sol-xhigh | 授权 Simes 奥术 HUD及测试，不改总控、快捷键、地图或版本入口 | 需针对性测试，实机仍待验收 |
 | P0 | 崩溃或重大变更 | 主线程 | 共享入口、生命周期、整合和发布门槛 | 当前清单无 P0 |
+
+v1.1.5 的 P0 第二阶段任务由主线程协调多个 Sol-high 子代理：探针质量、World 适配、Minimap/Waypoint 运行时边界分别审阅；子代理不得修改发布入口或用户客户端。当前本轮清单 P0 已有源码/构建级部分完成，但实机闭环仍未完成。
 
 v1.1.4 从 `b9acb09` 建立独立分支：P4/P3 由一个 LUNA-MAX 子代理负责总控页面，P2/P1 由一个 Sol-high 子代理负责 Simes 奥术范围，主线程负责生命周期、整合、构建、逐条复核和记忆同步。地图按钮对齐已由 P3 页面改动一并完成；发酵/厨具仍按清单保守保留。
 
