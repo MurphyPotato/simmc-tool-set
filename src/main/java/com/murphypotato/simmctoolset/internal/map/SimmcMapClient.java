@@ -8,7 +8,11 @@ import com.murphypotato.simmctoolset.internal.map.gui.WorldMapUiController;
 import com.murphypotato.simmctoolset.internal.map.integration.XaeroCompatibility;
 import com.murphypotato.simmctoolset.internal.map.integration.WorldRuntimeState;
 import com.murphypotato.simmctoolset.internal.map.integration.XaeroWaypointBridge;
+<<<<<<< HEAD
+import com.murphypotato.simmctoolset.internal.map.integration.MinimapRuntimeState;
+import com.murphypotato.simmctoolset.internal.map.integration.WaypointHealth;
 import com.murphypotato.simmctoolset.map.XaeroCapabilityProbe;
+import com.murphypotato.simmctoolset.map.XaeroCapabilitySnapshot;
 import com.murphypotato.simmctoolset.internal.map.cache.*;
 import com.murphypotato.simmctoolset.internal.map.config.*;
 import com.murphypotato.simmctoolset.internal.map.network.*;
@@ -28,7 +32,6 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.loader.api.FabricLoader;
-import xaero.common.HudMod;
 import xaero.hud.minimap.module.MinimapSession;
 import xaero.hud.render.module.ModuleRenderContext;
 
@@ -57,12 +60,18 @@ public final class SimmcMapClient {
     private static SimmcMapConfig config;
     private static Path configPath;
     private static volatile String runtimeStatus = "等待连接 play.simmc.cn";
+    private static volatile MinimapRuntimeState minimapRuntime = MinimapRuntimeState.empty();
+    private static volatile WaypointHealth waypointHealth = new WaypointHealth(false);
 
     public static void initialize() {
         if (config != null) return;
         ClassLoader loader = Thread.currentThread().getContextClassLoader();
         if (loader == null) loader = SimmcMapClient.class.getClassLoader();
-        WorldRuntimeState.initialize(XaeroCapabilityProbe.probe(loader), loader);
+        XaeroCapabilitySnapshot capabilities = XaeroCapabilityProbe.probe(loader);
+        WorldRuntimeState.initialize(capabilities, loader);
+        minimapRuntime = MinimapRuntimeState.initialize(capabilities, loader);
+        waypointHealth = new WaypointHealth(capabilities.has(XaeroCapabilitySnapshot.Capability.WAYPOINT_WRITE));
+        XaeroWaypointBridge.initialize(waypointHealth);
         Path configDir = FabricLoader.getInstance().getConfigDir();
         configPath = configDir.resolve("simmc-tool-set").resolve("map.json");
         config = SimmcMapConfig.loadOrImport(configPath,
@@ -239,11 +248,13 @@ public final class SimmcMapClient {
     public static void renderMinimap(DrawContext context, MinimapSession minimapSession,
                                      ModuleRenderContext renderContext) {
         MinecraftClient client = MinecraftClient.getInstance();
+        if (!minimapRuntime.overlayEnabled() || !minimapRuntime.shapeEnabled()) return;
         if (config == null || client.player == null || client.world == null
                 || client.world.getRegistryKey() != net.minecraft.world.World.OVERWORLD
                 || !WORLD_MAP_UI.toolbar().worldMapEnabled()) return;
         int size = Math.max(32, renderContext.w);
-        boolean circular = HudMod.INSTANCE != null && HudMod.INSTANCE.getSettings().minimapShape == 0;
+        boolean circular = minimapRuntime.circular();
+        if (!minimapRuntime.shapeEnabled()) return;
         WorldMapOverlayRenderer overlay = worldMapOverlay();
         overlay.setHiddenLayers(config.hiddenLayerIds());
         MinimapOverlayRenderer.Plan plan = new MinimapOverlayRenderer(overlay).plan(

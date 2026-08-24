@@ -15,6 +15,7 @@ public final class MapCompatibility {
     private static final String SAFE_DISABLE_WARNING =
             "检测到未经验证的 Xaero 版本组合。地图已安全停用，未应用 MixinGuiMap 和 "
                     + "MixinMinimapModuleRenderer；其他 Tool Set 模块继续启动。";
+    private static volatile XaeroCapabilitySnapshot capabilitySnapshot;
 
     private MapCompatibility() {
     }
@@ -24,7 +25,14 @@ public final class MapCompatibility {
         if (loader.isModLoaded(EXTERNAL_MAP_ID)) return Status.externalMap();
         Optional<String> worldMap = versionOf(WORLD_MAP_ID);
         Optional<String> minimap = versionOf(MINIMAP_ID);
-        return evaluate(worldMap.orElse(null), minimap.orElse(null), ToolSetSettings.mapExperimentalEnabled());
+        String worldVersion = worldMap.orElse(null);
+        String minimapVersion = minimap.orElse(null);
+        Status versions = evaluate(worldVersion, minimapVersion, ToolSetSettings.mapExperimentalEnabled());
+        if (worldVersion != null && minimapVersion != null) {
+            XaeroCapabilitySnapshot capabilities = capabilities();
+            if (supportsRuntime(capabilities)) return Status.capability(worldVersion, minimapVersion, capabilities);
+        }
+        return versions;
     }
 
     public static boolean shouldInitializeInternalMap() {
@@ -35,12 +43,62 @@ public final class MapCompatibility {
         return shouldApplyInternalMapMixins(status());
     }
 
+    /** Selects a single ABI-specific mixin after the read-only bytecode probe. */
+    public static boolean shouldApplyInternalMapMixin(String mixinClassName) {
+        if (mixinClassName == null || FabricLoader.getInstance().isModLoaded(EXTERNAL_MAP_ID)) return false;
+        if (!status().shouldLoadMap()) return false;
+        XaeroCapabilitySnapshot capabilities = capabilities();
+        if (mixinClassName.endsWith("MixinGuiMap")) {
+            return capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_VIEW);
+        }
+        if (mixinClassName.endsWith("MixinWorldSurfaceLegacy")) {
+            return capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_SURFACE_LEGACY);
+        }
+        if (mixinClassName.endsWith("MixinWorldSurfaceProfiled")) {
+            return capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_SURFACE_PROFILED);
+        }
+        if (mixinClassName.endsWith("MixinWorldZoomLegacy")) {
+            return capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_ZOOM_LEGACY);
+        }
+        if (mixinClassName.endsWith("MixinWorldZoomProfiled")) {
+            return capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_ZOOM_PROFILED);
+        }
+        if (mixinClassName.endsWith("MixinMinimapModuleRenderer")) {
+            return capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_RENDER_COMMON)
+                    && (capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_HOOK_DEPTH_TRACE)
+                    || capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_HOOK_PIP))
+                    && (capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_SHAPE_LEGACY)
+                    || capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_SHAPE_PROFILE));
+        }
+        return false;
+    }
+
+    public static XaeroCapabilitySnapshot capabilities() {
+        XaeroCapabilitySnapshot cached = capabilitySnapshot;
+        if (cached != null) return cached;
+        XaeroCapabilitySnapshot detected = XaeroCapabilityProbe.probe(MapCompatibility.class.getClassLoader());
+        capabilitySnapshot = detected;
+        return detected;
+    }
+
     static boolean shouldInitializeInternalMap(Status status) {
         return status.shouldLoadMap();
     }
 
     static boolean shouldApplyInternalMapMixins(Status status) {
         return status.shouldApplyMixins();
+    }
+
+    private static boolean supportsRuntime(XaeroCapabilitySnapshot capabilities) {
+        boolean world = capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_VIEW)
+                && (capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_SURFACE_LEGACY)
+                || capabilities.has(XaeroCapabilitySnapshot.Capability.WORLD_SURFACE_PROFILED));
+        boolean minimap = capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_RENDER_COMMON)
+                && (capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_HOOK_DEPTH_TRACE)
+                || capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_HOOK_PIP))
+                && (capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_SHAPE_LEGACY)
+                || capabilities.has(XaeroCapabilitySnapshot.Capability.MINIMAP_SHAPE_PROFILE));
+        return world && minimap;
     }
 
     static Status evaluate(String worldMapVersion, String minimapVersion, boolean ignoredExperimental) {
@@ -60,40 +118,46 @@ public final class MapCompatibility {
     }
 
     public enum Mode {
-        VERIFIED, EXPERIMENTAL, INCOMPATIBLE, MISSING_WORLD_MAP, MISSING_MINIMAP, MISSING_BOTH, EXTERNAL_MAP
+        VERIFIED, CAPABILITY, EXPERIMENTAL, INCOMPATIBLE, MISSING_WORLD_MAP, MISSING_MINIMAP, MISSING_BOTH, EXTERNAL_MAP
     }
 
-    public record Status(Mode mode, String worldMapVersion, String minimapVersion, boolean experimentalEnabled) {
+    public record Status(Mode mode, String worldMapVersion, String minimapVersion, boolean experimentalEnabled,
+                         XaeroCapabilitySnapshot capabilities) {
+        static Status capability(String worldMapVersion, String minimapVersion,
+                                 XaeroCapabilitySnapshot capabilities) {
+            return new Status(Mode.CAPABILITY, worldMapVersion, minimapVersion, false, capabilities);
+        }
+
         static Status verified(String worldMapVersion, String minimapVersion) {
-            return new Status(Mode.VERIFIED, worldMapVersion, minimapVersion, false);
+            return new Status(Mode.VERIFIED, worldMapVersion, minimapVersion, false, null);
         }
 
         static Status incompatible(String worldMapVersion, String minimapVersion) {
-            return new Status(Mode.INCOMPATIBLE, worldMapVersion, minimapVersion, false);
+            return new Status(Mode.INCOMPATIBLE, worldMapVersion, minimapVersion, false, null);
         }
 
         static Status missingWorldMap(String minimapVersion) {
-            return new Status(Mode.MISSING_WORLD_MAP, null, minimapVersion, false);
+            return new Status(Mode.MISSING_WORLD_MAP, null, minimapVersion, false, null);
         }
 
         static Status missingMinimap(String worldMapVersion) {
-            return new Status(Mode.MISSING_MINIMAP, worldMapVersion, null, false);
+            return new Status(Mode.MISSING_MINIMAP, worldMapVersion, null, false, null);
         }
 
         static Status missingBoth() {
-            return new Status(Mode.MISSING_BOTH, null, null, false);
+            return new Status(Mode.MISSING_BOTH, null, null, false, null);
         }
 
         static Status externalMap() {
-            return new Status(Mode.EXTERNAL_MAP, null, null, false);
+            return new Status(Mode.EXTERNAL_MAP, null, null, false, null);
         }
 
         public boolean shouldLoadMap() {
-            return mode == Mode.VERIFIED;
+            return mode == Mode.VERIFIED || mode == Mode.CAPABILITY;
         }
 
         public boolean shouldApplyMixins() {
-            return mode == Mode.VERIFIED;
+            return mode == Mode.VERIFIED || mode == Mode.CAPABILITY;
         }
 
         public boolean canEnableExperimental() {
@@ -103,6 +167,7 @@ public final class MapCompatibility {
         public String displayName() {
             return switch (mode) {
                 case VERIFIED -> "已验证兼容";
+                case CAPABILITY -> "已识别能力兼容";
                 case EXPERIMENTAL -> "实验兼容已被安全门控停用";
                 case INCOMPATIBLE -> "兼容性警告：地图已安全停用";
                 case MISSING_WORLD_MAP -> "缺少 Xaero 世界地图";
@@ -115,6 +180,8 @@ public final class MapCompatibility {
         public String detail() {
             return switch (mode) {
                 case VERIFIED -> "Xaero World Map " + worldMapVersion + " + Xaero Minimap " + minimapVersion + ".";
+                case CAPABILITY -> "Xaero World Map " + worldMapVersion + " + Xaero Minimap " + minimapVersion
+                        + "；已按能力探测选择适配器，未知子能力会单独停用。";
                 case EXPERIMENTAL -> SAFE_DISABLE_WARNING + "旧实验兼容设置不会绕过此安全门控。";
                 case INCOMPATIBLE -> "检测到 Xaero World Map " + worldMapVersion + " + Xaero Minimap "
                         + minimapVersion + "。" + SAFE_DISABLE_WARNING

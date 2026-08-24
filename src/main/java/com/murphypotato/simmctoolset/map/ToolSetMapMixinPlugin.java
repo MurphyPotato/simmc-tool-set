@@ -18,7 +18,7 @@ public final class ToolSetMapMixinPlugin implements IMixinConfigPlugin {
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         return !mixinClassName.startsWith(MAP_MIXIN_PREFIX)
-                || (MapCompatibility.shouldApplyInternalMapMixins() && MapModule.isAvailable());
+                || (MapModule.isAvailable() && MapCompatibility.shouldApplyInternalMapMixin(mixinClassName));
     }
 
     @Override public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) { }

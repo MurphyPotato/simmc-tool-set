@@ -1,6 +1,8 @@
 package com.murphypotato.simmctoolset.mixins.map;
 
 import com.murphypotato.simmctoolset.internal.map.SimmcMapClient;
+import com.murphypotato.simmctoolset.internal.map.integration.MinimapHealth;
+import com.murphypotato.simmctoolset.internal.map.integration.MinimapRuntimeState;
 import net.minecraft.client.gui.DrawContext;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -19,6 +21,11 @@ public abstract class MixinMinimapModuleRenderer {
             require = 1, expect = 1, allow = 1, remap = false)
     private void simmc_tool_set$renderOverlay(MinimapSession session, ModuleRenderContext renderContext,
                                         DrawContext context, float partialTick, CallbackInfo callback) {
-        SimmcMapClient.renderMinimap(context, session, renderContext);
+        try {
+            SimmcMapClient.renderMinimap(context, session, renderContext);
+        } catch (LinkageError | RuntimeException failure) {
+            // The runtime state is deliberately fail-closed; Xaero remains usable.
+            MinimapRuntimeState.current().health().fail(MinimapHealth.Capability.COMMON_RENDER);
+        }
     }
 }

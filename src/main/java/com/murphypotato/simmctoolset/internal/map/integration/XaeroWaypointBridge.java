@@ -19,8 +19,13 @@ public final class XaeroWaypointBridge {
     public record WaypointRequest(String name, int x, int y, int z, String dimension) { }
 
     public enum Result { CREATED, NO_ACTIVE_WORLD, WRONG_DIMENSION, XAERO_UNAVAILABLE, SAVE_FAILED }
+    private static volatile WaypointHealth health = new WaypointHealth(false);
 
     private XaeroWaypointBridge() { }
+
+    public static void initialize(WaypointHealth waypointHealth) {
+        health = waypointHealth == null ? new WaypointHealth(false) : waypointHealth;
+    }
 
     public static Optional<WaypointRequest> request(SearchEntry entry) {
         if (entry == null || !entry.canCreateWaypoint()) return Optional.empty();
@@ -38,7 +43,7 @@ public final class XaeroWaypointBridge {
     }
 
     public static Result create(WaypointRequest request) {
-        if (request == null) return Result.XAERO_UNAVAILABLE;
+        if (request == null || !health.enabled()) return Result.XAERO_UNAVAILABLE;
         try {
             XaeroMinimapSession session = XaeroMinimapSession.getCurrentSession();
             if (session == null) return Result.XAERO_UNAVAILABLE;
@@ -68,6 +73,7 @@ public final class XaeroWaypointBridge {
             }
             return Result.CREATED;
         } catch (LinkageError | RuntimeException failure) {
+            health.fail();
             return Result.XAERO_UNAVAILABLE;
         }
     }

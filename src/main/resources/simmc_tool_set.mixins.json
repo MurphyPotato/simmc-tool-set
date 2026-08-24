@@ -10,6 +10,10 @@
     "client.SimesBossBarMixin",
     "accessory.HandledScreenAccessor",
     "map.MixinGuiMap",
+    "map.MixinWorldSurfaceLegacy",
+    "map.MixinWorldSurfaceProfiled",
+    "map.MixinWorldZoomLegacy",
+    "map.MixinWorldZoomProfiled",
     "map.MixinMinimapModuleRenderer"
   ],
   "injectors": {
