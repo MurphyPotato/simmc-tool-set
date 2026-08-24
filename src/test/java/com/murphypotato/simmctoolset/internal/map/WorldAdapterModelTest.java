@@ -5,6 +5,7 @@ import com.murphypotato.simmctoolset.internal.map.integration.WorldMapHealth;
 import com.murphypotato.simmctoolset.internal.map.integration.WorldSurfaceAdapter;
 import com.murphypotato.simmctoolset.internal.map.integration.WorldViewAdapter;
 import com.murphypotato.simmctoolset.internal.map.integration.WorldZoomAdapter;
+import com.murphypotato.simmctoolset.internal.map.integration.WorldRuntimeState;
 import com.murphypotato.simmctoolset.map.XaeroCapabilitySnapshot;
 import org.junit.jupiter.api.Test;
 
@@ -93,6 +94,39 @@ class WorldAdapterModelTest {
         assertTrue(zoomFail.worldSurfaceEnabled());
         assertTrue(zoomFail.navigationEnabled());
         assertFalse(zoomFail.extendedZoomEnabled());
+    }
+
+    @Test
+    void runtimeStateSelectsFamiliesAndKeepsMixinFamiliesExclusive() {
+        WorldRuntimeState legacy = WorldRuntimeState.initialize(
+                new XaeroCapabilitySnapshot(EnumSet.of(WORLD_VIEW, WORLD_NAVIGATION,
+                        WORLD_SURFACE_LEGACY, WORLD_ZOOM_LEGACY)), fixtureLoader());
+        assertEquals(WorldAdapterSelection.Family.A, legacy.selection().family());
+        assertTrue(legacy.shouldApply(WorldRuntimeState.LEGACY_SURFACE_MIXIN));
+        assertFalse(legacy.shouldApply(WorldRuntimeState.PROFILED_SURFACE_MIXIN));
+        assertTrue(legacy.shouldApply(WorldRuntimeState.LEGACY_ZOOM_MIXIN));
+        assertFalse(legacy.shouldApply(WorldRuntimeState.PROFILED_ZOOM_MIXIN));
+
+        WorldRuntimeState profiled = WorldRuntimeState.initialize(
+                new XaeroCapabilitySnapshot(EnumSet.of(WORLD_VIEW, WORLD_NAVIGATION,
+                        WORLD_SURFACE_PROFILED, WORLD_ZOOM_PROFILED)), fixtureLoader());
+        assertEquals(WorldAdapterSelection.Family.D, profiled.selection().family());
+        assertFalse(profiled.shouldApply(WorldRuntimeState.LEGACY_SURFACE_MIXIN));
+        assertTrue(profiled.shouldApply(WorldRuntimeState.PROFILED_SURFACE_MIXIN));
+        assertFalse(profiled.shouldApply(WorldRuntimeState.LEGACY_ZOOM_MIXIN));
+        assertTrue(profiled.shouldApply(WorldRuntimeState.PROFILED_ZOOM_MIXIN));
+    }
+
+    @Test
+    void runtimeSurfaceResolveFailureDisablesOnlySurface() {
+        WorldRuntimeState state = WorldRuntimeState.initialize(
+                new XaeroCapabilitySnapshot(EnumSet.of(WORLD_VIEW, WORLD_NAVIGATION,
+                        WORLD_SURFACE_LEGACY, WORLD_ZOOM_LEGACY)), missingFlushLoader());
+        assertFalse(state.surfaceEnabled());
+        assertTrue(state.navigationEnabled());
+        assertTrue(state.extendedZoomEnabled());
+        assertFalse(state.shouldApply(WorldRuntimeState.LEGACY_SURFACE_MIXIN));
+        assertTrue(state.shouldApply(WorldRuntimeState.LEGACY_ZOOM_MIXIN));
     }
 
     private static WorldAdapterSelection select(XaeroCapabilitySnapshot.Capability... capabilities) {

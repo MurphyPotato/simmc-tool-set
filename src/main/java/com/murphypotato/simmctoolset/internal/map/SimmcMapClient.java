@@ -6,7 +6,9 @@ import com.murphypotato.simmctoolset.internal.map.model.OnlinePlayerEntry;
 import com.murphypotato.simmctoolset.internal.map.command.SimmcMapCommand;
 import com.murphypotato.simmctoolset.internal.map.gui.WorldMapUiController;
 import com.murphypotato.simmctoolset.internal.map.integration.XaeroCompatibility;
+import com.murphypotato.simmctoolset.internal.map.integration.WorldRuntimeState;
 import com.murphypotato.simmctoolset.internal.map.integration.XaeroWaypointBridge;
+import com.murphypotato.simmctoolset.map.XaeroCapabilityProbe;
 import com.murphypotato.simmctoolset.internal.map.cache.*;
 import com.murphypotato.simmctoolset.internal.map.config.*;
 import com.murphypotato.simmctoolset.internal.map.network.*;
@@ -58,6 +60,9 @@ public final class SimmcMapClient {
 
     public static void initialize() {
         if (config != null) return;
+        ClassLoader loader = Thread.currentThread().getContextClassLoader();
+        if (loader == null) loader = SimmcMapClient.class.getClassLoader();
+        WorldRuntimeState.initialize(XaeroCapabilityProbe.probe(loader), loader);
         Path configDir = FabricLoader.getInstance().getConfigDir();
         configPath = configDir.resolve("simmc-tool-set").resolve("map.json");
         config = SimmcMapConfig.loadOrImport(configPath,
@@ -310,6 +315,7 @@ public final class SimmcMapClient {
     public static boolean onWorldMapClick(double mouseX, double mouseY, int button,
                                           WorldMapOverlayRenderer.View view) {
         if (WORLD_MAP_UI.click(mouseX, mouseY, button, worldMapOverlay(), view)) return true;
+        if (view == null || !WorldRuntimeState.current().navigationEnabled()) return false;
         WorldMapInputRouting.MousePress route = WorldMapInputRouting.route(
                 worldMapOverlay(), mouseX, mouseY, button, view);
         route.selection().ifPresent(SELECTED::set);
@@ -345,7 +351,9 @@ public final class SimmcMapClient {
     }
 
     public static double worldMapZoomFloor(double original) {
-        return fullWorldMode ? Math.min(original, fullWorldFloor) : original;
+        WorldRuntimeState state = WorldRuntimeState.current();
+        if (!fullWorldMode || !state.extendedZoomEnabled() || state.zoom() == null) return original;
+        return Math.min(original, state.zoom().floor(true, fullWorldFloor));
     }
 
     public static void clearWorldMapScreenState() {
