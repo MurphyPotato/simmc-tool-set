@@ -54,7 +54,7 @@ class WorldAdapterModelTest {
     }
 
     @Test
-    void surfaceResolutionUsesOnlyTheSelectedFlushAbi() {
+    void surfaceResolutionUsesOnlyTheSelectedFlushAbi() throws ReflectiveOperationException {
         ClassLoader loader = fixtureLoader();
         WorldSurfaceAdapter legacy = WorldSurfaceAdapter.resolve(
                 select(WORLD_SURFACE_LEGACY), loader);
@@ -66,6 +66,10 @@ class WorldAdapterModelTest {
         assertEquals(WorldAdapterSelection.Surface.PROFILED, profiled.kind());
         legacy.flushGui();
         profiled.flushGui();
+        assertEquals("legacy", loader.loadClass("xaero.map.render.util.GuiRenderUtil")
+                .getField("MARKER").get(null));
+        assertEquals("profiled", loader.loadClass("xaero.lib.client.render.util.GuiRenderUtil")
+                .getField("MARKER").get(null));
         assertNull(WorldSurfaceAdapter.resolve(select(WORLD_SURFACE_LEGACY),
                 missingFlushLoader()));
     }

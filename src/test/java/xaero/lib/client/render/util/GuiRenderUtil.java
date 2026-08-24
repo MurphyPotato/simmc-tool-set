@@ -1,1 +1,1 @@
-package xaero.lib.client.render.util; public final class GuiRenderUtil { private GuiRenderUtil() {} public static void flushGUI() {} }
+package xaero.lib.client.render.util; public final class GuiRenderUtil { public static String MARKER = "unset"; private GuiRenderUtil() {} public static void flushGUI() { MARKER = "profiled"; } }
