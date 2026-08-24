@@ -8,7 +8,6 @@ import com.murphypotato.simmctoolset.internal.map.gui.WorldMapUiController;
 import com.murphypotato.simmctoolset.internal.map.integration.XaeroCompatibility;
 import com.murphypotato.simmctoolset.internal.map.integration.WorldRuntimeState;
 import com.murphypotato.simmctoolset.internal.map.integration.XaeroWaypointBridge;
-<<<<<<< HEAD
 import com.murphypotato.simmctoolset.internal.map.integration.MinimapRuntimeState;
 import com.murphypotato.simmctoolset.internal.map.integration.WaypointHealth;
 import com.murphypotato.simmctoolset.map.XaeroCapabilityProbe;
