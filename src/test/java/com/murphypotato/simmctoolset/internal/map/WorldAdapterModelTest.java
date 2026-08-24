@@ -46,6 +46,9 @@ class WorldAdapterModelTest {
         assertTrue(WorldViewAdapter.view(Double.NaN, 20, 2, 1, 800, 600).isEmpty());
         assertTrue(WorldViewAdapter.view(10, Double.POSITIVE_INFINITY, 2, 1, 800, 600).isEmpty());
         assertTrue(WorldViewAdapter.view(10, 20, Double.NEGATIVE_INFINITY, 1, 800, 600).isEmpty());
+        assertTrue(WorldViewAdapter.view(10, 20, 0, 1, 800, 600).isEmpty());
+        assertTrue(WorldViewAdapter.view(10, 20, 2, 0, 800, 600).isEmpty());
+        assertTrue(WorldViewAdapter.view(10, 20, 2, -1, 800, 600).isEmpty());
         assertTrue(WorldViewAdapter.view(10, 20, 2, Double.NaN, 800, 600).isEmpty());
         assertFalse(WorldViewAdapter.shouldHitTest(null));
     }
