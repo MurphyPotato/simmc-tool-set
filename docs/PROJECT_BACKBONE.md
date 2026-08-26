@@ -20,10 +20,10 @@
 | Fabric Loader | 0.17.3 |
 | Fabric API | 0.136.1+1.21.8 |
 | 当前分支 | `fabric-mc1.21.8-tool-set-v1.1.6`（本地、未发布） |
-| 当前实现提交 | `c11587d`；以 v1.1.5 P0 第一阶段和第二阶段能力适配为基线 |
+| 候选源码提交 | `162b8e2`；候选 JAR 来自该提交的干净工作树 |
 | 当前标签 | 尚未创建；旧 `v1.0.3-fabric-mc1.21.8` 保持不变 |
-| 构建 JAR | v1.1.6 尚未生成发布候选；不创建标签或线上 Release |
-| 构建 JAR SHA-256 | v1.1.5 候选 `EFAB78BFC7803A21B30E39419A433CBF423B4DF61036FEDB8BC1F0FD185706C9` 保留不变 |
+| 构建 JAR | `release/simmc-tool-set-fabric-1.1.6-fabric-mc1.21.8.jar`，1,394,494 bytes；本地候选，不创建标签或线上 Release |
+| 构建 JAR SHA-256 | `DE8F7F8654A583D650A3B79ECB389B62B6A48F9EFE72FF3B8844D49AAE3DA1E5`；相邻 `.jar.sha256` 已复算匹配，旧候选保持不变 |
 | 最近验证 | 无 Xaero 62/62；五组代表 Xaero 组合各 72/72，`MapCompatibilitySmoke` 7/7，MapNativeSmoke 通过；真实客户端仍未验证 |
 | 真实客户端联调 | 隔离 `runClient` 已到渲染资源加载阶段，无 Tool Set 崩溃；热键页/Simes 页视觉与目标服务器功能仍需人工验收；不得启动、修改或复用用户客户端 |
 
@@ -172,6 +172,7 @@
 - 五组代表组合各通过 72/72 `verifyUnitTests` 和 `verifyMapCompatibility` 7/7；无 Xaero 通过 62/62 和 7/7；无 Xaero 同时剔除地图生产源与测试源。
 - 25.2.10-25.2.12 的 depth-trace 家族仍安全停用，等待真实注入锚点和实机证据；未完成 World/Minimap UI、裁剪、centered enlarged、路点持久化和未知 ABI 实机验收。
 - v1.1.6 仍是本地未发布实现候选，不能称为所有 Xaero 版本完整兼容。
+- 本地候选 JAR 已复制到外部 `release/`，与构建输出大小及 SHA-256 一致；这不改变实机验收和正式发布门槛。
 
 ### v1.1.3 本轮已确认与修复
 
