@@ -327,7 +327,7 @@ public final class RefreshCoordinator implements AutoCloseable {
         };
         updateMarkerStatus(message, "地图标记请求失败：" + message + "，截止策略="
                 + (status == HttpStatus.TIMEOUT ? "12分钟" : "默认") + "，重试次数=" + failures);
-        scheduleMarkerIfActive(backoff(failures));
+        if (status != HttpStatus.TOO_LARGE) scheduleMarkerIfActive(backoff(failures));
     }
 
     private void updateMarkerStatus(String status, String diagnostic) {
