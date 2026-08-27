@@ -131,6 +131,13 @@
   JDK 21 与匹配的 Gradle 9.5.0 必须从已缓存/受控路径运行。Gradle、Loom、
   native-platform 或 Git 权限失败先归类为环境问题，不修改源码“修复”它们。
 
+### 外部平台上传流程索引
+
+- 发布操作流程文件：`I:\mc smc服\simmc moster hunter 2.0\simmc-tool-set_project\MOD_PLATFORM_UPLOAD_PROCESS.md`
+- 用途：Tool Set 测试通过后的 Modrinth/CurseForge 项目创建、版本上传、AI 内容披露、素材检查、GitHub 上游 JAR 与 SHA-256 核验，以及发布后匿名下载验证。
+- 其中的 CurseForge 历史参考记录了旅行猎手项目 `1640354` 和文件 `8582015`；该记录仅用于复用表单经验，Tool Set 必须创建独立平台项目，不得覆盖旅行猎手项目或其历史文件。
+- 流程文件位于主仓库外，主干文档只保留索引和适用边界，不复制其正文。
+
 ## 9. 已完成与仍需完成
 
 ### 已完成
