@@ -151,7 +151,7 @@ public final class SimmcMapClient {
             int markerCount = snapshot == null ? 0 : snapshot.layers().stream()
                     .mapToInt(layer -> layer.markers().size()).sum();
             if (markerCount > 0) runtimeStatus = "已收到 " + markerCount + " 个地图标记";
-            else if (settings != null) runtimeStatus = "已连接，等待公开地图标记";
+            else runtimeStatus = state.coordinator.markerStatus();
             List<OnlinePlayerEntry> players = state.coordinator.players();
             if (players != state.lastPlayers || state.playersAvailable != state.coordinator.playersAvailable()) {
                 publishOnlinePlayers(players, state.coordinator.playersAvailable()); state.lastPlayers = players; state.playersAvailable = state.coordinator.playersAvailable();

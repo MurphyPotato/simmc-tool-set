@@ -8,10 +8,12 @@ package com.murphypotato.simmctoolset.internal.map.network;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.zip.GZIPInputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -62,9 +64,14 @@ public final class SquaremapHttpClient implements AutoCloseable {
     }
 
     public CompletableFuture<HttpResult> get(URI uri, HttpValidators validators) {
+        return get(uri, validators, requestTimeout);
+    }
+
+    public CompletableFuture<HttpResult> get(URI uri, HttpValidators validators, Duration timeout) {
         validateUri(uri);
         Objects.requireNonNull(validators, "validators");
-        RequestKey key = new RequestKey(uri.normalize(), validators);
+        validateTimeout(timeout);
+        RequestKey key = new RequestKey(uri.normalize(), validators, timeout);
         InFlight flight;
         boolean start;
         CompletableFuture<HttpResult> view = new CompletableFuture<>();
@@ -100,8 +107,9 @@ public final class SquaremapHttpClient implements AutoCloseable {
 
     private void start(InFlight flight, URI uri) {
         HttpRequest.Builder builder = HttpRequest.newBuilder(uri)
-                .timeout(requestTimeout).header("User-Agent", userAgent)
-                .header("Accept", "application/json,image/png").GET();
+                .timeout(flight.key.timeout()).header("User-Agent", userAgent)
+                .header("Accept", "application/json,image/png")
+                .header("Accept-Encoding", "gzip").GET();
         if (flight.validators.etag() != null && !flight.validators.etag().isBlank()) {
             builder.header("If-None-Match", flight.validators.etag());
         }
@@ -115,8 +123,8 @@ public final class SquaremapHttpClient implements AutoCloseable {
                 transport = client.sendAsync(builder.build(), HttpResponse.BodyHandlers.ofInputStream());
                 flight.transport = transport;
                 flight.timeout = timeoutExecutor.schedule(
-                        () -> finish(flight, new HttpResult(HttpStatus.RETRYABLE, null, flight.validators, null), true),
-                        requestTimeout.toNanos(), TimeUnit.NANOSECONDS);
+                        () -> finish(flight, new HttpResult(HttpStatus.TIMEOUT, null, flight.validators, null), true),
+                        flight.key.timeout().toNanos(), TimeUnit.NANOSECONDS);
             }
         } catch (RuntimeException startFailure) {
             finish(flight, new HttpResult(networkFailure(startFailure), null, flight.validators, null), true);
@@ -171,7 +179,7 @@ public final class SquaremapHttpClient implements AutoCloseable {
                 case 408, 425, 429 -> HttpStatus.RETRYABLE;
                 default -> code >= 500 && code <= 599 ? HttpStatus.RETRYABLE : HttpStatus.FAILED;
             };
-            byte[] bytes = status == HttpStatus.SUCCESS ? readBounded(body) : null;
+            byte[] bytes = status == HttpStatus.SUCCESS ? readBounded(decodedBody(body, response)) : null;
             HttpValidators received = switch (status) {
                 case SUCCESS -> new HttpValidators(
                         response.headers().firstValue("ETag").orElse(null),
@@ -183,9 +191,19 @@ public final class SquaremapHttpClient implements AutoCloseable {
             };
             return new HttpResult(status, status == HttpStatus.SUCCESS ? bytes : null, received,
                     response.headers().firstValue("Content-Type").orElse(null));
-        } catch (IOException tooLargeOrUnreadable) {
-            return new HttpResult(HttpStatus.FAILED, null, previous, null);
+        } catch (BodyTooLargeException tooLarge) {
+            return new HttpResult(HttpStatus.TOO_LARGE, null, previous, null);
+        } catch (IOException unreadable) {
+            return new HttpResult(HttpStatus.RETRYABLE, null, previous, null);
         }
+    }
+
+    private static InputStream decodedBody(InputStream body, HttpResponse<InputStream> response) throws IOException {
+        String encoding = response.headers().firstValue("Content-Encoding").orElse("");
+        for (String token : encoding.split(",")) {
+            if (token.trim().equalsIgnoreCase("gzip")) return new GZIPInputStream(body);
+        }
+        return body;
     }
 
     private byte[] readBounded(InputStream input) throws IOException {
@@ -194,7 +212,7 @@ public final class SquaremapHttpClient implements AutoCloseable {
         long total = 0;
         for (int read; (read = input.read(buffer)) != -1;) {
             total += read;
-            if (total > maxBodyBytes) throw new IOException("response body exceeds configured limit");
+            if (total > maxBodyBytes) throw new BodyTooLargeException();
             output.write(buffer, 0, read);
         }
         return output.toByteArray();
@@ -208,10 +226,16 @@ public final class SquaremapHttpClient implements AutoCloseable {
         }
     }
 
+    private static void validateTimeout(Duration timeout) {
+        Objects.requireNonNull(timeout, "timeout");
+        if (timeout.isZero() || timeout.isNegative()) throw new IllegalArgumentException("timeout must be positive");
+    }
+
     private static HttpStatus networkFailure(Throwable failure) {
         Throwable cause = failure;
         while (cause instanceof CompletionException && cause.getCause() != null) cause = cause.getCause();
-        return cause instanceof IOException || cause instanceof InterruptedException || cause instanceof CancellationException
+        return cause instanceof HttpTimeoutException ? HttpStatus.TIMEOUT
+                : cause instanceof IOException || cause instanceof InterruptedException || cause instanceof CancellationException
                 ? HttpStatus.RETRYABLE : HttpStatus.FAILED;
     }
 
@@ -246,7 +270,11 @@ public final class SquaremapHttpClient implements AutoCloseable {
         try { stream.close(); } catch (IOException ignored) { }
     }
 
-    private record RequestKey(URI uri, HttpValidators validators) {}
+    private record RequestKey(URI uri, HttpValidators validators, Duration timeout) {}
+
+    private static final class BodyTooLargeException extends IOException {
+        private BodyTooLargeException() { super("response body exceeds configured limit"); }
+    }
 
     private static final class InFlight {
         final RequestKey key;

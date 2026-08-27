@@ -8,6 +8,7 @@ import java.util.concurrent.CompletableFuture;
 
 /** HTTP-backed squaremap resources under one validated map base path. */
 public final class HttpSquaremapDataSource implements SquaremapDataSource {
+    private static final java.time.Duration MARKERS_TIMEOUT = java.time.Duration.ofMinutes(12);
     private final SquaremapHttpClient http;
     private final URI settings;
     private final URI markers;
@@ -29,7 +30,7 @@ public final class HttpSquaremapDataSource implements SquaremapDataSource {
     }
 
     @Override public CompletableFuture<HttpResult> fetchMarkers(HttpValidators validators) {
-        return http.get(markers, validators);
+        return http.get(markers, validators, MARKERS_TIMEOUT);
     }
 
     @Override public CompletableFuture<HttpResult> fetchPlayers(HttpValidators validators) {

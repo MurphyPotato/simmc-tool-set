@@ -49,7 +49,7 @@ public final class HttpTileSource implements TileSource {
             case SUCCESS -> TileFetchResult.found(result.body(), received);
             case NOT_MODIFIED -> TileFetchResult.notModified(received);
             case NOT_FOUND -> TileFetchResult.notFound(received);
-            case RETRYABLE, FAILED -> TileFetchResult.failed(received);
+            case RETRYABLE, TIMEOUT, TOO_LARGE, FAILED -> TileFetchResult.failed(received);
         };
     }
 

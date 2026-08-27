@@ -6,6 +6,7 @@
  */
 package com.murphypotato.simmctoolset.internal.map.network;
 
+import com.murphypotato.simmctoolset.client.DiagnosticLog;
 import com.murphypotato.simmctoolset.internal.map.cache.SnapshotCacheEntry;
 import com.murphypotato.simmctoolset.internal.map.cache.SnapshotDiskCache;
 import com.murphypotato.simmctoolset.internal.map.model.MapSnapshot;
@@ -46,6 +47,7 @@ public final class RefreshCoordinator implements AutoCloseable {
     private final AtomicReference<MapSnapshot> snapshot = new AtomicReference<>(new MapSnapshot(List.of()));
     private final AtomicReference<SquaremapWorldSettings> settings = new AtomicReference<>();
     private final AtomicReference<List<OnlinePlayerEntry>> players = new AtomicReference<>(List.of());
+    private volatile String markerStatus = "等待地图数据";
 
     private final AtomicBoolean scheduling = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -89,6 +91,7 @@ public final class RefreshCoordinator implements AutoCloseable {
     public SquaremapWorldSettings settings() { return settings.get(); }
     public List<OnlinePlayerEntry> players() { return players.get(); }
     public boolean playersAvailable() { return playersAvailable; }
+    public String markerStatus() { return markerStatus; }
 
     public boolean restoreFromDisk() {
         if (closed.get()) return false;
@@ -187,6 +190,12 @@ public final class RefreshCoordinator implements AutoCloseable {
         try {
             CompletableFuture<HttpResult> settingsFuture = source.fetchSettings(sv);
             CompletableFuture<HttpResult> markersFuture = source.fetchMarkers(mv);
+            acquired.whenComplete((ignored, failure) -> {
+                if (closed.get() || acquired.isCancelled()) {
+                    settingsFuture.cancel(true);
+                    markersFuture.cancel(true);
+                }
+            });
             settingsFuture.thenCombineAsync(markersFuture, Pair::new, executor)
                     .thenAcceptAsync(pair -> acceptMarkers(pair.settings, pair.markers), executor)
                     .whenComplete((ignored, failure) -> finishMarker(acquired, failure));
@@ -208,7 +217,11 @@ public final class RefreshCoordinator implements AutoCloseable {
             synchronized (this) { validators = playersValidators; }
         }
         try {
-            source.fetchPlayers(validators).thenAcceptAsync(this::acceptPlayers, executor)
+            CompletableFuture<HttpResult> playersFuture = source.fetchPlayers(validators);
+            acquired.whenComplete((ignored, failure) -> {
+                if (closed.get() || acquired.isCancelled()) playersFuture.cancel(true);
+            });
+            playersFuture.thenAcceptAsync(this::acceptPlayers, executor)
                     .whenComplete((ignored, failure) -> finishPlayer(acquired, failure));
         } catch (RuntimeException requestFailure) {
             finishPlayer(acquired, requestFailure);
@@ -218,7 +231,7 @@ public final class RefreshCoordinator implements AutoCloseable {
 
     private void finishMarker(CompletableFuture<Void> result, Throwable failure) {
         try {
-            if (failure != null && !closed.get()) markerFailed();
+            if (failure != null && !closed.get()) markerFailed(HttpStatus.RETRYABLE);
         } finally {
             synchronized (cycleLifecycleLock) {
                 markerInflight.compareAndSet(result, null);
@@ -263,7 +276,14 @@ public final class RefreshCoordinator implements AutoCloseable {
         } catch (RuntimeException invalidResponse) {
             // Count below after leaving all state locks.
         }
-        if (accepted) scheduleMarkerIfActive(MARKER_CADENCE); else markerFailed();
+        if (accepted) {
+            updateMarkerStatus("地图标记已更新", "地图标记下载恢复，已发布最新快照");
+            scheduleMarkerIfActive(MARKER_CADENCE);
+        } else {
+            HttpStatus status = markers.status() == HttpStatus.TIMEOUT ? HttpStatus.TIMEOUT
+                    : markers.status() == HttpStatus.TOO_LARGE ? HttpStatus.TOO_LARGE : HttpStatus.RETRYABLE;
+            markerFailed(status);
+        }
     }
 
     private void acceptPlayers(HttpResult result) {
@@ -294,13 +314,26 @@ public final class RefreshCoordinator implements AutoCloseable {
         if (accepted) schedulePlayerIfActive(PLAYER_CADENCE); else playerFailed();
     }
 
-    private void markerFailed() {
+    private void markerFailed(HttpStatus status) {
         int failures;
         synchronized (this) {
             if (closed.get()) return;
             failures = ++markerFailures;
         }
+        String message = switch (status) {
+            case TIMEOUT -> "标记数据下载超时，正在重试";
+            case TOO_LARGE -> "标记数据响应过大，无法发布";
+            default -> "标记数据刷新失败，正在重试";
+        };
+        updateMarkerStatus(message, "地图标记请求失败：" + message + "，截止策略="
+                + (status == HttpStatus.TIMEOUT ? "12分钟" : "默认") + "，重试次数=" + failures);
         scheduleMarkerIfActive(backoff(failures));
+    }
+
+    private void updateMarkerStatus(String status, String diagnostic) {
+        if (status.equals(markerStatus)) return;
+        markerStatus = status;
+        DiagnosticLog.info(diagnostic);
     }
 
     private void playerFailed() {
@@ -476,8 +509,8 @@ public final class RefreshCoordinator implements AutoCloseable {
         }
         cancelBestEffort(markerTask);
         cancelBestEffort(playerTask);
-        if (marker != null) marker.complete(null);
-        if (player != null) player.complete(null);
+        if (marker != null) marker.cancel(true);
+        if (player != null) player.cancel(true);
     }
 
     private record Pair(HttpResult settings, HttpResult markers) {}
