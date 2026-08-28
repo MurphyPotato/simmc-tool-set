@@ -73,7 +73,7 @@
 
 需要 Minecraft `1.21.8`、Java `21`、Fabric Loader `0.17.3` 或更高版本，以及兼容 Minecraft 1.21.8 的 Fabric API（项目测试版本为 `0.136.1+1.21.8`）。下载 [v1.1.7 JAR](https://github.com/MurphyPotato/simmc-tool-set/releases/download/v1.1.7-fabric-mc1.21.8/simmc-tool-set-fabric-1.1.7-fabric-mc1.21.8.jar) 放入目标客户端的 `mods` 文件夹。Xaero 世界地图和小地图是可选依赖；现代 Fabric JAR 已包含各自需要的 XaeroLib，不要另装重复的 XaeroLib。
 
-旧版本源码、标签、候选产物和 Release 均保留在仓库中。v1.1.0–v1.1.6 是历史预发布版本，v1.1.7 是当前正式 GitHub Release。每个正式/候选 JAR 旁均提供 `.jar.sha256` 文件。
+v1.1.0–v1.1.6 是历史预发布版本，v1.1.7 是当前正式 GitHub Release。每个正式/候选 JAR 旁均提供 `.jar.sha256` 文件。
 
 ## 网络与隐私
 
