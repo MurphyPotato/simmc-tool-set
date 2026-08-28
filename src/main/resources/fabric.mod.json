@@ -5,6 +5,7 @@
   "name": "simMC 工具组",
   "description": "simMC client-side tool set with optional Xaero map integration.",
   "authors": ["MurphyPotato"],
+  "icon": "icon.png",
   "contact": {
     "homepage": "https://github.com/MurphyPotato/simmc-tool-set",
     "sources": "https://github.com/MurphyPotato/simmc-tool-set",
