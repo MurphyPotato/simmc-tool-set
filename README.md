@@ -6,6 +6,9 @@
 
 [English](#english) · [最新正式版 1.1.7](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.7-fabric-mc1.21.8) · [问题反馈](https://github.com/MurphyPotato/simmc-tool-set/issues)
 
+## [最新正式版-直接下载链接]
+[ver.1.1.7](https://github.com/MurphyPotato/simmc-tool-set/releases/download/v1.1.7-fabric-mc1.21.8/simmc-tool-set-fabric-1.1.7-fabric-mc1.21.8.jar)
+
 ## 主要功能
 
 - **奥术 HUD**：奥术冷却条、吟唱与持续状态、公共冷却、法杖魔力 HUD；支持 Simes HUD 与原版 Action Bar 显示模式，以及独立开关和位置/缩放调整。
