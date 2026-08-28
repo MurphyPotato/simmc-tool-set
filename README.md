@@ -2,7 +2,7 @@
 
 ![simMC Tool Set icon](src/main/resources/icon.png)
 
-面向 simMC 玩家的 Minecraft 1.21.8 Fabric 客户端工具模组。Tool Set 将多个本地工具合并为一个 mod、一个客户端入口和一个可配置的总控界面；只需安装在客户端，服务器无需安装。
+面向 simMC 玩家的 Minecraft 1.21.8 Fabric 客户端工具模组。simMC Tool Set 将多个本地工具合并为一个 mod、一个客户端入口和一个可配置的总控界面；只需安装在客户端，服务器无需安装。
 
 [English](#english) · [最新正式版 1.1.7](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.7-fabric-mc1.21.8) · [问题反馈](https://github.com/MurphyPotato/simmc-tool-set/issues)
 
@@ -35,11 +35,11 @@
 ![厨具助手](docs/screenshots/cookware.png)
 ![卷轴计算](docs/screenshots/scroll-calculator.png)
 ![饰品配装](docs/screenshots/accessory.png)
+![世界地图覆盖](docs/screenshots/map-world.png)
 
-### 网页地图与诊断
+### 诊断日志
 
 ![地图控制](docs/screenshots/map-controls.png)
-![世界地图覆盖](docs/screenshots/map-world.png)
 ![诊断日志](docs/screenshots/diagnostics.png)
 
 ## 操作方式
@@ -77,7 +77,7 @@
 
 ## 网络与隐私
 
-Tool Set 不包含遥测、广告或自动上传。网页地图模块会按需从公开 `map.simmc.cn` 读取地图设置、标记、玩家和瓦片数据，并在本地缓存；其他工具主要处理客户端已经可见的数据。地图请求可能包含公开地图服务所需的网络地址和标准缓存请求头，不会向作者上传个人数据。
+simMC Tool Set 不包含遥测、广告或自动上传。网页地图模块会按需从公开 `map.simmc.cn` 读取地图设置、标记、玩家和瓦片数据，并在本地缓存；其他工具主要处理客户端已经可见的数据。地图请求可能包含公开地图服务所需的网络地址和标准缓存请求头，不会向作者上传个人数据。
 
 ## 许可
 
@@ -87,7 +87,7 @@ Tool Set 不包含遥测、广告或自动上传。网页地图模块会按需�
 
 ## English
 
-simMC Tool Set is an unofficial client-side utility mod for Minecraft 1.21.8 Fabric. It combines the Arcane HUD, fermentation and cookware helper, accessory loadout tool, scroll calculator, SIMMC web-map integration, diagnostics, and configurable shortcuts in one client mod.
+simMC Tool Set is a client-side utility mod for Minecraft 1.21.8 Fabric. It combines the Arcane HUD, fermentation and cookware helper, accessory loadout tool, scroll calculator, SIMMC web-map integration, diagnostics, and configurable shortcuts in one client mod.
 
 Install the v1.1.7 JAR in the client `mods` folder. The mod requires Java 21, Fabric Loader 0.17.3+, and Fabric API compatible with Minecraft 1.21.8. Xaero's World Map and Minimap are optional; modern Fabric Xaero jars include their required XaeroLib internally.
 
