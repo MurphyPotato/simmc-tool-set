@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "simmc_tool_set_gametest",
+  "version": "1.0.0",
+  "name": "Tool Set isolated client checks",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-client-gametest": ["com.murphypotato.simmctoolset.smoke.ToolSetClientGameTest"]
+  },
+  "depends": {"simmc_tool_set": "*", "fabric-api": "*"}
+}

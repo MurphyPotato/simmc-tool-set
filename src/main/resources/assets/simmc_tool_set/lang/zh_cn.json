@@ -7,16 +7,6 @@
   "key.simmc_tool_set.scroll": "卷轴计算",
   "key.simmc_tool_set.accessory": "饰品配装",
   "key.simmc_tool_set.brewing": "发酵与厨具",
-  "key.simmc_tool_set.map": "SIMMC 网页地图",
   "key.simmc_tool_set.diagnostics": "诊断与日志",
-  "simmc_tool_set.title": "simMC 工具组",
-  "simmc_tool_set.settings.groups": "世界地图叠加 · 世界地图背景 · 小地图背景 · 刷新",
-  "simmc_tool_set.settings.world_map": "世界地图叠加",
-  "simmc_tool_set.settings.world_background": "世界地图背景",
-  "simmc_tool_set.settings.minimap_background": "小地图背景",
-  "simmc_tool_set.settings.refresh": "立即刷新公开地图数据",
-  "simmc_tool_set.status.refreshed": "已请求刷新 SIMMC 地图数据",
-  "simmc_tool_set.status.toggled": "设置已切换并保存",
-  "simmc_tool_set.status.cache_ready": "SIMMC 离线缓存已启用",
-  "simmc_tool_set.status.waypoint_created": "已创建 Xaero 路点"
+  "simmc_tool_set.title": "simMC 工具组"
 }

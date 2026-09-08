@@ -1,5 +1,8 @@
 # simMC 工具组 / simMC Tool Set
 
+当前 Tool Set 开发分支保留奥术 HUD、卷轴计算、饰品配装、发酵与厨具和诊断日志。
+网页地图模块已移除，不再提供地图界面、地图组合键或地图数据下载。旧版本记录继续保留。
+
 面向 simMC 玩家的离线便携工具集合。每个工具使用独立公开仓库；Windows 与 Android 的同版本文件放在同一个 GitHub Release，历史版本保留。
 MurphyPotato 制作 · 非官方玩家工具组。
 

@@ -22,6 +22,7 @@ public final class UnitTestMain {
         launcher.registerTestExecutionListeners(listener);
         launcher.execute(request);
         listener.getSummary().printTo(new PrintWriter(System.out, true));
+        listener.getSummary().printFailuresTo(new PrintWriter(System.out, true));
         long failures = listener.getSummary().getTestsFailedCount();
         long tests = listener.getSummary().getTestsFoundCount();
         if (tests == 0 || failures > 0) {
