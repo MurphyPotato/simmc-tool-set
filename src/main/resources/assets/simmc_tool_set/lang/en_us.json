@@ -1,5 +1,5 @@
 {
-  "key.categories.simmc_tool_set": "simMC Tool Set",
+  "key.category.simmc_tool_set.controls": "simMC Tool Set",
   "key.simmc_tool_set.prefix": "Tool Set prefix",
   "key.simmc_tool_set.accessory_direct": "Open accessory tool directly",
   "key.simmc_tool_set.simes_settings": "Simes settings",

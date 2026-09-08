@@ -56,6 +56,9 @@ public final class ManaHudClientChecks {
             PlayerInventory inventory = client.player.getInventory();
             int oldSlot = inventory.getSelectedSlot();
             ItemStack oldStack = inventory.getStack(oldSlot);
+            float oldExperienceProgress = client.player.experienceProgress;
+            int oldExperienceLevel = client.player.experienceLevel;
+            int oldTotalExperience = client.player.totalExperience;
             try {
                 serverInfoField.set(handler, new ServerInfo("simmc test", "play.simmc.cn", ServerInfo.ServerType.OTHER));
                 activeField.setBoolean(null, true);
@@ -74,6 +77,12 @@ public final class ManaHudClientChecks {
                         "Hidden Mana wand packet was not consumed");
                 require(readyField.getBoolean(null), "Hidden Mana packet did not mark Mana ready");
                 assertNear(90.0, manaField.getDouble(null), "Hidden Mana packet did not update Mana");
+                client.getNetworkHandler().onExperienceBarUpdate(new ExperienceBarUpdateS2CPacket(0.4f, 7, 123));
+                assertNear(72.0, manaField.getDouble(null), "Network Mixin did not route hidden Mana");
+                assertNear(oldExperienceProgress, client.player.experienceProgress,
+                        "Wand Mana leaked into vanilla XP");
+                require(client.player.experienceLevel == oldExperienceLevel
+                        && client.player.totalExperience == oldTotalExperience, "Mana overwrote vanilla XP totals");
 
                 require(SimesArcaneHud.handleActionBar(Text.literal("Arcane 冷却剩余: 5s")),
                         "Cooldown sample was not accepted");
@@ -112,12 +121,20 @@ public final class ManaHudClientChecks {
                 inventory.setStack(oldSlot, ItemStack.EMPTY);
                 require(!ManaHud.handleExperiencePacket(new ExperienceBarUpdateS2CPacket(0.5f, 0, 0)),
                         "Non-wand XP packet was consumed as Mana");
+                client.getNetworkHandler().onExperienceBarUpdate(new ExperienceBarUpdateS2CPacket(0.9f, 7, 123));
+                assertNear(0.9, client.player.experienceProgress, "Non-wand vanilla XP did not update");
+                require(client.player.experienceLevel != oldExperienceLevel
+                        || client.player.totalExperience != oldTotalExperience,
+                        "Non-wand XP totals did not pass through");
             } finally {
                 reset.invoke(null);
                 cooldowns.clear();
                 cooldowns.putAll(oldCooldowns);
                 inventory.setStack(oldSlot, oldStack);
                 inventory.setSelectedSlot(oldSlot);
+                client.player.experienceProgress = oldExperienceProgress;
+                client.player.experienceLevel = oldExperienceLevel;
+                client.player.totalExperience = oldTotalExperience;
                 configField.set(null, oldConfig);
                 activeField.setBoolean(null, oldActive);
                 serverInfoField.set(handler, oldServerInfo);

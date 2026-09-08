@@ -1,62 +1,65 @@
-# simMC 工具组 / simMC Tool Set
+# simMC Tool Set
 
-当前 Tool Set 开发分支保留奥术 HUD、卷轴计算、饰品配装、发酵与厨具和诊断日志。
-网页地图模块已移除，不再提供地图界面、地图组合键或地图数据下载。旧版本记录继续保留。
+![simMC Tool Set icon](src/main/resources/icon.png)
 
-面向 simMC 玩家的离线便携工具集合。每个工具使用独立公开仓库；Windows 与 Android 的同版本文件放在同一个 GitHub Release，历史版本保留。
-MurphyPotato 制作 · 非官方玩家工具组。
+面向 simMC 玩家的 Fabric 客户端工具模组。Tool Set 将五个常用工具集中在一个模组、一个 Mod ID 和一个 JAR 中，不需要安装到服务器。
 
-## 最新版直接下载
+当前开发中的 `v1.1.8` 是本地候选版本，目标环境为 Minecraft `1.21.11`、Java 21、Fabric Loader `0.19.5` 和 Fabric API `0.141.6+1.21.11`。在完整构建、隔离客户端和目标服务器验收完成前，它不是正式发布版本。
 
-| 工具 | 功能 | Windows | Android | Fabric (推荐) | 源码与说明 |
-| --- | --- | --- | --- | --- | --- |
-| 旅行猎手饰品对比工具 | 饰品识别、人工复核、仓库管理、剑/弓最优配装 | [下载 Windows v5 ZIP](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v5/travel-hunter-accessory-tool-v5-win.zip) | [下载 Android v5 APK](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v5/travel-hunter-accessory-tool-v5-android.apk) | [下载 1.21.8 v6 JAR (推荐)](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/download/v6-fabric-mc1.21.8/travel-hunter-accessory-tool-v6-fabric-mc1.21.8.jar) | [工具仓库](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool) · [Fabric v6](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/tag/v6-fabric-mc1.21.8) · [v5 Web](https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/releases/tag/v5) |
-| 奥术卷轴计算器 | 卷轴材料配比、全局排除材料与轮换方案 | [下载 Windows v1.1.0 ZIP](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/download/v1.1.0/aoshu-scroll-calculator-v1.1.0-win.zip) | [下载 Android v1.1.0 APK](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/download/v1.1.0/aoshu-scroll-calculator-v1.1.0-android-debug.apk) | [下载 1.21.8 v2 JAR (推荐)](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/download/v2-fabric-mc1.21.8/aoshu-scroll-calculator-v2-fabric-mc1.21.8.jar) | [工具仓库](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator) · [Fabric v2](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/tag/v2-fabric-mc1.21.8) · [v1.1.0 Web](https://github.com/MurphyPotato/simmc-arcane-scroll-calculator/releases/tag/v1.1.0) |
+## 主要功能
 
-## Fabric 安装 (推荐)
+| 版块 | 功能 |
+| --- | --- |
+| 奥术 HUD | 显示奥术冷却、吟唱/持续状态、公共冷却和法杖魔力；支持 Simes HUD 与原版 Action Bar 显示模式。 |
+| 卷轴计算 | 根据目标元素和启用材料计算卷轴配比，支持材料排除、杂质与目标元素约束，以及批量制作轮换建议。 |
+| 饰品配装 | 扫描背包和饰品容器，人工复核异常数据，保存饰品库，并计算剑套与弓套配装和评分。 |
+| 发酵与厨具 | 在目标服务器识别发酵桶和厨具，记录可见食材，显示服务器校准信息和明确标注的本地时间估算。 |
+| 诊断与日志 | 在客户端本地查看诊断记录，并按需导出；用于定位配置、生命周期和运行时问题。 |
 
-1. 准备 Minecraft 1.21.8、Java 21、Fabric Loader 0.17.3 或更高版本，以及 Fabric API 0.136.1+1.21.8 或兼容版本。
-2. 点击表格中的 Fabric 下载链接，将 JAR 放入对应游戏实例的 `.minecraft/mods` 文件夹。
-3. 旅行猎手饰品工具默认按主键盘数字行 `0` 打开；奥术卷轴计算器默认按 `O` 打开。两个按键均可在 Minecraft 原生“控制”页面中修改、清除或重置。
+奥术 HUD、发酵和厨具中的 Simes 衍生实现只覆盖已授权范围：奥术冷却/状态、法杖魔力、发酵助手和厨具助手。Simes 的市场、估值、余额和自动消息功能不在 Tool Set 中。检测到外置 Simes 时，内置 Simes 功能不初始化，由外置模组接管。
 
-两个模组都只需安装在客户端，simMC 服务端无需安装。旅行猎手 Fabric v6 与奥术卷轴 Fabric v2 均为正式推荐版。
+## 快捷键
 
-## Windows 安装
+默认按键由 `ToolSetKeyRouter` 注册。`\` 是前缀键；按住前缀后在短时间内按下次键即可打开对应版块。所有 Tool Set 专属次键都可以在“工具组按键”页面重新绑定、取消或恢复默认值。
 
-1. 点击表格中的“下载 Windows ZIP”。
-2. 把 ZIP 完整解压到普通文件夹，不要直接在压缩软件内运行。
-3. 双击文件夹里的 `启动工具.bat`。
-4. 使用期间保持黑色启动窗口打开。
+| 默认按键 | 操作 |
+| --- | --- |
+| `\` + `1` | 奥术 HUD |
+| `\` + `2` | 卷轴计算 |
+| `\` + `3` | 饰品配装 |
+| `\` + `4` | 发酵与厨具 |
+| `\` + `` ` `` | 诊断与日志 |
+| 单独按下并释放 `\` | 打开 Tool Set 总览 |
+| 主键盘 `0` | 直接打开饰品配装 |
+| `O` | 未安装外置 Simes 时打开 Simes 设置 |
 
-Windows 包自带便携 Node 运行时，不需要安装 Node、npm 或开发工具。
+快捷键路由不会替代 Minecraft 原生鼠标点击、滚轮、拖拽物品、文本输入、聊天输入、容器交互或 `Esc` 返回。文本框获得焦点时，组合键不会吞掉输入。
 
-## Android 安装
+## 安装
 
-1. 点击表格中的“下载 Android APK”。
-2. 红米 K50 / 澎湃 OS 等设备按系统提示，为下载 APK 的浏览器或文件管理器允许“安装未知应用”。
-3. 安装后直接打开工具。当前 APK 均不申请联网权限。
+1. 安装 Minecraft `1.21.11`、Java 21、Fabric Loader `0.19.5` 和 Fabric API `0.141.6+1.21.11`。
+2. 将对应的 Tool Set JAR 放入该实例的 `.minecraft/mods` 文件夹。
+3. 只在客户端安装即可；simMC 服务器不需要安装 Tool Set。
 
-旅行猎手 v5 使用长期生产签名；历史 v2/v4 debug 版需要先卸载再安装 v5。奥术卷轴 v1.1.0 目前仍为项目自带 debug 签名。不要混用来源不明的重签名 APK。
+`v1.1.8` 在验收完成前不提供新的公开下载链接。历史版本、分支和正式发布记录仍保留在 [GitHub Releases](https://github.com/MurphyPotato/simmc-tool-set/releases)；源码位于 [MurphyPotato/simmc-tool-set](https://github.com/MurphyPotato/simmc-tool-set)。
 
-## 隐私与离线边界
+## 网页地图边界
 
-MurphyPotato 制作的非官方玩家工具。玩家发行包运行时不收集、上传或向作者传输个人信息、截图、配装/配方数据或设备标识，也不主动连接非本地服务器。
+从 `v1.1.8` 起，Tool Set 不再支持 SIMMC 网页地图：地图页面、地图快捷键、Xaero 适配、HTTP 下载、地图缓存和地图相关 Mixin 均已移除。用户现有的 `simmc-tool-set-map-cache`、`xaero` 文件夹以及 Xaero 数据不会被 Tool Set 删除或修改；如需清理，请由用户自行决定。
 
-Windows 仅使用 `127.0.0.1` 本机服务，Android 不申请联网权限；Fabric 模组仅在客户端读取游戏已经可见的数据，不包含网络请求、遥测或服务端入口。操作系统、浏览器及用户自行启用的系统备份行为由用户设备设置决定，不属于工具主动通信。源码构建过程可能联网下载公开依赖。
+这项移除不影响五个保留版块，也不代表旧版网页地图的线程、纹理或同步问题已经在旧版本中得到修复。
 
-当前公开稳定下载为旅行猎手 Fabric v6、旅行猎手 Windows/Android v5、奥术卷轴 Fabric v2，以及奥术卷轴 Windows/Android v1.1.0。
+## 隐私与运行边界
 
-旅行猎手 Fabric v6 适用于 Minecraft 1.21.8，是当前推荐入口。进入世界后可在背包或饰品容器按主键盘数字行 `0` 打开，按键可在原生控制设置中修改；Windows/Android v5 继续保留为兼容下载。
+- Tool Set 不包含遥测、自动上传、凭据收集或向作者发送玩家数据的功能。
+- 诊断、截图、饰品数据和卷轴数据不会自动上传；诊断导出由玩家主动触发并写入本地配置目录。
+- 网页地图移除后，Tool Set 不主动请求地图服务器，也不初始化地图网络客户端、调度器或缓存。
+- 这是非官方玩家工具，与 simMC、Mojang Studios 或 Microsoft 无官方关联。
 
-## 安全校验
+## 许可
 
-- Windows/Android Release 使用 `SHA256SUMS.txt`；Fabric Release 在 JAR 旁提供同名 `.jar.sha256` 校验文件。
-- 每个工具仓库都提供 `LICENSE` 和 `THIRD_PARTY_NOTICES.md`。
-- 下载后可用 PowerShell 执行 `Get-FileHash <文件路径> -Algorithm SHA256`，与 Release 清单比对。
-- 如果 Windows SmartScreen 弹出提示，请先确认下载地址属于 `MurphyPotato` 公开仓库并核对 SHA256。
+原创 Tool Set 代码和文档使用 [MIT License](LICENSE)。集成模块与 Simes 衍生部分的许可、来源和授权边界见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-## License
+## 开发与验收
 
-本总览仓库的原创文档使用 [MIT License](LICENSE)。各工具及第三方组件遵循其各自仓库中的许可证与声明。
-
-本项目与 simMC、Mojang Studios 或 Microsoft 无官方关联。
+构建命令、单元测试、隔离客户端测试和当前未完成项目见 [BUILDING.md](BUILDING.md) 与 [v1.1.8 实施和验收台账](docs/NEXT_IMPLEMENTATION_REVIEW.md)。构建成功不等于真实客户端或目标服务器验收通过。

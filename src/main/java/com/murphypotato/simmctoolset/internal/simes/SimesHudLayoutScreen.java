@@ -1,5 +1,6 @@
 package com.murphypotato.simmctoolset.internal.simes;
 
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -131,8 +132,11 @@ public final class SimesHudLayoutScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (super.mouseClicked(mouseX, mouseY, button)) return true;
+    public boolean mouseClicked(Click click, boolean doubleClick) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
+        if (super.mouseClicked(click, doubleClick)) return true;
         if (button != 0) return false;
         for (Target target : Target.values()) {
             PreviewBounds bounds = previewBounds(target);
@@ -149,22 +153,26 @@ public final class SimesHudLayoutScreen extends Screen {
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+    public boolean mouseDragged(Click click, double deltaX, double deltaY) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
         if (dragging && button == 0) {
             setPosition(mouseX - dragOffsetX, mouseY - dragOffsetY);
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+        return super.mouseDragged(click, deltaX, deltaY);
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(Click click) {
+        int button = click.button();
         if (button == 0 && dragging) {
             dragging = false;
             config().save();
             return true;
         }
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(click);
     }
 
     private void setPosition(double x, double y) {

@@ -7,6 +7,8 @@ import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.input.KeyInput;
+import net.minecraft.util.Identifier;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
@@ -30,6 +32,7 @@ public final class ToolSetKeyRouter {
     private static KeyBinding prefix;
     private static KeyBinding accessoryDirect;
     private static KeyBinding simesSettings;
+    private static KeyBinding.Category category;
     private static long prefixDeadline;
     private static boolean prefixDown;
     private static boolean prefixUsed;
@@ -40,6 +43,7 @@ public final class ToolSetKeyRouter {
     private ToolSetKeyRouter() { }
 
     public static synchronized void register() {
+        if (category == null) category = KeyBinding.Category.create(Identifier.of("simmc_tool_set", "controls"));
         prefix = registerNative("key.simmc_tool_set.prefix", GLFW.GLFW_KEY_BACKSLASH);
         accessoryDirect = registerNative("key.simmc_tool_set.accessory_direct", GLFW.GLFW_KEY_0);
         if (!FabricLoader.getInstance().isModLoaded("simes")) {
@@ -56,7 +60,7 @@ public final class ToolSetKeyRouter {
 
     private static KeyBinding registerNative(String translationKey, int defaultKey) {
         return KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                translationKey, InputUtil.Type.KEYSYM, defaultKey, "key.categories.simmc_tool_set"));
+                translationKey, InputUtil.Type.KEYSYM, defaultKey, category));
     }
 
     private static void add(String id, String label, String description, int defaultKey, Target target) {
@@ -70,7 +74,8 @@ public final class ToolSetKeyRouter {
             return false;
         }
         if (prefix == null || accessoryDirect == null) return false;
-        boolean isPrefix = prefix.matchesKey(keyCode, scanCode);
+        KeyInput input = new KeyInput(keyCode, scanCode, modifiers);
+        boolean isPrefix = prefix.matchesKey(input);
         if (action == GLFW.GLFW_RELEASE && isPrefix) {
             boolean openOverview = prefixDown && !prefixUsed && System.currentTimeMillis() <= prefixDeadline;
             clear();
@@ -92,11 +97,11 @@ public final class ToolSetKeyRouter {
             return false;
         }
         if (!prefixDown) {
-            if (accessoryDirect.matchesKey(keyCode, scanCode)) {
+            if (accessoryDirect.matchesKey(input)) {
                 open(client, Target.ACCESSORY);
                 return true;
             }
-            if (simesSettings != null && simesSettings.matchesKey(keyCode, scanCode)) {
+            if (simesSettings != null && simesSettings.matchesKey(input)) {
                 open(client, Target.SIMES_SETTINGS);
                 return true;
             }

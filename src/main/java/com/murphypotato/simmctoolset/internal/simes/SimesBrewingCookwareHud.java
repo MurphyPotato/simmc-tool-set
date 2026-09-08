@@ -2,8 +2,8 @@ package com.murphypotato.simmctoolset.internal.simes;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
@@ -26,7 +26,6 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
-import org.joml.Vector4f;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -444,7 +443,7 @@ public final class SimesBrewingCookwareHud {
         }
 
         BlockPos targetPos = target.getBlockPos();
-        if (targetPos.toCenterPos().squaredDistanceTo(client.player.getPos()) > 100.0D) {
+        if (targetPos.toCenterPos().squaredDistanceTo(client.player.getEntityPos()) > 100.0D) {
             projectedPanels = List.of();
             return;
         }
@@ -462,17 +461,14 @@ public final class SimesBrewingCookwareHud {
             return;
         }
 
-        Vec3d cameraPos = context.camera().getPos();
-        Vector4f point = new Vector4f(
-                (float) (targetPos.getX() + 0.5D - cameraPos.x),
-                (float) (targetPos.getY() + 1.35D - cameraPos.y),
-                (float) (targetPos.getZ() + 0.5D - cameraPos.z), 1.0F);
-        context.positionMatrix().transform(point);
-        context.projectionMatrix().transform(point);
+        // 1.21.11's world render context exposes render state rather than the
+        // old camera and projection matrices. GameRenderer.project() performs
+        // the same camera-relative NDC projection for the current frame.
+        Vec3d projected = client.gameRenderer.project(targetPos.toCenterPos().add(0.0D, 0.85D, 0.0D));
         int width = client.getWindow().getScaledWidth();
         int height = client.getWindow().getScaledHeight();
         Panel selectedPanel = panel;
-        SimesWorldProjection.project(point.x() / point.w(), point.y() / point.w(), point.w(), width, height)
+        SimesWorldProjection.project((float) projected.x, (float) projected.y, (float) projected.z, width, height)
                 .ifPresentOrElse(screen -> projectedPanels = List.of(new ProjectedPanel(selectedPanel, screen.x(), screen.y())),
                         () -> projectedPanels = List.of());
     }
@@ -605,7 +601,7 @@ public final class SimesBrewingCookwareHud {
         if (stack == null || stack.isEmpty()) return "";
         NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
         if (custom == null) return "";
-        NbtCompound nbt = custom.getNbt();
+        NbtCompound nbt = custom.copyNbt();
         String direct = nbt.getString("craftengine:id", "");
         if (!direct.isBlank()) return direct.toLowerCase(Locale.ROOT);
         NbtCompound nested = nbt.getCompoundOrEmpty("craftengine");
