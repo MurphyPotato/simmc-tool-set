@@ -7,6 +7,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Optional;
@@ -14,6 +16,8 @@ import java.util.Optional;
 /** Bounded local diagnostic log. Export only happens after a player click. */
 public final class DiagnosticLog {
     private static final int LIMIT = 120;
+    private static final ZoneId DISPLAY_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final DateTimeFormatter DISPLAY_TIME = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
     private static final ArrayDeque<String> LINES = new ArrayDeque<>();
     private static Path lastExport;
 
@@ -50,10 +54,14 @@ public final class DiagnosticLog {
     }
 
     private static void append(String level, String message, Throwable error) {
-        String value = Instant.now() + " [" + level + "] " + message;
+        String value = formatTimestamp(Instant.now()) + " [" + level + "] " + message;
         if (error != null) value += " (" + error.getClass().getSimpleName() + ": " + safe(error.getMessage()) + ")";
         LINES.addLast(value);
         while (LINES.size() > LIMIT) LINES.removeFirst();
+    }
+
+    static String formatTimestamp(Instant instant) {
+        return DISPLAY_TIME.format(instant.atZone(DISPLAY_ZONE));
     }
 
     private static String safe(String value) {
