@@ -8,6 +8,8 @@ import com.murphypotato.simmctoolset.internal.scroll.domain.ElementAmounts;
 import com.murphypotato.simmctoolset.internal.scroll.domain.RotationBatch;
 import com.murphypotato.simmctoolset.internal.scroll.domain.ScrollRecipe;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Click;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
@@ -279,7 +281,10 @@ public final class CalculatorScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(Click click, boolean doubled) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && inside(mouseX, mouseY, recipeX, recipeY, recipeWidth, recipeHeight)) {
             List<ScrollRecipe> filtered = filteredRecipes();
             int row = (int) ((mouseY - recipeY) / ROW_HEIGHT);
@@ -287,7 +292,7 @@ public final class CalculatorScreen extends Screen {
             if (index >= 0 && index < filtered.size()) selectRecipe(filtered.get(index));
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, doubled);
     }
 
     @Override
@@ -303,7 +308,8 @@ public final class CalculatorScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyInput input) {
+        int keyCode = input.key();
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
             if (!controller.calculating()) calculate();
             return true;
@@ -321,7 +327,7 @@ public final class CalculatorScreen extends Screen {
             }
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(input);
     }
 
     private void selectRecipe(ScrollRecipe recipe) {

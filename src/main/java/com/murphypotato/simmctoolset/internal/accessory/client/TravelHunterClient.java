@@ -44,7 +44,7 @@ public final class TravelHunterClient {
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (screen instanceof HandledScreen<?> handled) controller.observeHandledScreen(handled);
             highlighter.attach(screen);
-            ScreenKeyboardEvents.allowKeyPress(screen).register((current, keyCode, scanCode, modifiers) -> true);
+            ScreenKeyboardEvents.allowKeyPress(screen).register((current, input) -> true);
         });
     }
 

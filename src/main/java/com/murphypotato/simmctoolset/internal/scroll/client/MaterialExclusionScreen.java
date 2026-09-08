@@ -4,6 +4,8 @@ import com.murphypotato.simmctoolset.internal.scroll.config.ArcaneSettings;
 import com.murphypotato.simmctoolset.internal.scroll.domain.Element;
 import com.murphypotato.simmctoolset.internal.scroll.domain.Material;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Click;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
@@ -92,7 +94,10 @@ public final class MaterialExclusionScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(Click click, boolean doubled) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && mouseX >= MARGIN && mouseX < width - MARGIN && mouseY >= listTop && mouseY < listBottom) {
             int index = scroll + (int) ((mouseY - listTop) / ROW_HEIGHT);
             List<Material> filtered = filteredMaterials();
@@ -102,7 +107,7 @@ public final class MaterialExclusionScreen extends Screen {
             }
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, doubled);
     }
 
     @Override
@@ -114,7 +119,8 @@ public final class MaterialExclusionScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyInput input) {
+        int keyCode = input.key();
         List<Material> filtered = filteredMaterials();
         if ((keyCode == GLFW.GLFW_KEY_UP || keyCode == GLFW.GLFW_KEY_DOWN) && !filtered.isEmpty()) {
             focusedRow = clamp(focusedRow + (keyCode == GLFW.GLFW_KEY_UP ? -1 : 1), 0, filtered.size() - 1);
@@ -127,7 +133,7 @@ public final class MaterialExclusionScreen extends Screen {
             toggle(filtered.get(focusedRow).name());
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(input);
     }
 
     private void toggle(String name) {

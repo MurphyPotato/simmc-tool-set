@@ -7,6 +7,8 @@ import com.murphypotato.simmctoolset.internal.accessory.domain.AffixRecord;
 import com.murphypotato.simmctoolset.internal.accessory.domain.AffixStat;
 import com.murphypotato.simmctoolset.internal.accessory.domain.AffixUnit;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Click;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
@@ -225,7 +227,10 @@ public final class AccessoryEditorScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(Click click, boolean doubled) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
         if (dropdown != null) {
             if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && dropdown.contains(mouseX, mouseY)) {
                 int row = (int) ((mouseY - dropdown.y - 1) / DROPDOWN_ROW_HEIGHT);
@@ -239,7 +244,7 @@ public final class AccessoryEditorScreen extends Screen {
             dropdown = null;
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, doubled);
     }
 
     @Override
@@ -253,7 +258,8 @@ public final class AccessoryEditorScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyInput input) {
+        int keyCode = input.key();
         if (dropdown != null) {
             if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
                 dropdown = null;
@@ -273,7 +279,7 @@ public final class AccessoryEditorScreen extends Screen {
                 return true;
             }
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(input);
     }
 
     @Override
