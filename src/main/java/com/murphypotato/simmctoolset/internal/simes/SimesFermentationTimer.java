@@ -33,6 +33,18 @@ final class SimesFermentationTimer {
                 ? State.CALIBRATED : State.EXPECTED_DONE;
     }
 
+    /**
+     * A timer remains useful after the player looks away: an expired
+     * projection still needs a later server confirmation, and a confirmed
+     * result remains valid until the session or target is explicitly reset.
+     */
+    boolean hasRetainedState(long nowNanos) {
+        return switch (stateAt(nowNanos)) {
+            case CALIBRATED, EXPECTED_DONE, CONFIRMED -> true;
+            case UNKNOWN, INVALIDATED -> false;
+        };
+    }
+
     long remainingMillisAt(long nowNanos) {
         State current = stateAt(nowNanos);
         if (current == State.CALIBRATED || current == State.EXPECTED_DONE || current == State.CONFIRMED) {

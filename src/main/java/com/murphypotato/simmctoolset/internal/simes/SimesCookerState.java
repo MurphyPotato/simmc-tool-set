@@ -26,8 +26,7 @@ final class SimesCookerState {
 
         String currentSignature = safeContents.stream().sorted().reduce("", (left, right) -> left + "|" + right);
         int previousCount = contents.size();
-        boolean wasCooking = previousCount > 1;
-        if (open) {
+        if (safeContents.isEmpty() || open) {
             estimateStartedAt = 0L;
             completed = false;
         } else if (!safeContents.isEmpty() && (justClosed || estimateStartedAt == 0L)) {
@@ -35,12 +34,26 @@ final class SimesCookerState {
         }
         if (currentSignature.equals(signature)) return;
 
-        completed = wasCooking && safeContents.size() == 1;
-        if (!open && !safeContents.isEmpty() && (!wasCooking || safeContents.size() > previousCount)) {
+        // A client-side display-entity count change cannot prove that the server
+        // completed the recipe. Keep the local estimate conservative and wait for
+        // authoritative server data before exposing a completed state.
+        completed = false;
+        if (!open && !safeContents.isEmpty() && safeContents.size() > previousCount) {
             estimateStartedAt = now;
         }
         contents = safeContents;
         signature = currentSignature;
+    }
+
+    void clear() {
+        cookwareName = "厨具";
+        contents = List.of();
+        signature = "";
+        estimateStartedAt = 0L;
+        lastSeen = 0L;
+        completed = false;
+        open = false;
+        lidStateKnown = false;
     }
 
     boolean hasContents() {

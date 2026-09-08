@@ -31,11 +31,23 @@ class SimesCookerStateTest {
     }
 
     @Test
-    void contentReductionToOneMarksLocalCompletion() {
+    void contentReductionDoesNotPretendToBeServerCompletion() {
         SimesCookerState cooker = new SimesCookerState();
         cooker.observe("煎锅", false, List.of("a", "b"), 1_000L);
         cooker.observe("煎锅", false, List.of("a"), 2_000L);
 
-        assertTrue(cooker.isCompleted());
+        assertTrue(cooker.hasContents());
+        assertTrue(!cooker.isCompleted());
+    }
+
+    @Test
+    void emptyContentsClearEstimateAndCompletionState() {
+        SimesCookerState cooker = new SimesCookerState();
+        cooker.observe("煎锅", false, List.of("a", "b"), 1_000L);
+        cooker.observe("煎锅", false, List.of(), 2_000L);
+
+        assertTrue(!cooker.hasContents());
+        assertEquals(0L, cooker.estimateStartedAt());
+        assertTrue(!cooker.isCompleted());
     }
 }

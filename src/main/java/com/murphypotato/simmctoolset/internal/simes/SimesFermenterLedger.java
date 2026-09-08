@@ -37,6 +37,10 @@ final class SimesFermenterLedger {
         return items.getOrDefault(key, 0);
     }
 
+    boolean hasItems() {
+        return !items.isEmpty();
+    }
+
     Map<String, Integer> snapshot() {
         return Map.copyOf(items);
     }
