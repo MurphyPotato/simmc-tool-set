@@ -2,7 +2,7 @@
 
 Plan: `C:/Users/Murpho/.codex/plans/019feca7-5a95-70b0-b40b-0303d7072edd/01a08286-fe5f-7461-9af0-988442757b1f/PLAN.md`
 
-Baseline: v1.1.7 `fa3ccdc`. Status: implementation in progress; not a release.
+Baseline: v1.1.7 `fa3ccdc`. Status: local candidate complete; not a release.
 
 ## Decisions and Boundaries
 
@@ -20,7 +20,7 @@ Baseline: v1.1.7 `fa3ccdc`. Status: implementation in progress; not a release.
 | B: Arcane and diagnostic | arcane_diag | Mana/wand lifecycle and UTC+8. Reviewed by arcane_review; direct packet checks added to native client tests. | Baseline complete |
 | C: scroll | scroll_accessory_brewing | Bounded batches, material totals, footer layout. Reviewed independently. Server capacity remains provisional. | Baseline complete |
 | D: accessory and brewing | scroll_accessory_brewing | Session confirmations and conservative brewing. map_review added exact raw-tooltip guard. | Baseline complete |
-| Integration and upgrade | main thread | Shared UI, world-change reset, baseline regression and target API migration. | Upgrade in progress |
+| Integration and upgrade | main thread | Shared UI, world-change reset, baseline regression and target API migration. | Local candidate complete |
 
 The four implementation areas are independent after the navigation ownership is fixed. C and D share one worker due concurrency limits. The plan's historical "planning only" sentence does not override the owner's explicit instruction to implement and build; publication remains prohibited.
 
@@ -31,9 +31,9 @@ The four implementation areas are independent after the navigation ownership is 
 | Map code, dependencies, mixins, UI, keys removed | Commit 9f2e346; no production map/Xaero references, map tests removed. Historical docs retained. | Passed source gate |
 | 1.21.8 unit tests and complete build without Xaero | baseline-reviewed-build.log: 69/69, complete build successful | Passed |
 | Mana/wand lifecycle, timezone, scroll capacity, review persistence, conservative cooking tests | 69 unit tests plus baseline-reviewed-client.log native client test | Passed local gates |
-| 1.21.11 unit tests and complete build | Pending | Pending |
-| Client-only metadata, no map classes/dependencies, version and checksum | Pending | Pending |
-| Isolated client UI/input/retained-module startup | Pending | Needs verification |
+| 1.21.11 unit tests and complete build | final-target-build.log: 69/69, clean build successful | Passed |
+| Client-only metadata, no map classes/dependencies, version and checksum | Candidate 888370 bytes; SHA-256 recorded in release; jar entry audit clean | Passed static gate |
+| Isolated client UI/input/retained-module startup | target-client-smoke-recheck.log; retained UI and Mana lifecycle checks passed | Passed isolated gate |
 | Target server and external Simes runtime behavior | Requires actual runtime evidence | Needs verification |
 
 ## Baseline Evidence and Limits
