@@ -354,6 +354,10 @@ public final class SimesBrewingCookwareHud {
     private static void removeStaleFermenters(long now) {
         fermenters.entrySet().removeIf(entry -> {
             Fermenter state = entry.getValue();
+            if (!isFermentationBarrelAt(MinecraftClient.getInstance(), entry.getKey())) {
+                clearFermenterState(entry.getKey());
+                return true;
+            }
             if (now - state.lastSeen() <= FERMENTER_RETENTION_MS || state.hasRetainedState()) return false;
             BlockPos stalePos = entry.getKey();
             if (stalePos.equals(clockTarget)) clockTarget = null;
@@ -363,6 +367,14 @@ public final class SimesBrewingCookwareHud {
             }
             return true;
         });
+    }
+
+    private static void clearFermenterState(BlockPos pos) {
+        if (pos.equals(clockTarget)) clockTarget = null;
+        if (pos.equals(lastFermentationTarget)) {
+            lastFermentationTarget = null;
+            lastFermentationInteractionAt = 0L;
+        }
     }
 
     private static void acceptClockMessage(String raw) {
