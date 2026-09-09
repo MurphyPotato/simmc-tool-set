@@ -25,10 +25,14 @@ final class SimesCookerState {
         lidStateKnown = true;
 
         String currentSignature = safeContents.stream().sorted().reduce("", (left, right) -> left + "|" + right);
+        int previousCount = contents.size();
         if (safeContents.isEmpty() || open) {
             estimateStartedAt = 0L;
             completed = false;
         } else if (!safeContents.isEmpty() && (justClosed || estimateStartedAt == 0L)) {
+            estimateStartedAt = now;
+        }
+        if (!open && !safeContents.isEmpty() && safeContents.size() > previousCount) {
             estimateStartedAt = now;
         }
         if (currentSignature.equals(signature)) return;

@@ -52,10 +52,10 @@ class SimesCookerStateTest {
     }
 
     @Test
-    void addingContentsDoesNotRestartClosedCook() {
+    void addingContentsRestartsClosedCookAsInV118() {
         SimesCookerState cooker = new SimesCookerState();
         cooker.observe("煎锅", false, List.of("a"), 1_000L);
         cooker.observe("煎锅", false, List.of("a", "b"), 10_000L);
-        assertEquals(1_000L, cooker.estimateStartedAt());
+        assertEquals(10_000L, cooker.estimateStartedAt());
     }
 }
