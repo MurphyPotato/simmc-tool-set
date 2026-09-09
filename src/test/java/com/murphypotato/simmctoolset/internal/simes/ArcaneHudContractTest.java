@@ -115,6 +115,13 @@ final class ArcaneHudContractTest {
         assertEquals("ready", SimesArcaneHud.stripArcaneInputHints("上 ready Shift"));
         assertEquals("ready | status", SimesArcaneHud.stripArcaneInputHints("ready | status"));
     }
+
+    @Test
+    void simesModeConsumesResidualActionBarWithoutVanillaOverlay() {
+        // Regression contract: residual casting hints must not be forwarded to
+        // the bottom vanilla overlay, which overlaps and flickers Mana HUD.
+        assertTrue(SimesArcaneHud.isArcaneInputHintOnly("上 Shift"));
+    }
     @Test
     void canonicalizesTheTwoKnownZhuhuaSpellNames() {
         assertEquals("蜘化术", ArcaneColors.canonicalName("蛛化术"));
