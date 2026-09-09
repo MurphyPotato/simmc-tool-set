@@ -17,7 +17,7 @@ class SimesCookerStateTest {
 
         cooker.observe("炖锅", false, List.of("a", "b"), 2_000L);
         assertEquals(2_000L, cooker.estimateStartedAt());
-        assertEquals(57_000L, cooker.remainingMillis(5_000L));
+        assertEquals(27_000L, cooker.remainingMillis(5_000L));
     }
 
     @Test
@@ -49,5 +49,13 @@ class SimesCookerStateTest {
         assertTrue(!cooker.hasContents());
         assertEquals(0L, cooker.estimateStartedAt());
         assertTrue(!cooker.isCompleted());
+    }
+
+    @Test
+    void addingContentsDoesNotRestartClosedCook() {
+        SimesCookerState cooker = new SimesCookerState();
+        cooker.observe("煎锅", false, List.of("a"), 1_000L);
+        cooker.observe("煎锅", false, List.of("a", "b"), 10_000L);
+        assertEquals(1_000L, cooker.estimateStartedAt());
     }
 }

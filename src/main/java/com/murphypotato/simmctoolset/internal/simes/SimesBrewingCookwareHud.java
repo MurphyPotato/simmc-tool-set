@@ -130,6 +130,11 @@ public final class SimesBrewingCookwareHud {
             } else if (SimesFeatureController.fermentationEnabled()
                     && fermentationBarrel && !held.isEmpty()) {
                 finishWithdrawalTracking();
+                // Inventory deltas are only attributable to one barrel at a time.
+                // Starting a new target closes the previous attribution window.
+                if (depositIntents.stream().anyMatch(intent -> !intent.pos.equals(pos))) {
+                    finishDepositTracking();
+                }
                 if (depositIntents.isEmpty()) {
                     depositBaseline = inventorySnapshot(player);
                     depositAccounted.clear();

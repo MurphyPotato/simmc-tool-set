@@ -4,7 +4,7 @@ import java.util.List;
 
 /** Client-only projection of a normal cookware vessel observed through display entities. */
 final class SimesCookerState {
-    static final long COOK_ESTIMATE_MS = 60_000L;
+    static final long COOK_ESTIMATE_MS = 30_000L;
 
     private String cookwareName = "厨具";
     private List<String> contents = List.of();
@@ -25,7 +25,6 @@ final class SimesCookerState {
         lidStateKnown = true;
 
         String currentSignature = safeContents.stream().sorted().reduce("", (left, right) -> left + "|" + right);
-        int previousCount = contents.size();
         if (safeContents.isEmpty() || open) {
             estimateStartedAt = 0L;
             completed = false;
@@ -38,9 +37,6 @@ final class SimesCookerState {
         // completed the recipe. Keep the local estimate conservative and wait for
         // authoritative server data before exposing a completed state.
         completed = false;
-        if (!open && !safeContents.isEmpty() && safeContents.size() > previousCount) {
-            estimateStartedAt = now;
-        }
         contents = safeContents;
         signature = currentSignature;
     }
