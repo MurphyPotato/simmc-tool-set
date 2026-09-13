@@ -26,31 +26,66 @@
 
 ### 奥术 HUD
 
+- 显示奥术冷却、吟唱/持续状态、公共冷却和法杖 Mana
+
+- 支持模块化自定义HUD位置和大小
+
 ![奥术 HUD](docs/screenshots/arcane-status.png)
+<img width="2662" height="1464" alt="7db44bbe64191a60cc39eac7f6cbfeff" src="https://github.com/user-attachments/assets/62c49dae-8831-409a-96a2-6640592ca266" />
+
 
 ### 卷轴计算
+
+- 计算卷轴材料配比
+
+- 支持材料排除、杂质和批量建议
 
 ![卷轴计算](docs/screenshots/scroll-calculator.png)
 
 ### 饰品配装
 
+- 扫描饰品，无论其在饰品栏，物品栏，背包，还是容器中
+
+- 自动入库被扫描的饰品，并自动计算伤害评分
+
+- 自动按最佳期望伤害计算剑套和弓套配装，并提供配装引导，帮助玩家定位最佳饰品位置
+  - 红框代表剑套最佳饰品，蓝框代表弓套最佳饰品
+
+- 当前支持旅猎套装
+
 ![饰品配装](docs/screenshots/accessory.png)
 
 ### 发酵与厨具
 
+- 本地化记录发酵桶的放入物品，当前发酵剩余时间（需要通过烹饪时钟同步）
+
+- 本地化记录（御三锅）煎锅、蒸锅、煮锅的放入物品，以高亮发光区别显示当前烹饪状态
+  - 不发光：啥都没放
+  - 红光：你菜变碳了
+  - 蓝光：放入材料但还没开始烹饪
+  - 黄光：正在烹饪
+  - 绿光：烹饪完成
+
 ![发酵与厨具](docs/screenshots/cookware.png)
+<img width="1639" height="1031" alt="1d325f42f7be10d996b993b2544f700a" src="https://github.com/user-attachments/assets/9a9bde0e-88c4-4290-a9c2-c65c87e279cf" />
+
 
 ### 诊断与日志
+
+- 出bug时请导出mod诊断日志与游戏log，然后发送issue，不胜感激。
 
 ![诊断与日志](docs/screenshots/diagnostics.png)
 
 ## 安装
 
-目标环境：Minecraft `1.21.11`、Java 21、Fabric Loader `0.19.5`、Fabric API `0.141.6+1.21.11`。将对应 JAR 放入客户端 `.minecraft/mods`；服务器不安装。
+目标环境：Minecraft `1.21.11`、Java 21、Fabric Loader `0.19.5`、Fabric API `0.141.6+1.21.11`。将对应 JAR 放入客户端 `.minecraft/mods`。
+本mod为客户端mod。
 
-## 网页地图边界
+## 网页地图
 
 从 v1.1.8 起，Tool Set 不再支持 SIMMC 网页地图、Xaero 适配、地图 HTTP 下载、地图缓存和地图快捷键。
+
+如需要原功能，请去simmc官方kook 规则帮助与资源下载 频道，下载 simmc-map-addon 模组。
 
 ## 许可
 
