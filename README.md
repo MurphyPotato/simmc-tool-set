@@ -2,70 +2,96 @@
 
 ![simMC Tool Set icon](src/main/resources/icon.png)
 
-面向 simMC 玩家的 Fabric 客户端工具模组。Tool Set 将五个常用工具集中在一个模组、一个 Mod ID 和一个 JAR 中，不需要安装到服务器。
+面向 simMC 玩家的 Minecraft 1.21.8 Fabric 客户端工具模组。simMC Tool Set 将多个本地工具合并为一个 mod、一个客户端入口和一个可配置的总控界面；只需安装在客户端，服务器无需安装。
 
-当前最新稳定版为 `v1.1.9`，最新测试版为 `v1.1.9-dev.20260913.2`（Beta）。两者目标环境均为 Minecraft `1.21.11`、Java 21、Fabric Loader `0.19.5` 和 Fabric API `0.141.6+1.21.11`。Beta 包含正在验证的厨具结果识别和彩色状态描边；稳定版不包含这些未完成的服务器验收功能。
+[English](#english) · [最新正式版 1.1.7](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.7-fabric-mc1.21.8) · [问题反馈](https://github.com/MurphyPotato/simmc-tool-set/issues)
+
+## [最新正式版-直接下载链接]
+[simMC Tool Set ver.1.1.7](https://github.com/MurphyPotato/simmc-tool-set/releases/download/v1.1.7-fabric-mc1.21.8/simmc-tool-set-fabric-1.1.7-fabric-mc1.21.8.jar)
 
 ## 主要功能
 
-| 版块 | 功能 |
+- **奥术 HUD**：奥术冷却条、吟唱与持续状态、公共冷却、法杖魔力 HUD；支持 Simes HUD 与原版 Action Bar 显示模式，以及独立开关和位置/缩放调整。
+- **发酵与厨具助手**：识别发酵桶、炖锅、蒸锅和煎锅，显示材料、数量、服务器校准时间、完成状态与厨具开盖状态。
+- **饰品配装**：扫描当前物品栏或容器中的饰品，查看属性并计算配装方案。
+- **卷轴计算**：计算奥术卷轴材料配比，支持材料排除和轮换方案。
+- **SIMMC 网页地图**：在 Xaero 世界地图和小地图中显示 SIMMC 地图覆盖层、标记和背景；按能力探测 Xaero 版本，无法确认的覆盖功能会单独停用。地图数据来自公开的 `map.simmc.cn` 端点。
+- **诊断与配置**：统一总控、动态快捷键、独立模块状态、配置迁移和本地诊断日志导出。
+
+## 界面预览
+
+### 总控与快捷键
+
+![总览](docs/screenshots/overview.png)
+![组合键总览](docs/screenshots/shortcuts-overview.png)
+![组合键设置](docs/screenshots/shortcuts-settings.png)
+
+### 奥术 HUD
+
+![奥术冷却](docs/screenshots/arcane-cooldowns.png)
+![吟唱与持续状态](docs/screenshots/arcane-status.png)
+![法杖魔力](docs/screenshots/arcane-mana.png)
+
+### 工具模块
+
+![发酵助手](docs/screenshots/fermentation.png)
+![厨具助手](docs/screenshots/cookware.png)
+![卷轴计算](docs/screenshots/scroll-calculator.png)
+![饰品配装](docs/screenshots/accessory.png)
+![世界地图覆盖](docs/screenshots/map-world.png)
+
+### 诊断日志
+
+![地图控制](docs/screenshots/map-controls.png)
+![诊断日志](docs/screenshots/diagnostics.png)
+
+## 操作方式
+
+### 原生按键
+
+这些入口使用 Minecraft 原生按键绑定，可在“选项 → 控制 → 按键绑定”中修改、取消绑定或恢复默认：
+
+| 默认键 | 功能 |
 | --- | --- |
-| 奥术 HUD | 显示奥术冷却、吟唱/持续状态、公共冷却和法杖魔力；支持 Simes HUD 与原版 Action Bar 显示模式。 |
-| 卷轴计算 | 根据目标元素和启用材料计算卷轴配比，支持材料排除、杂质与目标元素约束，以及批量制作轮换建议。 |
-| 饰品配装 | 扫描背包和饰品容器，人工复核异常数据，保存饰品库，并计算剑套与弓套配装和评分。 |
-| 发酵与厨具 | 在目标服务器识别发酵桶和厨具，记录可见食材，显示服务器校准信息和明确标注的本地时间估算。 |
-| 诊断与日志 | 在客户端本地查看诊断记录，并按需导出；用于定位配置、生命周期和运行时问题。 |
+| `\` | 组合前缀；单独松开打开 Tool Set 总控 |
+| `0` | 饰品工具直达 |
+| `O` | Simes 设置入口（外置 Simes 存在时由外置模组接管） |
 
-奥术 HUD、发酵和厨具中的 Simes 衍生实现只覆盖已授权范围：奥术冷却/状态、法杖魔力、发酵助手和厨具助手。Simes 的市场、估值、余额和自动消息功能不在 Tool Set 中。检测到外置 Simes 时，内置 Simes 功能不初始化，由外置模组接管。
+### Tool Set 组合子键
 
-## 快捷键
+按住 `\` 后在短时间内按下子键：
 
-默认按键由 `ToolSetKeyRouter` 注册。`\` 是前缀键；按住前缀后在短时间内按下次键即可打开对应版块。所有 Tool Set 专属次键都可以在“工具组按键”页面重新绑定、取消或恢复默认值。
-
-| 默认按键 | 操作 |
+| 子键 | 功能 |
 | --- | --- |
-| `\` + `1` | 奥术 HUD |
-| `\` + `2` | 卷轴计算 |
-| `\` + `3` | 饰品配装 |
-| `\` + `4` | 发酵与厨具 |
-| `\` + `` ` `` | 诊断与日志 |
-| 单独按下并释放 `\` | 打开 Tool Set 总览 |
-| 主键盘 `0` | 直接打开饰品配装 |
-| `O` | 未安装外置 Simes 时打开 Simes 设置 |
+| `1` | 奥术 HUD |
+| `2` | 卷轴计算 |
+| `3` | 饰品配装 |
+| `4` | 发酵与厨具 |
+| `5` | SIMMC 网页地图 |
+| `` ` `` | 诊断与日志 |
 
-快捷键路由不会替代 Minecraft 原生鼠标点击、滚轮、拖拽物品、文本输入、聊天输入、容器交互或 `Esc` 返回。文本框获得焦点时，组合键不会吞掉输入。
+组合子键只在 Tool Set 的按键设置页修改，绑定会保存到 `config/simmc-tool-set/shortcuts.properties`。文本输入、聊天、容器交互和普通数字快捷栏操作不会被拦截。
 
 ## 安装
 
-1. 安装 Minecraft `1.21.11`、Java 21、Fabric Loader `0.19.5` 和 Fabric API `0.141.6+1.21.11`。
-2. 将对应的 Tool Set JAR 放入该实例的 `.minecraft/mods` 文件夹。
-3. 只在客户端安装即可；simMC 服务器不需要安装 Tool Set。
+需要 Minecraft `1.21.8`、Java `21`、Fabric Loader `0.17.3` 或更高版本，以及兼容 Minecraft 1.21.8 的 Fabric API（项目测试版本为 `0.136.1+1.21.8`）。下载 [v1.1.7 JAR](https://github.com/MurphyPotato/simmc-tool-set/releases/download/v1.1.7-fabric-mc1.21.8/simmc-tool-set-fabric-1.1.7-fabric-mc1.21.8.jar) 放入目标客户端的 `mods` 文件夹。Xaero 世界地图和小地图是可选依赖；现代 Fabric JAR 已包含各自需要的 XaeroLib，不要另装重复的 XaeroLib。
 
-下载：
+v1.1.0–v1.1.6 是历史预发布版本，v1.1.7 是当前正式 GitHub Release。每个正式/候选 JAR 旁均提供 `.jar.sha256` 文件。
 
-- [v1.1.9 稳定版](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.9-fabric-mc1.21.11)：包含奥术 HUD Mana 闪烁修复、发酵/厨具生命周期修复，以及 v1.1.8 行为回滚。
-- [v1.1.9-dev.20260913.2 Beta](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.9-dev.20260913.2)：在稳定版基础上增加锅内结果变化检测、完成/失败提示、五色状态和彩色锅本体描边；真实目标服务器验收仍待进行。
-- [v1.1.8 稳定版](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.8-fabric-mc1.21.11)：Minecraft 1.21.11 升级版，移除网页地图/Xaero 模块并保留五个工具版块。
+## 网络与隐私
 
-历史版本、分支和正式发布记录仍保留在 [GitHub Releases](https://github.com/MurphyPotato/simmc-tool-set/releases)；源码位于 [MurphyPotato/simmc-tool-set](https://github.com/MurphyPotato/simmc-tool-set)。
-
-## 网页地图边界
-
-从 `v1.1.8` 起，Tool Set 不再支持 SIMMC 网页地图：地图页面、地图快捷键、Xaero 适配、HTTP 下载、地图缓存和地图相关 Mixin 均已移除。用户现有的 `simmc-tool-set-map-cache`、`xaero` 文件夹以及 Xaero 数据不会被 Tool Set 删除或修改；如需清理，请由用户自行决定。
-
-这项移除不影响五个保留版块，也不代表旧版网页地图的线程、纹理或同步问题已经在旧版本中得到修复。
-
-## 隐私与运行边界
-
-- Tool Set 不包含遥测、自动上传、凭据收集或向作者发送玩家数据的功能。
-- 诊断、截图、饰品数据和卷轴数据不会自动上传；诊断导出由玩家主动触发并写入本地配置目录。
-- 网页地图移除后，Tool Set 不主动请求地图服务器，也不初始化地图网络客户端、调度器或缓存。
-- 这是非官方玩家工具，与 simMC、Mojang Studios 或 Microsoft 无官方关联。
+simMC Tool Set 不包含遥测、广告或自动上传。网页地图模块会按需从公开 `map.simmc.cn` 读取地图设置、标记、玩家和瓦片数据，并在本地缓存；其他工具主要处理客户端已经可见的数据。地图请求可能包含公开地图服务所需的网络地址和标准缓存请求头，不会向作者上传个人数据。
 
 ## 许可
 
-原创 Tool Set 代码和文档使用 [MIT License](LICENSE)。集成模块与 Simes 衍生部分的许可、来源和授权边界见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+原创代码和文档按 [MIT License](LICENSE) 发布。Simes、Xaero 及其他第三方组件遵循各自的许可证和声明，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-## 开发与验收
+本项目由 MurphyPotato 制作，与 simMC、Mojang Studios 或 Microsoft 无官方关联。
 
-构建命令、单元测试、隔离客户端测试和当前未完成项目见 [BUILDING.md](BUILDING.md) 与 [v1.1.9 清单复核](docs/V1.1.9_CHECKLIST_REVIEW.md)。`v1.1.9-dev.20260913.2` 已通过 74/74 单元测试、隔离客户端测试和完整构建；构建成功不等于真实目标服务器验收通过。
+## English
+
+simMC Tool Set is a client-side utility mod for Minecraft 1.21.8 Fabric. It combines the Arcane HUD, fermentation and cookware helper, accessory loadout tool, scroll calculator, SIMMC web-map integration, diagnostics, and configurable shortcuts in one client mod.
+
+Install the v1.1.7 JAR in the client `mods` folder. The mod requires Java 21, Fabric Loader 0.17.3+, and Fabric API compatible with Minecraft 1.21.8. Xaero's World Map and Minimap are optional; modern Fabric Xaero jars include their required XaeroLib internally.
+
+The map module reads public map data from `map.simmc.cn` when enabled. It does not include telemetry, advertising, automatic uploads, or runtime generative AI. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for licensing details.
