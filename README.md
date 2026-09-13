@@ -4,7 +4,7 @@
 
 面向 simMC 玩家的 Fabric 客户端工具模组。Tool Set 将五个常用工具集中在一个模组、一个 Mod ID 和一个 JAR 中，不需要安装到服务器。
 
-当前开发中的 `v1.1.9` 是本地候选版本，目标环境为 Minecraft `1.21.11`、Java 21、Fabric Loader `0.19.5` 和 Fabric API `0.141.6+1.21.11`。在完整构建、隔离客户端和目标服务器验收完成前，它不是正式发布版本。
+当前最新测试版本为 `v1.1.9-dev.20260913.2`（Beta），目标环境为 Minecraft `1.21.11`、Java 21、Fabric Loader `0.19.5` 和 Fabric API `0.141.6+1.21.11`。这是中间测试版本，不是正式 v1.1.9 Release；真实目标服务器厨具验收仍待完成。
 
 ## 主要功能
 
@@ -41,7 +41,7 @@
 2. 将对应的 Tool Set JAR 放入该实例的 `.minecraft/mods` 文件夹。
 3. 只在客户端安装即可；simMC 服务器不需要安装 Tool Set。
 
-`v1.1.9` 在验收完成前不提供新的公开下载链接。历史版本、分支和正式发布记录仍保留在 [GitHub Releases](https://github.com/MurphyPotato/simmc-tool-set/releases)；源码位于 [MurphyPotato/simmc-tool-set](https://github.com/MurphyPotato/simmc-tool-set)。
+最新 Beta 下载见 [v1.1.9-dev.20260913.2 GitHub Release](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.9-dev.20260913.2)。历史版本、分支和正式发布记录仍保留在 [GitHub Releases](https://github.com/MurphyPotato/simmc-tool-set/releases)；源码位于 [MurphyPotato/simmc-tool-set](https://github.com/MurphyPotato/simmc-tool-set)。
 
 ## 网页地图边界
 
@@ -62,4 +62,4 @@
 
 ## 开发与验收
 
-构建命令、单元测试、隔离客户端测试和当前未完成项目见 [BUILDING.md](BUILDING.md) 与 [v1.1.9 清单复核](docs/V1.1.9_CHECKLIST_REVIEW.md)。构建成功不等于真实客户端或目标服务器验收通过。
+构建命令、单元测试、隔离客户端测试和当前未完成项目见 [BUILDING.md](BUILDING.md) 与 [v1.1.9 清单复核](docs/V1.1.9_CHECKLIST_REVIEW.md)。`v1.1.9-dev.20260913.2` 已通过 74/74 单元测试、隔离客户端测试和完整构建；构建成功不等于真实目标服务器验收通过。
