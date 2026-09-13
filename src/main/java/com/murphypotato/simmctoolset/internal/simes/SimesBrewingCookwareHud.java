@@ -84,6 +84,9 @@ public final class SimesBrewingCookwareHud {
     private static final List<DepositIntent> depositIntents = new ArrayList<>();
     private static Map<String, InventoryEntry> depositBaseline = Map.of();
     private static final Map<String, Integer> depositAccounted = new HashMap<>();
+    private static BlockPos depositTarget;
+    private static long depositGeneration;
+    private static long depositBaselineGeneration;
     private static PendingWithdrawal pendingWithdrawal;
     private static BlockPos clockTarget;
     private static BlockPos lastFermentationTarget;
@@ -117,6 +120,8 @@ public final class SimesBrewingCookwareHud {
 
             ItemStack held = player.getStackInHand(hand);
             if (isClock(held)) {
+                finishDepositTracking();
+                finishWithdrawalTracking();
                 clockTarget = fermentationBarrel ? pos : null;
                 collectingIngredients = false;
                 clockIngredients.clear();
@@ -135,12 +140,15 @@ public final class SimesBrewingCookwareHud {
                 finishWithdrawalTracking();
                 // Inventory deltas are only attributable to one barrel at a time.
                 // Starting a new target closes the previous attribution window.
-                if (depositIntents.stream().anyMatch(intent -> !intent.pos.equals(pos))) {
+                if (depositTarget != null && !depositTarget.equals(pos)) {
                     finishDepositTracking();
                 }
                 if (depositIntents.isEmpty()) {
                     depositBaseline = inventorySnapshot(player);
                     depositAccounted.clear();
+                    depositTarget = pos.toImmutable();
+                    depositGeneration++;
+                    depositBaselineGeneration = depositGeneration;
                 }
                 String itemKey = details(held);
                 DepositIntent existing = depositIntents.stream()
@@ -176,6 +184,9 @@ public final class SimesBrewingCookwareHud {
         depositIntents.clear();
         depositBaseline = Map.of();
         depositAccounted.clear();
+        depositTarget = null;
+        depositGeneration = 0L;
+        depositBaselineGeneration = 0L;
         pendingWithdrawal = null;
         clockTarget = null;
         lastFermentationTarget = null;
@@ -215,6 +226,10 @@ public final class SimesBrewingCookwareHud {
 
     private static void confirmDeposit(net.minecraft.entity.player.PlayerEntity player, long now) {
         if (depositIntents.isEmpty()) return;
+        if (depositTarget == null || depositBaselineGeneration != depositGeneration) {
+            finishDepositTracking();
+            return;
+        }
         Map<String, InventoryEntry> current = inventorySnapshot(player);
         for (Map.Entry<String, InventoryEntry> original : depositBaseline.entrySet()) {
             int currentCount = current.containsKey(original.getKey()) ? current.get(original.getKey()).count : 0;
@@ -247,6 +262,7 @@ public final class SimesBrewingCookwareHud {
         if (depositIntents.isEmpty()) {
             depositBaseline = Map.of();
             depositAccounted.clear();
+            depositTarget = null;
         }
     }
 
@@ -305,6 +321,9 @@ public final class SimesBrewingCookwareHud {
         depositIntents.clear();
         depositBaseline = Map.of();
         depositAccounted.clear();
+        depositTarget = null;
+        depositGeneration++;
+        depositBaselineGeneration = depositGeneration;
     }
 
     private static Map<String, InventoryEntry> inventorySnapshot(net.minecraft.entity.player.PlayerEntity player) {
@@ -476,8 +495,9 @@ public final class SimesBrewingCookwareHud {
     }
 
     private static void applyClockIngredients(Fermenter state) {
-        if (collectingIngredients && !clockIngredients.isEmpty()) {
+        if (collectingIngredients) {
             state.replace(clockIngredients);
+            finishDepositTracking();
         }
         collectingIngredients = false;
         clockIngredients.clear();
