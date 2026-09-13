@@ -5,13 +5,13 @@
 ## 当前版本
 
 - **稳定版 v1.1.9**：包含奥术 HUD Mana 闪烁修复、发酵/厨具生命周期修复和稳定的五个工具版块。
-- **测试版 v1.1.9-dev.20260913.2 (Beta)**：在稳定版基础上增加锅内结果变化检测、烹饪完成/失败提示、五色状态和彩色锅本体描边；真实目标服务器验收仍待进行。
+- **测试版 v1.1.9-dev.20260913.4 (Beta)**：保留锅内结果变化检测、烹饪完成/失败提示、五色状态和彩色锅本体描边，并包含 `.3` 的发酵桶投放归因修复，以及 `.4` 的区块卸载状态保留与烹饪钟材料回复校准改进；真实目标服务器验收仍待进行。
 - **历史稳定版 v1.1.8**：升级到 Minecraft 1.21.11，并移除网页地图/Xaero 模块。
 
 ## 下载
 
 - [v1.1.9 稳定版](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.9-fabric-mc1.21.11)
-- [v1.1.9-dev.20260913.2 Beta](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.9-dev.20260913.2)
+- [v1.1.9-dev.20260913.4 Beta](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.9-dev.20260913.4)
 - [v1.1.8 稳定版](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.8-fabric-mc1.21.11)
 
 ## 主要功能
