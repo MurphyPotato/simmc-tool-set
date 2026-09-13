@@ -22,6 +22,28 @@
 - **发酵与厨具**：识别发酵桶和锅具，显示材料、数量、计时与状态。
 - **诊断与日志**：本地查看和导出诊断信息。
 
+## 模块截图
+
+### 奥术 HUD
+
+![奥术 HUD](docs/screenshots/arcane-status.png)
+
+### 卷轴计算
+
+![卷轴计算](docs/screenshots/scroll-calculator.png)
+
+### 饰品配装
+
+![饰品配装](docs/screenshots/accessory.png)
+
+### 发酵与厨具
+
+![发酵与厨具](docs/screenshots/cookware.png)
+
+### 诊断与日志
+
+![诊断与日志](docs/screenshots/diagnostics.png)
+
 ## 安装
 
 目标环境：Minecraft `1.21.11`、Java 21、Fabric Loader `0.19.5`、Fabric API `0.141.6+1.21.11`。将对应 JAR 放入客户端 `.minecraft/mods`；服务器不安装。
