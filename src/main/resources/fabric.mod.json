@@ -3,7 +3,7 @@
   "id": "simmc_tool_set",
   "version": "${version}",
   "name": "simMC 工具组",
-  "description": "simMC client-side tool set with optional Xaero map integration.",
+  "description": "simMC client-side tools for Arcane HUD, scroll calculation, accessory loadouts, fermentation and cookware.",
   "authors": ["MurphyPotato"],
   "icon": "icon.png",
   "contact": {
@@ -11,7 +11,7 @@
     "sources": "https://github.com/MurphyPotato/simmc-tool-set",
     "issues": "https://github.com/MurphyPotato/simmc-tool-set/issues"
   },
-  "license": "MIT AND Apache-2.0",
+  "license": "MIT",
   "environment": "client",
   "entrypoints": {
     "client": [
@@ -25,14 +25,12 @@
     "simmc_tool_set.mixins.json"
   ],
   "depends": {
-    "fabricloader": ">=0.17.3",
-    "minecraft": "~1.21.8",
+    "fabricloader": ">=0.19.5",
+    "minecraft": "1.21.11",
     "java": ">=21",
-    "fabric-api": ">=0.136.1+1.21.8"
+    "fabric-api": ">=0.141.6+1.21.11"
   },
   "suggests": {
-    "modmenu": "*",
-    "xaeroworldmap": "*",
-    "xaerominimap": "*"
+    "modmenu": "*"
   }
 }

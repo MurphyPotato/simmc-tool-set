@@ -24,12 +24,13 @@ public final class ManaHud {
     private static final Identifier ID = Identifier.of("simmc_tool_set", "wand_mana");
     private static boolean initialized;
     private static boolean wandHeld;
-    private static long lastWandSeenMillis;
+    private static int lastWandSignature;
     private static double maximum = 180.0;
     private static double regeneration = 0.8;
     private static double mana;
     private static double displayedMana;
     private static double trailingMana;
+    private static boolean manaReady;
     private static long lastFrameNanos;
     private static long lastManaUpdateNanos;
 
@@ -43,36 +44,40 @@ public final class ManaHud {
         HudElementRegistry.attachElementAfter(VanillaHudElements.FOOD_BAR, ID, ManaHud::render);
     }
 
-    private static void tick(MinecraftClient client) {
+    private static synchronized void tick(MinecraftClient client) {
         if (!SimesFeatureController.arcaneEnabled() || client.player == null) {
-            wandHeld = false;
+            clearVisualState();
             return;
         }
         ItemStack stack = client.player.getMainHandStack();
         if (isArcaneCodex(stack)) {
-            wandHeld = true;
-            lastWandSeenMillis = System.currentTimeMillis();
+            observeWand(stack);
             readStats(stack);
-        } else if (System.currentTimeMillis() - lastWandSeenMillis > 300L) {
-            wandHeld = false;
+        } else {
+            clearVisualState();
         }
     }
 
     public static boolean handleExperiencePacket(ExperienceBarUpdateS2CPacket packet) {
         ArcaneHudConfig config = SimesArcaneHud.config();
-        if (config == null || !config.manaHudEnabled) return false;
+        if (packet == null || config == null) return false;
         MinecraftClient client = MinecraftClient.getInstance();
-        if (!SimesFeatureController.arcaneEnabled() || client.player == null) return false;
+        if (client.player == null) return false;
         ItemStack stack = client.player.getMainHandStack();
-        if (!isArcaneCodex(stack)) return false;
+        if (!shouldConsumeExperience(true, SimesFeatureController.arcaneEnabled(), isArcaneCodex(stack))) return false;
+        observeWand(stack);
         readStats(stack);
         double next = clamp(packet.getBarProgress() * maximum, 0.0, maximum);
         if (lastManaUpdateNanos == 0L) displayedMana = trailingMana = next;
         mana = next;
+        manaReady = true;
         lastManaUpdateNanos = System.nanoTime();
-        wandHeld = true;
-        lastWandSeenMillis = System.currentTimeMillis();
         return true;
+    }
+
+    /** Vanilla XP must remain separated from wand Mana even when Mana rendering is disabled. */
+    static boolean shouldConsumeExperience(boolean packetPresent, boolean arcaneEnabled, boolean wandPresent) {
+        return packetPresent && arcaneEnabled && wandPresent;
     }
 
     public static boolean isArcaneCodex(ItemStack stack) {
@@ -95,6 +100,28 @@ public final class ManaHud {
         if (regen.find()) regeneration = positive(regen.group(1), regeneration);
     }
 
+    private static synchronized void observeWand(ItemStack stack) {
+        int signature = stableWandSignature(stack);
+        observeWandSignature(signature);
+    }
+
+    private static synchronized void observeWandSignature(int signature) {
+        if (wandHeld && signature != lastWandSignature) clearVisualState();
+        wandHeld = true;
+        lastWandSignature = signature;
+    }
+
+    private static int stableWandSignature(ItemStack stack) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        int selectedSlot = client.player == null ? -1 : client.player.getInventory().getSelectedSlot();
+        // Right-click use/feedback and spell switching can rebuild or mutate an
+        // equivalent wand stack in the same slot. Neither object identity nor
+        // Lore/components is a stable indication that the player changed wands.
+        // Identify the held wand only by its item type and selected slot.
+        int signature = 31 * System.identityHashCode(stack.getItem()) + selectedSlot;
+        return signature;
+    }
+
     private static double positive(String value, double fallback) {
         try {
             double parsed = Double.parseDouble(value);
@@ -106,7 +133,8 @@ public final class ManaHud {
 
     private static void render(DrawContext context, net.minecraft.client.render.RenderTickCounter ticks) {
         ArcaneHudConfig config = SimesArcaneHud.config();
-        if (!SimesFeatureController.arcaneEnabled() || config == null || !config.manaHudEnabled || !wandHeld) return;
+        if (!SimesFeatureController.arcaneEnabled() || config == null || !config.manaHudEnabled
+                || !wandHeld || !manaReady) return;
         long now = System.nanoTime();
         if (lastFrameNanos == 0L) lastFrameNanos = now;
         double dt = Math.min(0.1, (now - lastFrameNanos) / 1_000_000_000.0);
@@ -222,13 +250,19 @@ public final class ManaHud {
     }
 
     static synchronized void reset() {
+        clearVisualState();
+    }
+
+    /** Clears the value and animation state whenever the active wand is lost. */
+    static synchronized void clearVisualState() {
         wandHeld = false;
-        lastWandSeenMillis = 0L;
+        lastWandSignature = 0;
         maximum = 180.0;
         regeneration = 0.8;
         mana = 0.0;
         displayedMana = 0.0;
         trailingMana = 0.0;
+        manaReady = false;
         lastFrameNanos = 0L;
         lastManaUpdateNanos = 0L;
     }

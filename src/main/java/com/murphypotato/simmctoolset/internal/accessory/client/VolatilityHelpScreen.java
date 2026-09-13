@@ -9,6 +9,7 @@ import com.murphypotato.simmctoolset.internal.accessory.domain.LoadoutResult;
 import com.murphypotato.simmctoolset.internal.accessory.domain.LoadoutScore;
 import com.murphypotato.simmctoolset.internal.accessory.domain.StabilityProfile;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.OrderedText;
@@ -71,7 +72,8 @@ public final class VolatilityHelpScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyInput input) {
+        int keyCode = input.key();
         if (keyCode == GLFW.GLFW_KEY_UP || keyCode == GLFW.GLFW_KEY_DOWN) {
             scroll = clamp(scroll + (keyCode == GLFW.GLFW_KEY_UP ? -1 : 1), 0, maxScroll());
             return true;
@@ -81,7 +83,7 @@ public final class VolatilityHelpScreen extends Screen {
             scroll = clamp(scroll + direction * visibleRows(), 0, maxScroll());
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(input);
     }
 
     private List<DetailLine> buildLines() {

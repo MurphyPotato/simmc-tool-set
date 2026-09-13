@@ -1,5 +1,5 @@
 {
-  "key.categories.simmc_tool_set": "simMC Tool Set",
+  "key.category.simmc_tool_set.controls": "simMC Tool Set",
   "key.simmc_tool_set.prefix": "Tool Set prefix",
   "key.simmc_tool_set.accessory_direct": "Open accessory tool directly",
   "key.simmc_tool_set.simes_settings": "Simes settings",
@@ -7,16 +7,6 @@
   "key.simmc_tool_set.scroll": "Scroll calculator",
   "key.simmc_tool_set.accessory": "Accessory fitting",
   "key.simmc_tool_set.brewing": "Brewing and cookware",
-  "key.simmc_tool_set.map": "SIMMC web map",
   "key.simmc_tool_set.diagnostics": "Diagnostics and logs",
-  "simmc_tool_set.title": "simMC Tool Set",
-  "simmc_tool_set.settings.groups": "Map overlay · world map background · minimap background · refresh",
-  "simmc_tool_set.settings.world_map": "World map overlay",
-  "simmc_tool_set.settings.world_background": "World map background",
-  "simmc_tool_set.settings.minimap_background": "Minimap background",
-  "simmc_tool_set.settings.refresh": "Refresh public map data",
-  "simmc_tool_set.status.refreshed": "SIMMC map refresh requested",
-  "simmc_tool_set.status.toggled": "Setting saved",
-  "simmc_tool_set.status.cache_ready": "SIMMC offline map cache is enabled",
-  "simmc_tool_set.status.waypoint_created": "Xaero waypoint created"
+  "simmc_tool_set.title": "simMC Tool Set"
 }

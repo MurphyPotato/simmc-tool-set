@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SimesFermenterStateTest {
     @Test
@@ -27,12 +29,23 @@ class SimesFermenterStateTest {
 
         assertEquals(SimesFermentationTimer.State.CALIBRATED, timer.stateAt(1_500_000_000L));
         assertEquals(SimesFermentationTimer.State.EXPECTED_DONE, timer.stateAt(2_100_000_000L));
+        assertTrue(timer.hasRetainedState(2_100_000_000L));
 
         timer.markServerComplete(2_100_000_000L);
         assertEquals(SimesFermentationTimer.State.CONFIRMED, timer.stateAt(2_100_000_000L));
+        assertTrue(timer.hasRetainedState(2_100_000_000L));
 
         timer.invalidate("已中断");
         assertEquals(SimesFermentationTimer.State.INVALIDATED, timer.stateAt(2_100_000_000L));
+        assertFalse(timer.hasRetainedState(2_100_000_000L));
+    }
+
+    @Test
+    void trackedIngredientsRemainRetainedAfterTheTargetIsNotVisible() {
+        SimesFermenterLedger ledger = new SimesFermenterLedger();
+        ledger.add("spice", 1);
+
+        assertTrue(ledger.hasItems());
     }
 
     @Test

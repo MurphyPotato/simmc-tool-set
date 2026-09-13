@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.item.ItemStack;
@@ -51,7 +52,10 @@ public final class ContainerHighlightManager {
         ScreenEvents.afterRender(screen).register((current, context, mouseX, mouseY, tickDelta) ->
             render(handled, state, context, mouseX, mouseY)
         );
-        ScreenMouseEvents.allowMouseClick(screen).register((current, mouseX, mouseY, button) -> {
+        ScreenMouseEvents.allowMouseClick(screen).register((current, click) -> {
+            double mouseX = click.x();
+            double mouseY = click.y();
+            int button = click.button();
             if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !guidance.active() || !state.stopButton.contains(mouseX, mouseY)) {
                 return true;
             }

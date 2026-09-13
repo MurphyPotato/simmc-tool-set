@@ -163,12 +163,12 @@ public final class AccessoryToolScreen extends Screen {
             ReviewEntry entry = items.get(index);
             int y = rowsTop + (index - start) * ROW_HEIGHT;
             boolean sourceConflict = controller.sourceConflict(entry.id()).isPresent();
-            addDrawableChild(ButtonWidget.builder(Text.literal(sourceConflict ? "来源" : "改"), button -> {
+            addDrawableChild(ButtonWidget.builder(Text.literal(sourceConflict ? "来源" : "复核"), button -> {
                 if (client == null) return;
                 if (sourceConflict) client.setScreen(new AccessorySourceConflictScreen(controller, session, entry.id()));
                 else client.setScreen(new AccessoryEditorScreen(controller, session, entry.id(), true));
             }).dimensions(width - MARGIN - 76, y + 18, 34, 20).build());
-            addDrawableChild(ButtonWidget.builder(Text.literal("丢"), button -> {
+            addDrawableChild(ButtonWidget.builder(Text.literal("丢弃"), button -> {
                 controller.discardReview(entry.id());
                 clearAndInit();
             }).dimensions(width - MARGIN - 38, y + 18, 34, 20).build());
@@ -193,7 +193,7 @@ public final class AccessoryToolScreen extends Screen {
         for (int index = start; index < end; index++) {
             AccessoryRecord item = items.get(index);
             int y = rowsTop + (index - start) * ROW_HEIGHT;
-            addDrawableChild(ButtonWidget.builder(Text.literal("改"), button -> openEditor(item))
+            addDrawableChild(ButtonWidget.builder(Text.literal("编辑"), button -> openEditor(item))
                 .dimensions(width - MARGIN - 154, y + 18, 34, 20).build());
             addDrawableChild(ButtonWidget.builder(Text.literal("详情"), button -> openDetail(item, null))
                 .dimensions(width - MARGIN - 116, y + 18, 34, 20).build());
@@ -201,7 +201,7 @@ public final class AccessoryToolScreen extends Screen {
                 .dimensions(width - MARGIN - 78, y + 18, 40, 20).build();
             score.active = controller.scoresReady();
             addDrawableChild(score);
-            addDrawableChild(ButtonWidget.builder(Text.literal("删"), button -> confirmDelete(item))
+            addDrawableChild(ButtonWidget.builder(Text.literal("删除"), button -> confirmDelete(item))
                 .dimensions(width - MARGIN - 34, y + 18, 30, 20).build());
         }
         addPagination(poolPage, pages, page -> {

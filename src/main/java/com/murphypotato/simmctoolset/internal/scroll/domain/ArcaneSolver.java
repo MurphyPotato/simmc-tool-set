@@ -15,6 +15,8 @@ public final class ArcaneSolver {
     public static final int DEFAULT_IMPURITY_LIMIT = 8;
     public static final int DEFAULT_MAX_PLANS = 10;
     public static final int DEFAULT_REPEAT_THRESHOLD = 64;
+    /** Conservative local per-operation input cap; server capacity is not verified. */
+    public static final int MAX_BATCH_INPUTS = 320;
     private static final int STATE_VARIANTS = 3;
     private static final int TARGET_EXCESS_CAP = 24;
     private static final int BEAM_WIDTH = 1400;
@@ -87,18 +89,48 @@ public final class ArcaneSolver {
 
     public static List<RotationBatch> makeRotationSchedule(List<CraftPlan> plans, int quantity, int repeatThreshold) {
         if (quantity <= 0 || plans.isEmpty() || repeatThreshold <= 0) return List.of();
-        int usableCount = Math.min(plans.size(), Math.max(1, (quantity + repeatThreshold - 1) / repeatThreshold));
-        List<CraftPlan> usable = plans.subList(0, usableCount);
+        List<CraftPlan> feasiblePlans = plans.stream()
+            .filter(plan -> maxCraftsPerBatch(plan, repeatThreshold) > 0)
+            .toList();
+        if (feasiblePlans.isEmpty()) return List.of();
+        int usableCount = Math.min(feasiblePlans.size(), Math.max(1, (quantity + repeatThreshold - 1) / repeatThreshold));
+        List<CraftPlan> usable = feasiblePlans.subList(0, usableCount);
         List<RotationBatch> batches = new ArrayList<>();
         int remaining = quantity;
         int index = 0;
         while (remaining > 0) {
-            int crafts = Math.min(repeatThreshold, remaining);
-            batches.add(new RotationBatch(usable.get(index % usable.size()), crafts));
+            CraftPlan plan = usable.get(index % usable.size());
+            int batchCapacity = maxCraftsPerBatch(plan, repeatThreshold);
+            if (batchCapacity <= 0) return List.of();
+            int crafts = Math.min(batchCapacity, remaining);
+            batches.add(new RotationBatch(plan, crafts));
             remaining -= crafts;
             index++;
         }
         return List.copyOf(batches);
+    }
+
+    /**
+     * Calculates the maximum craft count for one server request. The main material
+     * is counted conservatively as an input even when the UI displays it separately.
+     */
+    public static int maxCraftsPerBatch(CraftPlan plan, int repeatThreshold) {
+        if (plan == null || repeatThreshold <= 0) return 0;
+        long inputsPerCraft = (long) plan.materialTotal() + 1L;
+        if (inputsPerCraft <= 0L || inputsPerCraft > MAX_BATCH_INPUTS) return 0;
+        int capacity = (int) (MAX_BATCH_INPUTS / inputsPerCraft);
+        return Math.min(repeatThreshold, capacity);
+    }
+
+    public static int batchInputCount(RotationBatch batch) {
+        if (batch == null || batch.plan() == null || batch.crafts() <= 0) return 0;
+        long inputsPerCraft = (long) batch.plan().materialTotal() + 1L;
+        long total = (long) batch.crafts() * inputsPerCraft;
+        return total > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) Math.max(0L, total);
+    }
+
+    public static boolean batchFitsInputLimit(RotationBatch batch) {
+        return batch != null && batchInputCount(batch) <= MAX_BATCH_INPUTS;
     }
 
     public static Map<String, Integer> scalePlanMaterials(
@@ -107,9 +139,39 @@ public final class ArcaneSolver {
         boolean includeMainMaterial,
         String mainMaterial
     ) {
+        if (plan == null || quantity <= 0) return Map.of();
         Map<String, Integer> result = new LinkedHashMap<>();
         plan.materials().forEach((name, count) -> result.put(name, count * quantity));
         if (includeMainMaterial) result.merge(mainMaterial, quantity, Integer::sum);
+        return result;
+    }
+
+    /** Returns the materials for one executable rotation batch, not the whole request. */
+    public static Map<String, Integer> scaleBatchMaterials(
+        RotationBatch batch,
+        boolean includeMainMaterial,
+        String mainMaterial
+    ) {
+        if (batch == null) return Map.of();
+        return scalePlanMaterials(batch.plan(), batch.crafts(), includeMainMaterial, mainMaterial);
+    }
+
+    /**
+     * Aggregates the exact materials required by a rotation schedule. A plan is an
+     * alternative, so summing every returned plan would overstate the request;
+     * only scheduled batches belong in this total.
+     */
+    public static Map<String, Integer> aggregateRotationMaterials(
+        List<RotationBatch> batches,
+        boolean includeMainMaterial,
+        String mainMaterial
+    ) {
+        if (batches == null || batches.isEmpty()) return Map.of();
+        Map<String, Integer> result = new LinkedHashMap<>();
+        for (RotationBatch batch : batches) {
+            scaleBatchMaterials(batch, includeMainMaterial, mainMaterial)
+                .forEach((name, count) -> result.merge(name, count, Integer::sum));
+        }
         return result;
     }
 

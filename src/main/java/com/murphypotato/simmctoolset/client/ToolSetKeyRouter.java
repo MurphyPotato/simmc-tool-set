@@ -7,6 +7,8 @@ import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.input.KeyInput;
+import net.minecraft.util.Identifier;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
@@ -30,16 +32,18 @@ public final class ToolSetKeyRouter {
     private static KeyBinding prefix;
     private static KeyBinding accessoryDirect;
     private static KeyBinding simesSettings;
+    private static KeyBinding.Category category;
     private static long prefixDeadline;
     private static boolean prefixDown;
     private static boolean prefixUsed;
     private static Screen observedScreen;
 
-    public enum Target { ARCANE_HUD, SCROLL, ACCESSORY, BREWING, MAP, DIAGNOSTICS, SIMES_SETTINGS }
+    public enum Target { ARCANE_HUD, SCROLL, ACCESSORY, BREWING, DIAGNOSTICS, SIMES_SETTINGS }
 
     private ToolSetKeyRouter() { }
 
     public static synchronized void register() {
+        if (category == null) category = KeyBinding.Category.create(Identifier.of("simmc_tool_set", "controls"));
         prefix = registerNative("key.simmc_tool_set.prefix", GLFW.GLFW_KEY_BACKSLASH);
         accessoryDirect = registerNative("key.simmc_tool_set.accessory_direct", GLFW.GLFW_KEY_0);
         if (!FabricLoader.getInstance().isModLoaded("simes")) {
@@ -50,14 +54,13 @@ public final class ToolSetKeyRouter {
         add("scroll", "卷轴计算", "打开卷轴材料计算器", GLFW.GLFW_KEY_2, Target.SCROLL);
         add("accessory", "饰品配装", "打开饰品扫描与配装工具", GLFW.GLFW_KEY_3, Target.ACCESSORY);
         add("brewing", "发酵与厨具", "打开原生发酵与厨具助手", GLFW.GLFW_KEY_4, Target.BREWING);
-        add("map", "SIMMC 网页地图", "打开地图状态与覆盖设置", GLFW.GLFW_KEY_5, Target.MAP);
         add("diagnostics", "诊断与日志", "打开本地诊断记录", GLFW.GLFW_KEY_GRAVE_ACCENT, Target.DIAGNOSTICS);
         load();
     }
 
     private static KeyBinding registerNative(String translationKey, int defaultKey) {
         return KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                translationKey, InputUtil.Type.KEYSYM, defaultKey, "key.categories.simmc_tool_set"));
+                translationKey, InputUtil.Type.KEYSYM, defaultKey, category));
     }
 
     private static void add(String id, String label, String description, int defaultKey, Target target) {
@@ -71,7 +74,8 @@ public final class ToolSetKeyRouter {
             return false;
         }
         if (prefix == null || accessoryDirect == null) return false;
-        boolean isPrefix = prefix.matchesKey(keyCode, scanCode);
+        KeyInput input = new KeyInput(keyCode, scanCode, modifiers);
+        boolean isPrefix = prefix.matchesKey(input);
         if (action == GLFW.GLFW_RELEASE && isPrefix) {
             boolean openOverview = prefixDown && !prefixUsed && System.currentTimeMillis() <= prefixDeadline;
             clear();
@@ -93,11 +97,11 @@ public final class ToolSetKeyRouter {
             return false;
         }
         if (!prefixDown) {
-            if (accessoryDirect.matchesKey(keyCode, scanCode)) {
+            if (accessoryDirect.matchesKey(input)) {
                 open(client, Target.ACCESSORY);
                 return true;
             }
-            if (simesSettings != null && simesSettings.matchesKey(keyCode, scanCode)) {
+            if (simesSettings != null && simesSettings.matchesKey(input)) {
                 open(client, Target.SIMES_SETTINGS);
                 return true;
             }

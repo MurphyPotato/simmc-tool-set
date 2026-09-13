@@ -2,8 +2,8 @@ package com.murphypotato.simmctoolset.internal.simes;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
@@ -26,7 +26,6 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
-import org.joml.Vector4f;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,6 +34,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /** Licensed Simes-derived fermentation and cookware hints. */
 public final class SimesBrewingCookwareHud {
@@ -42,7 +42,9 @@ public final class SimesBrewingCookwareHud {
     private static final long PENDING_MS = 1_500L;
     private static final long WITHDRAW_SETTLE_MS = 150L;
     private static final long DEPOSIT_CONFIRM_MS = 2_500L;
+    private static final long DEPOSIT_SETTLE_MS = 150L;
     private static final long TARGET_RETENTION_MS = 5_000L;
+    private static final long FERMENTER_RETENTION_MS = 5_000L;
     private static final long COOKER_RETENTION_MS = 3_000L;
     private static final int MAX_VISIBLE_ITEMS = 5;
     private static final int MAX_ITEMS_PER_TYPE = SimesFermenterLedger.MAX_ITEMS_PER_TYPE;
@@ -76,10 +78,15 @@ public final class SimesBrewingCookwareHud {
     private static final Map<BlockPos, Fermenter> fermenters = new HashMap<>();
     private static final Map<BlockPos, SimesCookerState> cookers = new HashMap<>();
     private static final Map<BlockPos, List<ItemStack>> cookerContents = new HashMap<>();
+    private static Map<UUID, Integer> cookerOutlines = Map.of();
+    private static net.minecraft.client.world.ClientWorld outlineWorld;
     private static final Map<String, Integer> clockIngredients = new LinkedHashMap<>();
     private static final List<DepositIntent> depositIntents = new ArrayList<>();
     private static Map<String, InventoryEntry> depositBaseline = Map.of();
     private static final Map<String, Integer> depositAccounted = new HashMap<>();
+    private static BlockPos depositTarget;
+    private static long depositGeneration;
+    private static long depositBaselineGeneration;
     private static PendingWithdrawal pendingWithdrawal;
     private static BlockPos clockTarget;
     private static BlockPos lastFermentationTarget;
@@ -105,13 +112,16 @@ public final class SimesBrewingCookwareHud {
             BlockPos pos = hit.getBlockPos();
             boolean fermentationBarrel = isFermentationBarrelAt(client, pos);
             if (fermentationBarrel) {
+                long now = System.currentTimeMillis();
                 lastFermentationTarget = pos;
-                lastFermentationInteractionAt = System.currentTimeMillis();
-                fermenters.computeIfAbsent(pos, Fermenter::new);
+                lastFermentationInteractionAt = now;
+                fermenters.computeIfAbsent(pos, Fermenter::new).touch(now);
             }
 
             ItemStack held = player.getStackInHand(hand);
             if (isClock(held)) {
+                finishDepositTracking();
+                finishWithdrawalTracking();
                 clockTarget = fermentationBarrel ? pos : null;
                 collectingIngredients = false;
                 clockIngredients.clear();
@@ -128,9 +138,17 @@ public final class SimesBrewingCookwareHud {
             } else if (SimesFeatureController.fermentationEnabled()
                     && fermentationBarrel && !held.isEmpty()) {
                 finishWithdrawalTracking();
+                // Inventory deltas are only attributable to one barrel at a time.
+                // Starting a new target closes the previous attribution window.
+                if (depositTarget != null && !depositTarget.equals(pos)) {
+                    finishDepositTracking();
+                }
                 if (depositIntents.isEmpty()) {
                     depositBaseline = inventorySnapshot(player);
                     depositAccounted.clear();
+                    depositTarget = pos.toImmutable();
+                    depositGeneration++;
+                    depositBaselineGeneration = depositGeneration;
                 }
                 String itemKey = details(held);
                 DepositIntent existing = depositIntents.stream()
@@ -160,10 +178,15 @@ public final class SimesBrewingCookwareHud {
         fermenters.clear();
         cookers.clear();
         cookerContents.clear();
+        cookerOutlines = Map.of();
+        outlineWorld = null;
         clockIngredients.clear();
         depositIntents.clear();
         depositBaseline = Map.of();
         depositAccounted.clear();
+        depositTarget = null;
+        depositGeneration = 0L;
+        depositBaselineGeneration = 0L;
         pendingWithdrawal = null;
         clockTarget = null;
         lastFermentationTarget = null;
@@ -178,7 +201,10 @@ public final class SimesBrewingCookwareHud {
             reset();
             return;
         }
-        if (client.player == null || client.world == null) return;
+        if (client.player == null || client.world == null) {
+            reset();
+            return;
+        }
 
         long now = System.currentTimeMillis();
         confirmDeposit(client.player, now);
@@ -187,18 +213,23 @@ public final class SimesBrewingCookwareHud {
         lastScan = now;
         discoverTargetedFermenter(client);
         scanCookers(client, now);
+        removeStaleFermenters(now);
     }
 
     private static void discoverTargetedFermenter(MinecraftClient client) {
         if (!SimesFeatureController.fermentationEnabled()
                 || !(client.crosshairTarget instanceof BlockHitResult target)) return;
         BlockPos pos = target.getBlockPos();
-        if (fermenters.containsKey(pos) || !isFermentationBarrelAt(client, pos)) return;
-        fermenters.put(pos, new Fermenter(pos));
+        if (!isFermentationBarrelAt(client, pos)) return;
+        fermenters.computeIfAbsent(pos, Fermenter::new).touch(System.currentTimeMillis());
     }
 
     private static void confirmDeposit(net.minecraft.entity.player.PlayerEntity player, long now) {
         if (depositIntents.isEmpty()) return;
+        if (depositTarget == null || depositBaselineGeneration != depositGeneration) {
+            finishDepositTracking();
+            return;
+        }
         Map<String, InventoryEntry> current = inventorySnapshot(player);
         for (Map.Entry<String, InventoryEntry> original : depositBaseline.entrySet()) {
             int currentCount = current.containsKey(original.getKey()) ? current.get(original.getKey()).count : 0;
@@ -206,7 +237,9 @@ public final class SimesBrewingCookwareHud {
             DepositIntent intent = null;
             for (int index = depositIntents.size() - 1; index >= 0; index--) {
                 DepositIntent candidate = depositIntents.get(index);
-                if (candidate.itemKey.equals(original.getKey()) && now - candidate.at <= DEPOSIT_CONFIRM_MS) {
+                if (candidate.itemKey.equals(original.getKey())
+                        && now - candidate.at >= DEPOSIT_SETTLE_MS
+                        && now - candidate.at <= DEPOSIT_CONFIRM_MS) {
                     intent = candidate;
                     break;
                 }
@@ -219,6 +252,7 @@ public final class SimesBrewingCookwareHud {
                     Math.max(0, MAX_ITEMS_PER_TYPE - intent.initialCount));
             int correction = desired - applied;
             Fermenter state = fermenters.computeIfAbsent(intent.pos, Fermenter::new);
+            state.touch(now);
             if (correction > 0) state.add(intent.item, correction);
             else if (correction < 0) state.remove(intent.item, -correction);
             depositAccounted.put(sessionKey, desired);
@@ -228,6 +262,7 @@ public final class SimesBrewingCookwareHud {
         if (depositIntents.isEmpty()) {
             depositBaseline = Map.of();
             depositAccounted.clear();
+            depositTarget = null;
         }
     }
 
@@ -244,6 +279,7 @@ public final class SimesBrewingCookwareHud {
             pendingWithdrawal = null;
             return;
         }
+        state.touch(now);
         Map<String, InventoryEntry> current = inventorySnapshot(player);
         Map<String, InventoryEntry> candidates = new HashMap<>(pendingWithdrawal.inventory);
         candidates.putAll(current);
@@ -285,6 +321,9 @@ public final class SimesBrewingCookwareHud {
         depositIntents.clear();
         depositBaseline = Map.of();
         depositAccounted.clear();
+        depositTarget = null;
+        depositGeneration++;
+        depositBaselineGeneration = depositGeneration;
     }
 
     private static Map<String, InventoryEntry> inventorySnapshot(net.minecraft.entity.player.PlayerEntity player) {
@@ -302,7 +341,14 @@ public final class SimesBrewingCookwareHud {
     }
 
     private static void scanCookers(MinecraftClient client, long now) {
-        if (!SimesFeatureController.cookwareEnabled()) return;
+        if (!SimesFeatureController.cookwareEnabled()) {
+            cookerOutlines = Map.of();
+            outlineWorld = null;
+            cookers.clear();
+            cookerContents.clear();
+            return;
+        }
+        Map<UUID, Integer> outlines = new HashMap<>();
         Box area = client.player.getBoundingBox().expand(20.0D);
         Map<BlockPos, List<ItemDisplayEntity>> groups = new HashMap<>();
         for (ItemDisplayEntity display : client.world.getEntitiesByType(
@@ -324,19 +370,62 @@ public final class SimesBrewingCookwareHud {
             List<ItemStack> contents = displays.stream()
                     .map(ItemDisplayEntity::getItemStack)
                     .filter(stack -> !isCookware(stack))
-                    .map(stack -> stack.copyWithCount(1))
+                    // The existing state/HUD ledger uses one key per unit, not per entity.
+                    .flatMap(stack -> java.util.stream.IntStream.range(0, stack.getCount())
+                            .mapToObj(index -> stack.copyWithCount(1)))
                     .toList();
             SimesCookerState state = cookers.computeIfAbsent(group.getKey(), ignored -> new SimesCookerState());
             state.observe(normalizedCookwareName(vessel), isOpenCookingVessel(vessel),
                     contents.stream().map(SimesBrewingCookwareHud::details).toList(), now);
             cookerContents.put(group.getKey(), contents);
+            if (state.statusColor() != 0) outlines.put(vesselDisplay.getUuid(), state.statusColor());
         }
+        cookerOutlines = Map.copyOf(outlines);
+        outlineWorld = client.world;
 
         cookers.entrySet().removeIf(entry -> {
             boolean stale = now - entry.getValue().lastSeen() > COOKER_RETENTION_MS;
             if (stale) cookerContents.remove(entry.getKey());
             return stale;
         });
+    }
+
+    /** Render-state override only: never changes tracked entity data or teams. */
+    public static int cookwareOutline(net.minecraft.entity.decoration.DisplayEntity entity) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (!SimesFeatureController.cookwareEnabled() || client.player == null
+                || client.world == null || client.world != outlineWorld || entity.isRemoved()
+                || System.currentTimeMillis() - lastScan > 1_000L
+                || !(entity instanceof ItemDisplayEntity display)
+                || !isCookingVessel(display.getItemStack())
+                || !client.player.getBoundingBox().expand(20.0D).intersects(entity.getBoundingBox())) return 0;
+        return cookerOutlines.getOrDefault(entity.getUuid(), 0);
+    }
+
+    private static void removeStaleFermenters(long now) {
+        fermenters.entrySet().removeIf(entry -> {
+            Fermenter state = entry.getValue();
+            if (!isFermentationBarrelAt(MinecraftClient.getInstance(), entry.getKey())) {
+                clearFermenterState(entry.getKey());
+                return true;
+            }
+            if (now - state.lastSeen() <= FERMENTER_RETENTION_MS || state.hasRetainedState()) return false;
+            BlockPos stalePos = entry.getKey();
+            if (stalePos.equals(clockTarget)) clockTarget = null;
+            if (stalePos.equals(lastFermentationTarget)) {
+                lastFermentationTarget = null;
+                lastFermentationInteractionAt = 0L;
+            }
+            return true;
+        });
+    }
+
+    private static void clearFermenterState(BlockPos pos) {
+        if (pos.equals(clockTarget)) clockTarget = null;
+        if (pos.equals(lastFermentationTarget)) {
+            lastFermentationTarget = null;
+            lastFermentationInteractionAt = 0L;
+        }
     }
 
     private static void acceptClockMessage(String raw) {
@@ -356,6 +445,7 @@ public final class SimesBrewingCookwareHud {
 
         Fermenter state = clockMessageFermenter();
         if (state == null) return;
+        state.touch(System.currentTimeMillis());
         if (event instanceof SimesBrewingClockParser.Invalidate invalidation) {
             applyClockIngredients(state);
             state.timer.invalidate(invalidation.status());
@@ -389,19 +479,25 @@ public final class SimesBrewingCookwareHud {
     }
 
     private static Fermenter clockMessageFermenter() {
+        long now = System.currentTimeMillis();
+        if (clockTarget != null && now - lastFermentationInteractionAt > TARGET_RETENTION_MS) {
+            clockTarget = null;
+        }
         if (clockTarget == null) {
-            long now = System.currentTimeMillis();
             if (lastFermentationTarget == null || now - lastFermentationInteractionAt > TARGET_RETENTION_MS) {
                 return null;
             }
             clockTarget = lastFermentationTarget;
         }
-        return fermenters.computeIfAbsent(clockTarget, Fermenter::new);
+        Fermenter state = fermenters.computeIfAbsent(clockTarget, Fermenter::new);
+        state.touch(now);
+        return state;
     }
 
     private static void applyClockIngredients(Fermenter state) {
-        if (collectingIngredients && !clockIngredients.isEmpty()) {
+        if (collectingIngredients) {
             state.replace(clockIngredients);
+            finishDepositTracking();
         }
         collectingIngredients = false;
         clockIngredients.clear();
@@ -416,7 +512,7 @@ public final class SimesBrewingCookwareHud {
         }
 
         BlockPos targetPos = target.getBlockPos();
-        if (targetPos.toCenterPos().squaredDistanceTo(client.player.getPos()) > 100.0D) {
+        if (targetPos.toCenterPos().squaredDistanceTo(client.player.getEntityPos()) > 100.0D) {
             projectedPanels = List.of();
             return;
         }
@@ -434,17 +530,14 @@ public final class SimesBrewingCookwareHud {
             return;
         }
 
-        Vec3d cameraPos = context.camera().getPos();
-        Vector4f point = new Vector4f(
-                (float) (targetPos.getX() + 0.5D - cameraPos.x),
-                (float) (targetPos.getY() + 1.35D - cameraPos.y),
-                (float) (targetPos.getZ() + 0.5D - cameraPos.z), 1.0F);
-        context.positionMatrix().transform(point);
-        context.projectionMatrix().transform(point);
+        // 1.21.11's world render context exposes render state rather than the
+        // old camera and projection matrices. GameRenderer.project() performs
+        // the same camera-relative NDC projection for the current frame.
+        Vec3d projected = client.gameRenderer.project(targetPos.toCenterPos().add(0.0D, 0.85D, 0.0D));
         int width = client.getWindow().getScaledWidth();
         int height = client.getWindow().getScaledHeight();
         Panel selectedPanel = panel;
-        SimesWorldProjection.project(point.x() / point.w(), point.y() / point.w(), point.w(), width, height)
+        SimesWorldProjection.project((float) projected.x, (float) projected.y, (float) projected.z, width, height)
                 .ifPresentOrElse(screen -> projectedPanels = List.of(new ProjectedPanel(selectedPanel, screen.x(), screen.y())),
                         () -> projectedPanels = List.of());
     }
@@ -500,16 +593,18 @@ public final class SimesBrewingCookwareHud {
         if (counts.size() > MAX_VISIBLE_ITEMS) {
             lines.add(new Line(ItemStack.EMPTY, "以及其他 " + (counts.size() - MAX_VISIBLE_ITEMS) + " 种食材"));
         }
-        String timer = state.isOpen() ? "无盖状态：未开始计时"
-                : state.isCompleted() ? "服务器已完成"
+        String timer = state.isFailed() ? "烹饪失败"
+                : state.isCompleted() ? "烹饪完成"
+                : state.status() == SimesCookerState.Status.READY ? "准备中：未开始计时"
                 : state.remainingMillis(System.currentTimeMillis()) > 0L
                 ? String.format(Locale.ROOT, "预计：%.1f 秒（本地）", state.remainingMillis(System.currentTimeMillis()) / 1_000D)
                 : "预计时间已到，等待服务器";
         lines.add(new Line(ItemStack.EMPTY, timer));
-        String title = state.isOpen() ? state.cookwareName()
+        String title = state.isFailed() ? state.cookwareName() + " · 失败"
                 : state.isCompleted() ? state.cookwareName() + " · 已完成"
+                : state.status() == SimesCookerState.Status.READY ? state.cookwareName() + " · 准备中"
                 : state.cookwareName() + " · 烹饪中";
-        return new Panel(pos, title, 0xFF74E6FF, lines);
+        return new Panel(pos, title, state.statusColor() == 0 ? 0xFF74E6FF : state.statusColor(), lines);
     }
 
     private static boolean isClock(ItemStack stack) {
@@ -529,9 +624,16 @@ public final class SimesBrewingCookwareHud {
 
     private static boolean isFermentationBarrelAt(MinecraftClient client, BlockPos pos) {
         if (client.world == null) return false;
-        Box associationBox = new Box(pos).expand(0.55D, 1.1D, 0.55D);
+        // Display entities for adjacent barrels can overlap the old +/-0.55 box.
+        // Keep a narrow horizontal association and verify the entity center too.
+        Box associationBox = new Box(pos).expand(0.4D, 1.0D, 0.4D);
+        Vec3d center = pos.toCenterPos();
         return !client.world.getEntitiesByType(TypeFilter.instanceOf(ItemDisplayEntity.class), associationBox,
-                display -> !display.isRemoved() && isFermentationBarrel(display.getItemStack())).isEmpty();
+                display -> !display.isRemoved() && isFermentationBarrel(display.getItemStack())
+                        && Math.abs(display.getX() - center.x) <= 0.4D
+                        && Math.abs(display.getZ() - center.z) <= 0.4D
+                        && display.getY() >= pos.getY() - 0.5D
+                        && display.getY() <= pos.getY() + 2.0D).isEmpty();
     }
 
     private static boolean isFermentationBarrel(ItemStack stack) {
@@ -563,6 +665,8 @@ public final class SimesBrewingCookwareHud {
         String id = details(stack);
         if (id.contains("kitchenware_2/cookware_open")) return "炖锅 无盖";
         if (id.contains("kitchenware_2/cookware")) return "炖锅";
+        if (id.contains("kitchenware_2/skillet")) return "煎锅";
+        if (id.contains("kitchenware_2/steamer")) return "蒸锅";
         return stack.getName().getString();
     }
 
@@ -570,7 +674,7 @@ public final class SimesBrewingCookwareHud {
         if (stack == null || stack.isEmpty()) return "";
         NbtComponent custom = stack.get(DataComponentTypes.CUSTOM_DATA);
         if (custom == null) return "";
-        NbtCompound nbt = custom.getNbt();
+        NbtCompound nbt = custom.copyNbt();
         String direct = nbt.getString("craftengine:id", "");
         if (!direct.isBlank()) return direct.toLowerCase(Locale.ROOT);
         NbtCompound nested = nbt.getCompoundOrEmpty("craftengine");
@@ -650,9 +754,22 @@ public final class SimesBrewingCookwareHud {
         private String product = "";
         private String status = "状态未知";
         private long serverUpdatedAt;
+        private long lastSeen;
 
         private Fermenter(BlockPos pos) {
             this.pos = pos;
+        }
+
+        private void touch(long now) {
+            lastSeen = now;
+        }
+
+        private long lastSeen() {
+            return lastSeen;
+        }
+
+        private boolean hasRetainedState() {
+            return ledger.hasItems() || timer.hasRetainedState(System.nanoTime());
         }
 
         private void add(ItemStack stack, int count) {

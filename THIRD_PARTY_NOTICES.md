@@ -14,24 +14,6 @@ relicense the components listed below.
   (<https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool>), MIT.
   The Tool Set contains modified and repackaged source under its internal
   `accessory` package.
-- **SIMMC Map** by YeShengQius
-  (<https://github.com/YeShengQius/SIMMC-Xaero-Map>), Apache-2.0. The Tool Set
-  contains modified and repackaged source under its internal `map` package.
-
-## Map Upstream and Dependencies
-
-- Modified portions are derived from **JR1258/EarthMC-Map-Addon**
-  (<https://github.com/JR1258/EarthMC-Map-Addon>), Apache-2.0, upstream
-  baseline `c85c5003855eb47868868b931624b951cffba74e`. Those portions were
-  modified for SIMMC, Minecraft 1.21.8, the Tool Set namespace, and generic
-  squaremap layers.
-- The distribution bundles **jsoup 1.18.3**
-  (<https://jsoup.org/>), MIT License, for non-executing sanitization of map
-  HTML into plain text. Copyright (c) 2009-2024 Jonathan Hedley.
-- **Xaero's World Map** and **Xaero's Minimap** are external runtime
-  dependencies. They are not bundled, redistributed, relicensed, or modified
-  by this project. Their names and trademarks remain the property of their
-  respective owners.
 
 ## Simes Licensed Derivative Components
 

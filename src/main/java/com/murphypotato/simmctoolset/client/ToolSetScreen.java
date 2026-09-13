@@ -1,6 +1,5 @@
 package com.murphypotato.simmctoolset.client;
 
-import com.murphypotato.simmctoolset.map.MapCompatibility;
 import com.murphypotato.simmctoolset.internal.simes.SimesFeatureController;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.DrawContext;
@@ -26,7 +25,6 @@ public final class ToolSetScreen extends Screen {
         SCROLL("卷轴计算"),
         ACCESSORY("饰品配装"),
         BREWING("发酵与厨具"),
-        MAP("SIMMC 网页地图"),
         FLEX("预留板块"),
         HOTKEYS("工具组按键"),
         DIAGNOSTICS("诊断与日志");
@@ -62,7 +60,7 @@ public final class ToolSetScreen extends Screen {
         int x = MARGIN;
         int y = 28;
         for (Panel item : List.of(Panel.OVERVIEW, Panel.ARCANE_HUD, Panel.SCROLL,
-                Panel.ACCESSORY, Panel.BREWING, Panel.MAP)) {
+                Panel.ACCESSORY, Panel.BREWING)) {
             addDrawableChild(navButton(item, x, y));
             y += 24;
         }
@@ -81,8 +79,11 @@ public final class ToolSetScreen extends Screen {
 
     private void addPanelControls() {
         int x = NAV_WIDTH + MARGIN;
-        int y = Math.min(156, Math.max(72, height - 210));
         int width = Math.max(140, this.width - x - MARGIN);
+        int y = 46;
+        for (String line : panelLines()) {
+            y += textRenderer.wrapLines(Text.literal(line), Math.max(80, width)).size() * 12 + 4;
+        }
         switch (panel) {
             case SCROLL -> addDrawableChild(ButtonWidget.builder(Text.literal("打开卷轴计算器"),
                     button -> ToolSetClient.openScroll(client, this))
@@ -106,7 +107,6 @@ public final class ToolSetScreen extends Screen {
                     addSimesSettingsButton(x, y + 48, width);
                 }
             }
-            case MAP -> addMapControls(x, y, width);
             case HOTKEYS -> addHotkeyControls(x, y, width);
             case DIAGNOSTICS -> addDiagnosticsControls(x, diagnosticControlsTop(height), width);
             default -> { }
@@ -137,22 +137,6 @@ public final class ToolSetScreen extends Screen {
             save.accept(!current);
             clearAndInit();
         }).dimensions(x, y, Math.min(260, width), 20).build();
-    }
-
-    private void addMapControls(int x, int y, int width) {
-        if (ToolSetClient.isMapInternal()) {
-            int controlWidth = mapControlWidth(width);
-            addDrawableChild(toggle(x, y, controlWidth, "SIMMC 覆盖层（世界地图与小地图）", ToolSetClient.mapWorldOverlayEnabled(),
-                    ignored -> ToolSetClient.toggleMapWorldOverlay()));
-            addDrawableChild(toggle(x, y + 24, controlWidth, "世界地图背景", ToolSetClient.mapWorldBackgroundEnabled(),
-                    ignored -> ToolSetClient.toggleMapWorldBackground()));
-            addDrawableChild(toggle(x, y + 48, controlWidth, "小地图背景", ToolSetClient.mapMinimapBackgroundEnabled(),
-                    ignored -> ToolSetClient.toggleMapMinimapBackground()));
-            addDrawableChild(ButtonWidget.builder(Text.literal("立即刷新地图数据"), button -> {
-                ToolSetClient.refreshMap();
-                DiagnosticLog.info("已从工具组地图页面请求刷新");
-            }).dimensions(x, y + 72, controlWidth, 20).build());
-        }
     }
 
     private void addDiagnosticsControls(int x, int y, int width) {
@@ -192,7 +176,19 @@ public final class ToolSetScreen extends Screen {
             renderDiagnosticText(context, x, y, usableWidth);
             return;
         }
-        List<String> lines = switch (panel) {
+        int lineY = y;
+        for (String line : panelLines()) {
+            for (var wrapped : textRenderer.wrapLines(Text.literal(line), Math.max(80, usableWidth))) {
+                context.drawTextWithShadow(textRenderer, wrapped, x, lineY, 0xFFD7DEE8);
+                lineY += 12;
+            }
+            lineY += 4;
+            if (lineY > height - 12) return;
+        }
+    }
+
+    private List<String> panelLines() {
+        return switch (panel) {
             case OVERVIEW -> List.of(
                     ToolSetKeyRouter.currentShortcutSummary(),
                     "当前状态：" + ToolSetClient.runtimeSummary()
@@ -218,7 +214,6 @@ public final class ToolSetScreen extends Screen {
                     "原生助手会在目标方块附近显示材料、校准状态和服务器确认结果；没有数据时不会伪造计时。",
                     "此版块自Simes mod中移植，原作者7imes"
             );
-            case MAP -> mapLines();
             case FLEX -> List.of("此板块为未来模块预留。");
             case HOTKEYS -> List.of(
                     ToolSetKeyRouter.currentShortcutSummary(),
@@ -227,15 +222,6 @@ public final class ToolSetScreen extends Screen {
             );
             case DIAGNOSTICS -> List.of();
         };
-        int lineY = y;
-        for (String line : lines) {
-            for (var wrapped : textRenderer.wrapLines(Text.literal(line), Math.max(80, usableWidth))) {
-                context.drawTextWithShadow(textRenderer, wrapped, x, lineY, 0xFFD7DEE8);
-                lineY += 12;
-            }
-            lineY += 4;
-            if (lineY > height - 12) return;
-        }
     }
 
     private void renderDiagnosticText(DrawContext context, int x, int y, int usableWidth) {
@@ -283,10 +269,6 @@ public final class ToolSetScreen extends Screen {
         return "用于计算奥术卷轴材料配比，支持材料排除与轮换方案。";
     }
 
-    static int mapControlWidth(int availableWidth) {
-        return Math.min(260, availableWidth);
-    }
-
     static int diagnosticControlsTop(int screenHeight) {
         return Math.max(0, screenHeight - 52);
     }
@@ -327,21 +309,6 @@ public final class ToolSetScreen extends Screen {
 
     static int diagnosticScrollOnPanelSelect(Panel previous, Panel next, int current, int maxScroll) {
         return previous != Panel.DIAGNOSTICS && next == Panel.DIAGNOSTICS ? maxScroll : current;
-    }
-
-    private List<String> mapLines() {
-        MapCompatibility.Status status = MapCompatibility.status();
-        List<String> lines = new ArrayList<>(List.of(
-                "地图状态：" + status.displayName(),
-                status.detail(),
-                "运行状态：" + ToolSetClient.mapRuntimeStatus()
-            ));
-        if (ToolSetClient.isMapInternal()) {
-            lines.add("SIMMC 覆盖层会同时绘制到 Xaero 世界地图和小地图；缩放、拖动、点击和鼠标操作仍由 Xaero 处理。");
-            lines.add("点击“立即刷新地图数据”，打开 Xaero 世界地图即可看到标记；小地图覆盖会在同一服务器的主世界自动显示。");
-        }
-        lines.add("此版块自SIMMC-Xaero-Map mod中移植，原作者YeShengQiu。");
-        return List.copyOf(lines);
     }
 
     @Override

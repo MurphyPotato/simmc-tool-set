@@ -3,6 +3,7 @@ package com.murphypotato.simmctoolset.internal.simes;
 import com.murphypotato.simmctoolset.client.DiagnosticLog;
 import com.murphypotato.simmctoolset.client.ToolSetSettings;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientWorldEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 
@@ -28,6 +29,10 @@ public final class SimesFeatureController {
         SimesArcaneHud.initialize();
         SimesArcaneStatusHud.initialize();
         SimesBrewingCookwareHud.initialize();
+        ClientWorldEvents.AFTER_CLIENT_WORLD_CHANGE.register((client, world) -> {
+            SimesArcaneHud.reset();
+            SimesBrewingCookwareHud.reset();
+        });
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             active = SimesServerGate.isTarget(client);
             SimesArcaneHud.reset();

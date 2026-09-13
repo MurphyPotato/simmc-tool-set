@@ -115,6 +115,13 @@ final class ArcaneHudContractTest {
         assertEquals("ready", SimesArcaneHud.stripArcaneInputHints("上 ready Shift"));
         assertEquals("ready | status", SimesArcaneHud.stripArcaneInputHints("ready | status"));
     }
+
+    @Test
+    void simesModeConsumesResidualActionBarWithoutVanillaOverlay() {
+        // Regression contract: residual casting hints must not be forwarded to
+        // the bottom vanilla overlay, which overlaps and flickers Mana HUD.
+        assertTrue(SimesArcaneHud.isArcaneInputHintOnly("上 Shift"));
+    }
     @Test
     void canonicalizesTheTwoKnownZhuhuaSpellNames() {
         assertEquals("蜘化术", ArcaneColors.canonicalName("蛛化术"));
@@ -183,6 +190,74 @@ final class ArcaneHudContractTest {
     }
 
     @Test
+    void losingTheWandClearsManaAnimationStateImmediately() throws Exception {
+        Field held = ManaHud.class.getDeclaredField("wandHeld");
+        Field mana = ManaHud.class.getDeclaredField("mana");
+        Field displayed = ManaHud.class.getDeclaredField("displayedMana");
+        Field trailing = ManaHud.class.getDeclaredField("trailingMana");
+        Field updated = ManaHud.class.getDeclaredField("lastManaUpdateNanos");
+        Field ready = ManaHud.class.getDeclaredField("manaReady");
+        held.setAccessible(true);
+        mana.setAccessible(true);
+        displayed.setAccessible(true);
+        trailing.setAccessible(true);
+        updated.setAccessible(true);
+        ready.setAccessible(true);
+        try {
+            held.setBoolean(null, true);
+            mana.setDouble(null, 42.0);
+            displayed.setDouble(null, 41.0);
+            trailing.setDouble(null, 50.0);
+            updated.setLong(null, 123L);
+            ready.setBoolean(null, true);
+
+            ManaHud.clearVisualState();
+
+            assertFalse(held.getBoolean(null));
+            assertEquals(0.0, mana.getDouble(null));
+            assertEquals(0.0, displayed.getDouble(null));
+            assertEquals(0.0, trailing.getDouble(null));
+            assertEquals(0L, updated.getLong(null));
+            assertFalse(ready.getBoolean(null));
+        } finally {
+            ManaHud.reset();
+        }
+    }
+
+    @Test
+    void switchingWandsClearsOldManaBeforeNewExperiencePacket() throws Exception {
+        Method observe = ManaHud.class.getDeclaredMethod("observeWandSignature", int.class);
+        Field held = ManaHud.class.getDeclaredField("wandHeld");
+        Field mana = ManaHud.class.getDeclaredField("mana");
+        Field ready = ManaHud.class.getDeclaredField("manaReady");
+        observe.setAccessible(true);
+        held.setAccessible(true);
+        mana.setAccessible(true);
+        ready.setAccessible(true);
+        try {
+            observe.invoke(null, 11);
+            mana.setDouble(null, 42.0);
+            ready.setBoolean(null, true);
+            observe.invoke(null, 22);
+
+            assertTrue(held.getBoolean(null));
+            assertEquals(0.0, mana.getDouble(null));
+            assertFalse(ready.getBoolean(null));
+        } finally {
+            ManaHud.reset();
+        }
+    }
+
+    @Test
+    void wandSignatureDoesNotUseStackIdentityOrDynamicComponentMap() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/murphypotato/simmctoolset/internal/simes/ManaHud.java"));
+        assertTrue(source.contains("Right-click use/feedback and spell switching can rebuild"));
+        assertFalse(source.contains("System.identityHashCode(stack);"));
+        assertFalse(source.contains("stack.getComponents().hashCode()"));
+    }
+
+    @Test
     void recognizesOnlyDocumentedArcaneCodexComponentMarkers() {
         assertTrue(ManaHud.isArcaneCodexComponents("sim_magic:codex_item"));
         assertTrue(ManaHud.isArcaneCodexComponents("smccore:arcane_codex"));
@@ -204,7 +279,10 @@ final class ArcaneHudContractTest {
         assertTrue(mana.contains("if (!SimesFeatureController.arcaneEnabled()"));
         String transport = mana.substring(mana.indexOf("handleExperiencePacket"),
                 mana.indexOf("public static boolean isArcaneCodex"));
-        assertTrue(transport.contains("manaHudEnabled"));
+        // Packet interception is independent of the render toggle: the handler
+        // must consume wand packets while `manaHudEnabled` only controls drawing.
+        assertTrue(transport.contains("shouldConsumeExperience"));
+        assertFalse(transport.contains("manaHudEnabled"));
     }
 
     @Test
@@ -322,7 +400,7 @@ final class ArcaneHudContractTest {
     }
 
     @Test
-    void manaPacketHandlerLeavesVanillaExperienceWhenManaDisplayIsOff() throws Exception {
+    void manaPacketHandlerStillConsumesWandExperienceWhenManaDisplayIsOff() throws Exception {
         Field configField = SimesArcaneHud.class.getDeclaredField("config");
         configField.setAccessible(true);
         Object previous = configField.get(null);
@@ -330,7 +408,9 @@ final class ArcaneHudContractTest {
         config.manaHudEnabled = false;
         try {
             configField.set(null, config);
-            assertFalse(ManaHud.handleExperiencePacket(null));
+            assertTrue(ManaHud.shouldConsumeExperience(true, true, true));
+            assertFalse(ManaHud.shouldConsumeExperience(true, true, false));
+            assertFalse(ManaHud.shouldConsumeExperience(false, true, true));
         } finally {
             configField.set(null, previous);
         }

@@ -112,7 +112,10 @@ public final class SimesArcaneHud {
             return false;
         }
         String residual = stripArcaneInputHints(parsed.residual());
-        if (!residual.isEmpty()) setVanillaOverlay(residual);
+        // Arcane-mode packets arrive in bursts while casting; forwarding every
+        // residual to the vanilla overlay makes the bottom HUD flicker over Mana.
+        // Keep residual text suppressed in Simes HUD mode; vanilla mode above
+        // still preserves the original Action Bar behavior.
         return true;
     }
 

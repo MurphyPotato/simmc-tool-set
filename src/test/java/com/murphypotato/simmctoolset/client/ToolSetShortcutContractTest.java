@@ -18,7 +18,8 @@ final class ToolSetShortcutContractTest {
         String router = Files.readString(CLIENT.resolve("ToolSetKeyRouter.java"));
 
         assertEquals(3, count(router, "registerNative(\"key.simmc_tool_set."));
-        assertEquals(6, count(router, "\n        add(\""));
+        assertEquals(5, count(router, "\n        add(\""));
+        assertFalse(router.contains("add(\"map\""));
         assertFalse(router.contains("add(\"prefix\""));
         assertFalse(router.contains("add(\"accessory_direct\""));
         assertFalse(router.contains("add(\"simes_settings\""));
@@ -57,10 +58,13 @@ final class ToolSetShortcutContractTest {
     }
 
     @Test
-    void usesOneWidthForMapControls() {
-        assertEquals(140, ToolSetScreen.mapControlWidth(140));
-        assertEquals(260, ToolSetScreen.mapControlWidth(260));
-        assertEquals(260, ToolSetScreen.mapControlWidth(400));
+    void omitsMapEntrypointsAndMixinHooks() throws IOException {
+        String screen = Files.readString(CLIENT.resolve("ToolSetScreen.java"));
+        String client = Files.readString(CLIENT.resolve("ToolSetClient.java"));
+        String mixins = Files.readString(Path.of("src/main/resources/simmc_tool_set.mixins.json"));
+        assertFalse(screen.contains("SIMMC 网页地图"));
+        assertFalse(client.contains("MapModule"));
+        assertFalse(mixins.contains("map."));
     }
 
     @Test
@@ -84,11 +88,11 @@ final class ToolSetShortcutContractTest {
     @Test
     void reenteringDiagnosticsResetsToLatestWithoutResettingInPlaceScroll() {
         assertEquals(40, ToolSetScreen.diagnosticScrollOnPanelSelect(
-                ToolSetScreen.Panel.MAP, ToolSetScreen.Panel.DIAGNOSTICS, 7, 40));
+                ToolSetScreen.Panel.SCROLL, ToolSetScreen.Panel.DIAGNOSTICS, 7, 40));
         assertEquals(7, ToolSetScreen.diagnosticScrollOnPanelSelect(
                 ToolSetScreen.Panel.DIAGNOSTICS, ToolSetScreen.Panel.DIAGNOSTICS, 7, 40));
         assertEquals(7, ToolSetScreen.diagnosticScrollOnPanelSelect(
-                ToolSetScreen.Panel.MAP, ToolSetScreen.Panel.OVERVIEW, 7, 40));
+                ToolSetScreen.Panel.SCROLL, ToolSetScreen.Panel.OVERVIEW, 7, 40));
     }
 
     @Test
@@ -115,7 +119,7 @@ final class ToolSetShortcutContractTest {
 
     @Test
     void nonDiagnosticsPanelsDoNotConsumeDiagnosticScroll() {
-        assertEquals(12, ToolSetScreen.diagnosticScrollFor(ToolSetScreen.Panel.MAP, 12, 1, 40));
+        assertEquals(12, ToolSetScreen.diagnosticScrollFor(ToolSetScreen.Panel.SCROLL, 12, 1, 40));
         assertEquals(12, ToolSetScreen.diagnosticScrollFor(ToolSetScreen.Panel.OVERVIEW, 12, -1, 40));
     }
 

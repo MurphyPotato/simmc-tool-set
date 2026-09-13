@@ -17,7 +17,7 @@ abstract class SimesBossBarMixin {
     private static final String FORCE_MAIN_THREAD = "Lnet/minecraft/network/NetworkThreadUtils;forceMainThread("
             + "Lnet/minecraft/network/packet/Packet;"
             + "Lnet/minecraft/network/listener/PacketListener;"
-            + "Lnet/minecraft/util/thread/ThreadExecutor;)V";
+            + "Lnet/minecraft/network/PacketApplyBatcher;)V";
 
     @Inject(method = "onOverlayMessage", at = @At(value = "INVOKE", target = FORCE_MAIN_THREAD,
             shift = At.Shift.AFTER), cancellable = true)

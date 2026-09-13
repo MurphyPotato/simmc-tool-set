@@ -65,6 +65,8 @@ public final class ClientAccessoryController implements AutoCloseable {
     private final ContainerSourceRegistry sourceRegistry = new ContainerSourceRegistry();
     private final ContainerInteractionTracker interactionTracker = new ContainerInteractionTracker();
     private final List<ReviewEntry> reviewQueue = new ArrayList<>();
+    /** Confirmations are intentionally session-scoped; a new server session must review again. */
+    private final SessionReviewConfirmation sessionConfirmedReviews = new SessionReviewConfirmation();
     private final Map<String, ItemStack> transientStacks = new HashMap<>();
     private final Map<String, String> transientSourceTitles = new HashMap<>();
     private final Map<String, String> transientSourceGroups = new HashMap<>();
@@ -450,6 +452,7 @@ public final class ClientAccessoryController implements AutoCloseable {
         sourceRegistry.clear();
         interactionTracker.clear();
         sourceConflicts.clear();
+        sessionConfirmedReviews.clear();
         pendingCaptured.clear();
         pendingMetadata.clear();
         boolean changed = false;
@@ -490,6 +493,7 @@ public final class ClientAccessoryController implements AutoCloseable {
         pendingCaptured.remove(pendingId);
         pendingMetadata.remove(pendingId);
         reviewQueue.removeIf(review -> review.id().equals(reviewId));
+        sessionConfirmedReviews.remember(entry.result(), result.accessory(), captured);
         switch (result.disposition()) {
             case ADDED -> {
                 markPlansDirty();
@@ -538,7 +542,8 @@ public final class ClientAccessoryController implements AutoCloseable {
         if (conflict == null || entry == null) return;
         String pendingId = entry.result().accessory().id();
         CapturedStack captured = pendingCaptured.get(pendingId);
-        AccessoryRecord parsed = entry.result().accessory();
+        ParseResult parsedResult = entry.result();
+        AccessoryRecord parsed = parsedResult.accessory();
         AccessoryRecord retained;
         boolean added;
         if (targetAccessoryId == null || targetAccessoryId.isBlank()) {
@@ -561,18 +566,24 @@ public final class ClientAccessoryController implements AutoCloseable {
         pendingMetadata.remove(pendingId);
         reviewQueue.removeIf(value -> value.id().equals(reviewId));
         sourceConflicts.remove(reviewId);
+        sessionConfirmedReviews.remember(parsedResult, retained, captured);
         if (added) markPlansDirty();
         persist(added ? "已作为新副本入库：" + retained.name() : "已更新饰品最近确认来源：" + retained.name());
     }
 
     public void updateAccessory(AccessoryRecord edited) {
+        AccessoryRecord previous = library.find(edited.id()).orElse(null);
         if (!library.update(edited)) return;
+        AccessoryRecord updated = library.find(edited.id()).orElse(edited);
+        if (previous != null) sessionConfirmedReviews.replaceConfirmed(previous.id(), updated);
         markPlansDirty();
         persist("已保存饰品修改");
     }
 
     public void deleteAccessory(String id) {
+        AccessoryRecord removed = library.find(id).orElse(null);
         if (!library.remove(id)) return;
+        if (removed != null) sessionConfirmedReviews.removeConfirmed(removed.id());
         transientStacks.remove(id);
         transientSourceTitles.remove(id);
         transientSourceGroups.remove(id);
@@ -583,6 +594,7 @@ public final class ClientAccessoryController implements AutoCloseable {
 
     public void clearAll() {
         library.clear();
+        sessionConfirmedReviews.clear();
         reviewQueue.clear();
         transientStacks.clear();
         transientSourceTitles.clear();
@@ -611,6 +623,7 @@ public final class ClientAccessoryController implements AutoCloseable {
             pendingMetadata.clear();
             pendingCaptured.clear();
             sourceConflicts.clear();
+            sessionConfirmedReviews.clear();
             analyses.clear();
             scores.clear();
             loadoutScores.clear();
@@ -677,7 +690,18 @@ public final class ClientAccessoryController implements AutoCloseable {
                 matched++;
                 String itemId = Registries.ITEM.getId(captured.stack().getItem()).toString();
                 ParseResult parsed = parser.parse(lines, itemId, captured.source(), alwaysReview);
-                if (parsed.accepted()) {
+                Optional<AccessoryRecord> confirmation = sessionConfirmedReviews.find(parsed, captured);
+                boolean accepted = parsed.accepted() || confirmation.isPresent();
+                if (confirmation.isPresent()) {
+                    // Reuse the edited record, not the parser's raw draft. This keeps
+                    // a manual stat/type correction intact on every later scan.
+                    AccessoryRecord trusted = confirmation.get().withSource(captured.source());
+                    parsed = new ParseResult(
+                        trusted, ParseState.ACCEPTED, parsed.detectedLevel(), parsed.allowedAffixCount(),
+                        parsed.reasons(), parsed.rawLines(), parsed.suspiciousLines()
+                    );
+                }
+                if (accepted) {
                     removeMatchingReviews(parsed.accessory(), captured.location());
                     AccessoryLibrary.UpsertResult result = reconcileAccepted(parsed, captured, seenExistingIds);
                     if (result == null) {

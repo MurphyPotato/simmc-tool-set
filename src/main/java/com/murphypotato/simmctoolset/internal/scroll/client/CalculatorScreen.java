@@ -8,6 +8,8 @@ import com.murphypotato.simmctoolset.internal.scroll.domain.ElementAmounts;
 import com.murphypotato.simmctoolset.internal.scroll.domain.RotationBatch;
 import com.murphypotato.simmctoolset.internal.scroll.domain.ScrollRecipe;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Click;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
@@ -258,7 +260,9 @@ public final class CalculatorScreen extends Screen {
 
     private void renderResults(DrawContext context) {
         context.fill(resultX, resultY, resultX + resultWidth, resultY + resultHeight, UiColors.PANEL);
-        int visible = Math.max(1, (resultHeight - 6) / LINE_HEIGHT);
+        int naturalVisible = Math.max(1, (resultHeight - 6) / LINE_HEIGHT);
+        boolean showPosition = displayLines.size() > naturalVisible && resultHeight >= LINE_HEIGHT * 2 + 10;
+        int visible = Math.max(1, (resultHeight - 6 - (showPosition ? LINE_HEIGHT + 2 : 0)) / LINE_HEIGHT);
         resultScroll = clamp(resultScroll, 0, Math.max(0, displayLines.size() - visible));
         int end = Math.min(displayLines.size(), resultScroll + visible);
         int y = resultY + 4;
@@ -267,14 +271,20 @@ public final class CalculatorScreen extends Screen {
             context.drawTextWithShadow(textRenderer, line.text(), resultX + 5, y, line.color());
             y += LINE_HEIGHT;
         }
-        if (displayLines.size() > visible) {
+        if (showPosition) {
             String position = (resultScroll + 1) + "-" + end + " / " + displayLines.size();
-            context.drawTextWithShadow(textRenderer, position, resultX + resultWidth - textRenderer.getWidth(position) - 4, resultY + 4, UiColors.MUTED);
+            int footerY = resultY + resultHeight - LINE_HEIGHT - 3;
+            context.fill(resultX + 1, footerY - 2, resultX + resultWidth - 1, resultY + resultHeight - 1, UiColors.PANEL);
+            context.drawTextWithShadow(textRenderer, position,
+                resultX + resultWidth - textRenderer.getWidth(position) - 4, footerY, UiColors.MUTED);
         }
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(Click click, boolean doubled) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && inside(mouseX, mouseY, recipeX, recipeY, recipeWidth, recipeHeight)) {
             List<ScrollRecipe> filtered = filteredRecipes();
             int row = (int) ((mouseY - recipeY) / ROW_HEIGHT);
@@ -282,7 +292,7 @@ public final class CalculatorScreen extends Screen {
             if (index >= 0 && index < filtered.size()) selectRecipe(filtered.get(index));
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, doubled);
     }
 
     @Override
@@ -298,7 +308,8 @@ public final class CalculatorScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyInput input) {
+        int keyCode = input.key();
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
             if (!controller.calculating()) calculate();
             return true;
@@ -316,7 +327,7 @@ public final class CalculatorScreen extends Screen {
             }
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(input);
     }
 
     private void selectRecipe(ScrollRecipe recipe) {
@@ -359,20 +370,29 @@ public final class CalculatorScreen extends Screen {
                 + " · 溢出 " + plan.targetExcessTotal() + " · 单材最高 " + plan.maxRepeat(), UiColors.ACCENT);
             addWrapped(lines, "单个辅料：" + formatMaterials(plan.materials()), UiColors.PRIMARY);
             addWrapped(lines, "实际供给：" + formatAmounts(plan.supplied()), UiColors.SECONDARY);
-            Map<String, Integer> scaled = ArcaneSolver.scalePlanMaterials(
-                plan, result.quantity(), result.includeMainMaterial(), result.recipe().mainMaterial()
-            );
-            addWrapped(lines, result.quantity() + " 个总材料：" + formatMaterials(scaled), UiColors.PRIMARY);
-            if (!result.includeMainMaterial()) addWrapped(lines, "主材料另需：" + result.recipe().mainMaterial() + " x" + result.quantity(), UiColors.WARNING);
         }
         List<RotationBatch> rotation = ArcaneSolver.makeRotationSchedule(
             result.plans(), result.quantity(), result.repeatThreshold()
         );
-        addWrapped(lines, "轮换建议（每批最多 " + result.repeatThreshold() + " 次）", UiColors.ACCENT);
+        addWrapped(lines, "轮换建议（每批最多 " + result.repeatThreshold() + " 次，本地保守输入上限 "
+            + ArcaneSolver.MAX_BATCH_INPUTS + " 个）", UiColors.ACCENT);
+        addWrapped(lines, "按轮换批次合计：" + formatMaterials(ArcaneSolver.aggregateRotationMaterials(
+            rotation, result.includeMainMaterial(), result.recipe().mainMaterial()
+        )), UiColors.PRIMARY);
+        if (!result.includeMainMaterial()) {
+            addWrapped(lines, "主材料另需：" + result.recipe().mainMaterial() + " x" + result.quantity(), UiColors.WARNING);
+        }
         for (int index = 0; index < rotation.size(); index++) {
             RotationBatch batch = rotation.get(index);
             int planIndex = result.plans().indexOf(batch.plan()) + 1;
-            addWrapped(lines, "第 " + (index + 1) + " 批：方案 " + planIndex + " · " + batch.crafts() + " 次", UiColors.SECONDARY);
+            addWrapped(lines, "第 " + (index + 1) + " 批：方案 " + planIndex + " · " + batch.crafts()
+                + " 次 · 输入 " + ArcaneSolver.batchInputCount(batch) + "/" + ArcaneSolver.MAX_BATCH_INPUTS
+                + " · 材料：" + formatMaterials(ArcaneSolver.scaleBatchMaterials(
+                    batch, result.includeMainMaterial(), result.recipe().mainMaterial()
+                )), UiColors.SECONDARY);
+            if (!ArcaneSolver.batchFitsInputLimit(batch)) {
+                addWrapped(lines, "该方案单次制作本身超过本地保守输入上限，无法安全执行。", UiColors.ERROR);
+            }
         }
         addWrapped(lines, "重置机制未知；轮换仅用于降低连续使用同一材料约 64 次后衰减的风险。", UiColors.WARNING);
         displayLines = List.copyOf(lines);

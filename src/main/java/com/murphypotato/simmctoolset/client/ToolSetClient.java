@@ -5,8 +5,6 @@ import com.murphypotato.simmctoolset.internal.accessory.client.TravelHunterClien
 import com.murphypotato.simmctoolset.internal.scroll.client.ArcaneScrollCalculatorClient;
 import com.murphypotato.simmctoolset.internal.simes.SimesFeatureController;
 import com.murphypotato.simmctoolset.internal.simes.SimesArcaneHud;
-import com.murphypotato.simmctoolset.map.MapCompatibility;
-import com.murphypotato.simmctoolset.map.MapModule;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -24,7 +22,6 @@ public final class ToolSetClient implements ClientModInitializer {
     private static TravelHunterClient accessoryClient;
     private static boolean scrollInternal;
     private static boolean accessoryInternal;
-    private static boolean mapInternal;
 
     @Override
     public void onInitializeClient() {
@@ -42,8 +39,6 @@ public final class ToolSetClient implements ClientModInitializer {
             accessoryClient = new TravelHunterClient();
             accessoryClient.initialize();
         }
-        mapInternal = MapCompatibility.shouldInitializeInternalMap() && MapModule.isAvailable();
-        if (mapInternal) MapModule.initialize();
 
         ClientTickEvents.END_CLIENT_TICK.register(ToolSetKeyRouter::onClientTick);
         ClientLifecycleEvents.CLIENT_STOPPING.register(ignored -> {
@@ -51,12 +46,10 @@ public final class ToolSetClient implements ClientModInitializer {
             SimesFeatureController.reset();
             if (scrollClient != null) scrollClient.close();
             if (accessoryClient != null) accessoryClient.close();
-            if (mapInternal) MapModule.close();
         });
         registerCommand();
         DiagnosticLog.info("Tool Set initialized: scroll=" + moduleSource(scrollInternal, "simmc_arcane_scroll_calculator")
-                + ", accessory=" + moduleSource(accessoryInternal, "simmc_travel_hunter_accessory_tool")
-                + ", map=" + MapCompatibility.status().displayName());
+                + ", accessory=" + moduleSource(accessoryInternal, "simmc_travel_hunter_accessory_tool"));
     }
 
     private static String moduleSource(boolean internal, String externalId) {
@@ -70,23 +63,7 @@ public final class ToolSetClient implements ClientModInitializer {
                     MinecraftClient client = context.getSource().getClient();
                     client.execute(() -> openPanel(ToolSetScreen.Panel.OVERVIEW, client.currentScreen));
                     return Command.SINGLE_SUCCESS;
-                }).then(ClientCommandManager.literal("map")
-                        .then(ClientCommandManager.literal("refresh").executes(context -> {
-                            if (mapInternal) MapModule.requestRefresh();
-                            return Command.SINGLE_SUCCESS;
-                        }))
-                        .then(ClientCommandManager.literal("toggle").executes(context -> {
-                            if (mapInternal) MapModule.toggleWorldMap();
-                            return Command.SINGLE_SUCCESS;
-                        }))
-                        .then(ClientCommandManager.literal("background").executes(context -> {
-                            if (mapInternal) MapModule.toggleWorldBackground();
-                            return Command.SINGLE_SUCCESS;
-                        }))
-                        .then(ClientCommandManager.literal("minimap").executes(context -> {
-                            if (mapInternal) MapModule.toggleMinimapBackground();
-                            return Command.SINGLE_SUCCESS;
-                        })))
+                })
         ));
     }
 
@@ -97,7 +74,6 @@ public final class ToolSetClient implements ClientModInitializer {
             case SCROLL -> openScroll(client, parent);
             case ACCESSORY -> openAccessory(client, parent);
             case BREWING -> openPanel(ToolSetScreen.Panel.BREWING, parent);
-            case MAP -> openPanel(ToolSetScreen.Panel.MAP, parent);
             case DIAGNOSTICS -> openPanel(ToolSetScreen.Panel.DIAGNOSTICS, parent);
             case SIMES_SETTINGS -> SimesArcaneHud.openSettings(parent);
         }
@@ -158,44 +134,6 @@ public final class ToolSetClient implements ClientModInitializer {
 
     public static String runtimeSummary() {
         return "卷轴=" + (scrollInternal ? "内置" : "外置桥接")
-                + "，饰品=" + (accessoryInternal ? "内置" : "外置桥接")
-                + "，地图=" + MapCompatibility.status().displayName();
-    }
-
-    public static String mapRuntimeStatus() {
-        if (!mapInternal) return "地图未初始化；其他 Tool Set 模块继续运行";
-        return MapModule.runtimeStatus();
-    }
-
-    public static boolean isMapInternal() {
-        return mapInternal;
-    }
-
-    public static boolean mapWorldOverlayEnabled() {
-        return mapInternal && MapModule.worldMapEnabled();
-    }
-
-    public static boolean mapWorldBackgroundEnabled() {
-        return mapInternal && MapModule.worldBackgroundEnabled();
-    }
-
-    public static boolean mapMinimapBackgroundEnabled() {
-        return mapInternal && MapModule.minimapBackgroundEnabled();
-    }
-
-    public static void toggleMapWorldOverlay() {
-        if (mapInternal) MapModule.toggleWorldMap();
-    }
-
-    public static void toggleMapWorldBackground() {
-        if (mapInternal) MapModule.toggleWorldBackground();
-    }
-
-    public static void toggleMapMinimapBackground() {
-        if (mapInternal) MapModule.toggleMinimapBackground();
-    }
-
-    public static void refreshMap() {
-        if (mapInternal) MapModule.requestRefresh();
+                + "，饰品=" + (accessoryInternal ? "内置" : "外置桥接");
     }
 }

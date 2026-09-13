@@ -34,10 +34,6 @@ public final class ToolSetSettings {
         return value("cookwareEnabled", true);
     }
 
-    public static synchronized boolean mapExperimentalEnabled() {
-        return value("mapExperimentalEnabled", false);
-    }
-
     public static synchronized void setArcaneHudEnabled(boolean enabled) {
         set("arcaneHudEnabled", enabled);
     }
@@ -53,10 +49,6 @@ public final class ToolSetSettings {
 
     public static synchronized void setCookwareEnabled(boolean enabled) {
         set("cookwareEnabled", enabled);
-    }
-
-    public static synchronized void setMapExperimentalEnabled(boolean enabled) {
-        set("mapExperimentalEnabled", enabled);
     }
 
     private static boolean value(String key, boolean fallback) {

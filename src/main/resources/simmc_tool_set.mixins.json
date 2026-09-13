@@ -2,19 +2,13 @@
   "required": true,
   "minVersion": "0.8",
   "package": "com.murphypotato.simmctoolset.mixins",
-  "plugin": "com.murphypotato.simmctoolset.map.ToolSetMapMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "client": [
     "client.KeyboardMixin",
     "client.MouseMixin",
     "client.SimesBossBarMixin",
-    "accessory.HandledScreenAccessor",
-    "map.MixinGuiMap",
-    "map.MixinWorldSurfaceLegacy",
-    "map.MixinWorldSurfaceProfiled",
-    "map.MixinWorldZoomLegacy",
-    "map.MixinWorldZoomProfiled",
-    "map.MixinMinimapModuleRenderer"
+    "client.SimesCookwareOutlineMixin",
+    "accessory.HandledScreenAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
