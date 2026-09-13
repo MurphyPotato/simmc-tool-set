@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /** Licensed Simes-derived fermentation and cookware hints. */
 public final class SimesBrewingCookwareHud {
@@ -77,6 +78,8 @@ public final class SimesBrewingCookwareHud {
     private static final Map<BlockPos, Fermenter> fermenters = new HashMap<>();
     private static final Map<BlockPos, SimesCookerState> cookers = new HashMap<>();
     private static final Map<BlockPos, List<ItemStack>> cookerContents = new HashMap<>();
+    private static Map<UUID, Integer> cookerOutlines = Map.of();
+    private static net.minecraft.client.world.ClientWorld outlineWorld;
     private static final Map<String, Integer> clockIngredients = new LinkedHashMap<>();
     private static final List<DepositIntent> depositIntents = new ArrayList<>();
     private static Map<String, InventoryEntry> depositBaseline = Map.of();
@@ -167,6 +170,8 @@ public final class SimesBrewingCookwareHud {
         fermenters.clear();
         cookers.clear();
         cookerContents.clear();
+        cookerOutlines = Map.of();
+        outlineWorld = null;
         clockIngredients.clear();
         depositIntents.clear();
         depositBaseline = Map.of();
@@ -185,7 +190,10 @@ public final class SimesBrewingCookwareHud {
             reset();
             return;
         }
-        if (client.player == null || client.world == null) return;
+        if (client.player == null || client.world == null) {
+            reset();
+            return;
+        }
 
         long now = System.currentTimeMillis();
         confirmDeposit(client.player, now);
@@ -314,7 +322,14 @@ public final class SimesBrewingCookwareHud {
     }
 
     private static void scanCookers(MinecraftClient client, long now) {
-        if (!SimesFeatureController.cookwareEnabled()) return;
+        if (!SimesFeatureController.cookwareEnabled()) {
+            cookerOutlines = Map.of();
+            outlineWorld = null;
+            cookers.clear();
+            cookerContents.clear();
+            return;
+        }
+        Map<UUID, Integer> outlines = new HashMap<>();
         Box area = client.player.getBoundingBox().expand(20.0D);
         Map<BlockPos, List<ItemDisplayEntity>> groups = new HashMap<>();
         for (ItemDisplayEntity display : client.world.getEntitiesByType(
@@ -336,19 +351,36 @@ public final class SimesBrewingCookwareHud {
             List<ItemStack> contents = displays.stream()
                     .map(ItemDisplayEntity::getItemStack)
                     .filter(stack -> !isCookware(stack))
-                    .map(stack -> stack.copyWithCount(1))
+                    // The existing state/HUD ledger uses one key per unit, not per entity.
+                    .flatMap(stack -> java.util.stream.IntStream.range(0, stack.getCount())
+                            .mapToObj(index -> stack.copyWithCount(1)))
                     .toList();
             SimesCookerState state = cookers.computeIfAbsent(group.getKey(), ignored -> new SimesCookerState());
             state.observe(normalizedCookwareName(vessel), isOpenCookingVessel(vessel),
                     contents.stream().map(SimesBrewingCookwareHud::details).toList(), now);
             cookerContents.put(group.getKey(), contents);
+            if (state.statusColor() != 0) outlines.put(vesselDisplay.getUuid(), state.statusColor());
         }
+        cookerOutlines = Map.copyOf(outlines);
+        outlineWorld = client.world;
 
         cookers.entrySet().removeIf(entry -> {
             boolean stale = now - entry.getValue().lastSeen() > COOKER_RETENTION_MS;
             if (stale) cookerContents.remove(entry.getKey());
             return stale;
         });
+    }
+
+    /** Render-state override only: never changes tracked entity data or teams. */
+    public static int cookwareOutline(net.minecraft.entity.decoration.DisplayEntity entity) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (!SimesFeatureController.cookwareEnabled() || client.player == null
+                || client.world == null || client.world != outlineWorld || entity.isRemoved()
+                || System.currentTimeMillis() - lastScan > 1_000L
+                || !(entity instanceof ItemDisplayEntity display)
+                || !isCookingVessel(display.getItemStack())
+                || !client.player.getBoundingBox().expand(20.0D).intersects(entity.getBoundingBox())) return 0;
+        return cookerOutlines.getOrDefault(entity.getUuid(), 0);
     }
 
     private static void removeStaleFermenters(long now) {
@@ -541,16 +573,18 @@ public final class SimesBrewingCookwareHud {
         if (counts.size() > MAX_VISIBLE_ITEMS) {
             lines.add(new Line(ItemStack.EMPTY, "以及其他 " + (counts.size() - MAX_VISIBLE_ITEMS) + " 种食材"));
         }
-        String timer = state.isOpen() ? "无盖状态：未开始计时"
-                : state.isCompleted() ? "服务器已完成"
+        String timer = state.isFailed() ? "烹饪失败"
+                : state.isCompleted() ? "烹饪完成"
+                : state.status() == SimesCookerState.Status.READY ? "准备中：未开始计时"
                 : state.remainingMillis(System.currentTimeMillis()) > 0L
                 ? String.format(Locale.ROOT, "预计：%.1f 秒（本地）", state.remainingMillis(System.currentTimeMillis()) / 1_000D)
                 : "预计时间已到，等待服务器";
         lines.add(new Line(ItemStack.EMPTY, timer));
-        String title = state.isOpen() ? state.cookwareName()
+        String title = state.isFailed() ? state.cookwareName() + " · 失败"
                 : state.isCompleted() ? state.cookwareName() + " · 已完成"
+                : state.status() == SimesCookerState.Status.READY ? state.cookwareName() + " · 准备中"
                 : state.cookwareName() + " · 烹饪中";
-        return new Panel(pos, title, 0xFF74E6FF, lines);
+        return new Panel(pos, title, state.statusColor() == 0 ? 0xFF74E6FF : state.statusColor(), lines);
     }
 
     private static boolean isClock(ItemStack stack) {
@@ -611,6 +645,8 @@ public final class SimesBrewingCookwareHud {
         String id = details(stack);
         if (id.contains("kitchenware_2/cookware_open")) return "炖锅 无盖";
         if (id.contains("kitchenware_2/cookware")) return "炖锅";
+        if (id.contains("kitchenware_2/skillet")) return "煎锅";
+        if (id.contains("kitchenware_2/steamer")) return "蒸锅";
         return stack.getName().getString();
     }
 

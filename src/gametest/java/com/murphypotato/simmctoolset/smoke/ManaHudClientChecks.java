@@ -92,8 +92,8 @@ public final class ManaHudClientChecks {
                 inventory.setStack(oldSlot, replacement);
                 observeWand.invoke(null, replacement);
                 require(heldField.getBoolean(null), "Replacement wand was not observed");
-                assertNear(0.0, manaField.getDouble(null), "Same-slot wand replacement retained old Mana");
-                require(!readyField.getBoolean(null), "Same-slot wand replacement retained Mana readiness");
+                assertNear(72.0, manaField.getDouble(null), "Equivalent same-slot wand reset accepted Mana state");
+                require(readyField.getBoolean(null), "Equivalent same-slot wand lost Mana readiness");
                 require(cooldowns.containsKey("Arcane"), "Wand switch discarded genuine cooldown state");
 
                 require(ManaHud.handleExperiencePacket(new ExperienceBarUpdateS2CPacket(0.25f, 0, 0)),

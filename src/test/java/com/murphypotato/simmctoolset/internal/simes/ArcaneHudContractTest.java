@@ -249,11 +249,11 @@ final class ArcaneHudContractTest {
     }
 
     @Test
-    void sameSlotReplacementUsesStackIdentityWithoutHashingDynamicComponents() throws IOException {
+    void wandSignatureDoesNotUseStackIdentityOrDynamicComponentMap() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/com/murphypotato/simmctoolset/internal/simes/ManaHud.java"));
-        assertTrue(source.contains("System.identityHashCode(stack);"));
-        assertTrue(source.contains("server-driven dynamic data can change it every tick"));
+        assertTrue(source.contains("Right-click use/feedback and spell switching can rebuild"));
+        assertFalse(source.contains("System.identityHashCode(stack);"));
         assertFalse(source.contains("stack.getComponents().hashCode()"));
     }
 

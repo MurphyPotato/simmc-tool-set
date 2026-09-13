@@ -5,8 +5,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.LoreComponent;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.s2c.play.ExperienceBarUpdateS2CPacket;
 import net.minecraft.text.Text;
@@ -116,22 +114,11 @@ public final class ManaHud {
     private static int stableWandSignature(ItemStack stack) {
         MinecraftClient client = MinecraftClient.getInstance();
         int selectedSlot = client.player == null ? -1 : client.player.getInventory().getSelectedSlot();
-        // The ItemStack instance changes when a same-slot wand is replaced, while
-        // in-place component/Lore updates keep the instance and therefore do not
-        // reset the Mana animation. Do not hash the complete component map here:
-        // server-driven dynamic data can change it every tick.
+        // Right-click use/feedback and spell switching can rebuild or mutate an
+        // equivalent wand stack in the same slot. Neither object identity nor
+        // Lore/components is a stable indication that the player changed wands.
+        // Identify the held wand only by its item type and selected slot.
         int signature = 31 * System.identityHashCode(stack.getItem()) + selectedSlot;
-        signature = 31 * signature + System.identityHashCode(stack);
-        LoreComponent lore = stack.get(DataComponentTypes.LORE);
-        if (lore != null) signature = 31 * signature + SimesArcaneHud.arcaneNamesFromLore(
-                lore.lines().stream().map(net.minecraft.text.Text::getString).toList()).hashCode();
-        net.minecraft.text.Text customName = stack.get(DataComponentTypes.CUSTOM_NAME);
-        if (customName != null) signature = 31 * signature + customName.getString().hashCode();
-        String components = stack.getComponents().toString();
-        Matcher max = MAX_MANA.matcher(components);
-        if (max.find()) signature = 31 * signature + max.group(1).hashCode();
-        Matcher regen = REGEN.matcher(components);
-        if (regen.find()) signature = 31 * signature + regen.group(1).hashCode();
         return signature;
     }
 

@@ -60,6 +60,7 @@ public final class ToolSetClientGameTest implements FabricClientGameTest {
             context.runOnClient(client -> require(!SimesFeatureController.active(),
                     "Target-server module activated in a local world"));
             context.runOnClient(ManaHudClientChecks::run);
+            context.runOnClient(CookwareClientChecks::run);
             context.getInput().pressKey(GLFW.GLFW_KEY_BACKSLASH);
             context.waitForScreen(ToolSetScreen.class);
             checkAndCapture(context, "world-prefix-entry");
