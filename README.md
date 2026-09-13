@@ -4,7 +4,7 @@
 
 面向 simMC 玩家的 Fabric 客户端工具模组。Tool Set 将五个常用工具集中在一个模组、一个 Mod ID 和一个 JAR 中，不需要安装到服务器。
 
-当前最新测试版本为 `v1.1.9-dev.20260913.2`（Beta），目标环境为 Minecraft `1.21.11`、Java 21、Fabric Loader `0.19.5` 和 Fabric API `0.141.6+1.21.11`。这是中间测试版本，不是正式 v1.1.9 Release；真实目标服务器厨具验收仍待完成。
+当前最新稳定版为 `v1.1.9`，最新测试版为 `v1.1.9-dev.20260913.2`（Beta）。两者目标环境均为 Minecraft `1.21.11`、Java 21、Fabric Loader `0.19.5` 和 Fabric API `0.141.6+1.21.11`。Beta 包含正在验证的厨具结果识别和彩色状态描边；稳定版不包含这些未完成的服务器验收功能。
 
 ## 主要功能
 
@@ -41,7 +41,13 @@
 2. 将对应的 Tool Set JAR 放入该实例的 `.minecraft/mods` 文件夹。
 3. 只在客户端安装即可；simMC 服务器不需要安装 Tool Set。
 
-最新 Beta 下载见 [v1.1.9-dev.20260913.2 GitHub Release](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.9-dev.20260913.2)。历史版本、分支和正式发布记录仍保留在 [GitHub Releases](https://github.com/MurphyPotato/simmc-tool-set/releases)；源码位于 [MurphyPotato/simmc-tool-set](https://github.com/MurphyPotato/simmc-tool-set)。
+下载：
+
+- [v1.1.9 稳定版](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.9-fabric-mc1.21.11)：包含奥术 HUD Mana 闪烁修复、发酵/厨具生命周期修复，以及 v1.1.8 行为回滚。
+- [v1.1.9-dev.20260913.2 Beta](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.9-dev.20260913.2)：在稳定版基础上增加锅内结果变化检测、完成/失败提示、五色状态和彩色锅本体描边；真实目标服务器验收仍待进行。
+- [v1.1.8 稳定版](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.8-fabric-mc1.21.11)：Minecraft 1.21.11 升级版，移除网页地图/Xaero 模块并保留五个工具版块。
+
+历史版本、分支和正式发布记录仍保留在 [GitHub Releases](https://github.com/MurphyPotato/simmc-tool-set/releases)；源码位于 [MurphyPotato/simmc-tool-set](https://github.com/MurphyPotato/simmc-tool-set)。
 
 ## 网页地图边界
 
