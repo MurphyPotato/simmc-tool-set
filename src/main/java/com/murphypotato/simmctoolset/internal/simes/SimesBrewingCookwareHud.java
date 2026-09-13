@@ -93,6 +93,7 @@ public final class SimesBrewingCookwareHud {
     private static long lastFermentationInteractionAt;
     private static long lastScan;
     private static boolean collectingIngredients;
+    private static long lastClockIngredientAt;
     private static boolean initialized;
     private static volatile List<ProjectedPanel> projectedPanels = List.of();
 
@@ -193,6 +194,7 @@ public final class SimesBrewingCookwareHud {
         lastFermentationInteractionAt = 0L;
         lastScan = 0L;
         collectingIngredients = false;
+        lastClockIngredientAt = 0L;
         projectedPanels = List.of();
     }
 
@@ -209,6 +211,10 @@ public final class SimesBrewingCookwareHud {
         long now = System.currentTimeMillis();
         confirmDeposit(client.player, now);
         confirmWithdrawal(client.player, now);
+        if (collectingIngredients && now - lastClockIngredientAt >= 500L) {
+            Fermenter state = clockMessageFermenter();
+            if (state != null) applyClockIngredients(state);
+        }
         if (now - lastScan < SCAN_MS) return;
         lastScan = now;
         discoverTargetedFermenter(client);
@@ -405,7 +411,11 @@ public final class SimesBrewingCookwareHud {
     private static void removeStaleFermenters(long now) {
         fermenters.entrySet().removeIf(entry -> {
             Fermenter state = entry.getValue();
-            if (!isFermentationBarrelAt(MinecraftClient.getInstance(), entry.getKey())) {
+            MinecraftClient client = MinecraftClient.getInstance();
+            // An unloaded chunk makes display entities temporarily invisible;
+            // retain the last known projection until the chunk is loaded again.
+            if (client.world != null && client.world.isChunkLoaded(entry.getKey())
+                    && !isFermentationBarrelAt(client, entry.getKey())) {
                 clearFermenterState(entry.getKey());
                 return true;
             }
@@ -435,11 +445,15 @@ public final class SimesBrewingCookwareHud {
             if (clockMessageFermenter() != null) {
                 collectingIngredients = true;
                 clockIngredients.clear();
+                lastClockIngredientAt = System.currentTimeMillis();
             }
             return;
         }
         if (event instanceof SimesBrewingClockParser.Ingredient ingredient) {
-            if (collectingIngredients) clockIngredients.put(ingredient.name(), ingredient.count());
+            if (collectingIngredients) {
+                clockIngredients.put(ingredient.name(), ingredient.count());
+                lastClockIngredientAt = System.currentTimeMillis();
+            }
             return;
         }
 
@@ -501,6 +515,7 @@ public final class SimesBrewingCookwareHud {
         }
         collectingIngredients = false;
         clockIngredients.clear();
+        lastClockIngredientAt = 0L;
     }
 
     private static void projectPanels(WorldRenderContext context) {
