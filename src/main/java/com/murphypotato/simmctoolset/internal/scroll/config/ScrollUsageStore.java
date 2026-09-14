@@ -47,7 +47,8 @@ public final class ScrollUsageStore {
         if(!today().equals(expectedDate))throw new StaleCommitException("日期已变化");
         Map<String,Integer> checked=UsageCommitRequest.nonnegative(newTotals); Ledger old=ledger(playerId,expectedDate); long rev=old==null?0:old.revision;
         if(rev!=expectedRevision)throw new StaleCommitException("使用记录版本已变化");
-        Ledger next=old==null?new Ledger():old.copy(); Map<String,Integer> before=next.totals; next.totals=new LinkedHashMap<>(checked); next.currentM=Math.max(0,newM); next.revision=Math.addExact(rev,1);
+        if (newM < 0) throw new IllegalArgumentException("M 不能为负数");
+        Ledger next=old==null?new Ledger():old.copy(); Map<String,Integer> before=next.totals; next.totals=new LinkedHashMap<>(checked); next.currentM=newM; next.revision=Math.addExact(rev,1);
         next.audits.add(new UsageAuditEntry(UUID.randomUUID(),playerId,Instant.now(clock),before,checked,reason==null||reason.isBlank()?"manual edit":reason));
         persist(playerId,expectedDate,next); players.computeIfAbsent(playerId,x->new LinkedHashMap<>()).put(expectedDate,next); return snapshot(playerId);
     }
