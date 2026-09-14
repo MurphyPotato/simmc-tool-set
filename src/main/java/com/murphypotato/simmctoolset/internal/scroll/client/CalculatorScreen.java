@@ -7,6 +7,7 @@ import com.murphypotato.simmctoolset.internal.scroll.domain.Element;
 import com.murphypotato.simmctoolset.internal.scroll.domain.ElementAmounts;
 import com.murphypotato.simmctoolset.internal.scroll.domain.RotationBatch;
 import com.murphypotato.simmctoolset.internal.scroll.domain.PlanEditor;
+import com.murphypotato.simmctoolset.internal.scroll.domain.PresetPlan;
 import com.murphypotato.simmctoolset.internal.scroll.domain.ScrollRecipe;
 import com.murphypotato.simmctoolset.internal.scroll.domain.SearchBudget;
 import com.murphypotato.simmctoolset.internal.scroll.domain.EvaluatedPlan;
@@ -42,6 +43,7 @@ public final class CalculatorScreen extends Screen {
     private TextFieldWidget searchField;
     private TextFieldWidget quantityField;
     private TextFieldWidget thresholdField;
+    private TextFieldWidget presetNameField;
     private int recipeX;
     private int recipeY;
     private int recipeWidth;
@@ -210,7 +212,14 @@ public final class CalculatorScreen extends Screen {
         });
         addDrawableChild(thresholdField);
 
-        int contentTop = fieldsY + 26;
+        presetNameField = new TextFieldWidget(textRenderer, MARGIN, fieldsY + 23, 132, 20, Text.literal("预设名称"));
+        presetNameField.setMaxLength(20);
+        presetNameField.setPlaceholder(Text.literal("预设名称（≤20字）"));
+        addDrawableChild(presetNameField);
+        addDrawableChild(ButtonWidget.builder(Text.literal("保存当前预设"), button -> savePreset())
+            .dimensions(MARGIN + 136, fieldsY + 23, 100, 20).build());
+
+        int contentTop = fieldsY + 49;
         boolean narrow = width < 520;
         if (narrow) {
             recipeX = MARGIN;
@@ -259,6 +268,22 @@ public final class CalculatorScreen extends Screen {
             clearAndInit();
         });
         clearAndInit();
+    }
+
+    private void savePreset() {
+        if (result == null || result.planning() == null || presetNameField == null) return;
+        String name = presetNameField.getText().strip();
+        if (name.isEmpty()) return;
+        try {
+            List<RotationBatch> batches = editedBatches.isEmpty()
+                ? result.planning().plan().batches().stream()
+                    .map(batch -> new RotationBatch(batch.plan(), batch.crafts())).toList()
+                : editedBatches;
+            controller.savePreset(new PresetPlan(name, result.recipe().name(), batches));
+            rebuildDisplayLines();
+        } catch (RuntimeException error) {
+            controller.invalidate();
+        }
     }
 
     private ArcaneSettings readInputSettings() {
