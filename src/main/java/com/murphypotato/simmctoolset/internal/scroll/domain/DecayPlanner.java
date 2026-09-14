@@ -15,6 +15,7 @@ public final class DecayPlanner {
     public static PlanningResult plan(ScrollPlanningRequest request) {
         long deadline = System.nanoTime() + request.budget().nanos();
         EvaluatedPlan best = emptyPlan(request);
+        List<CraftPlan> discovered = List.of();
         try {
             check(request, deadline);
             if (request.desiredCrafts() == 0) {
@@ -42,6 +43,7 @@ public final class DecayPlanner {
                 });
             check(request, deadline);
             candidates = expandCandidates(mergeCandidates(fallback, candidates), allowed, request, deadline);
+            discovered = candidates;
             if (candidates.isEmpty()) return new PlanningResult(
                 PlanningStatus.NO_FEASIBLE_PLAN, emptyPlan(request), List.of());
 
@@ -90,7 +92,7 @@ public final class DecayPlanner {
         } catch (PlanningCancelledException ex) {
             throw ex;
         } catch (PlanningTimeoutException ex) {
-            return new PlanningResult(PlanningStatus.TIMED_OUT, best, List.of());
+            return new PlanningResult(PlanningStatus.TIMED_OUT, best, discovered);
         }
     }
 
