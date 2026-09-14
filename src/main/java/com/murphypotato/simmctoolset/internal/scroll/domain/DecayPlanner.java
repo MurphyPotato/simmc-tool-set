@@ -28,7 +28,10 @@ public final class DecayPlanner {
                 .toList();
             List<CraftPlan> candidates = ArcaneSolver.findCraftPlans(
                 request.recipe(), allowed, ArcaneSolver.DEFAULT_IMPURITY_LIMIT, 64,
-                () -> request.cancellation().getAsBoolean() || System.nanoTime() >= deadline);
+                () -> {
+                    if (System.nanoTime() >= deadline) throw new PlanningTimeoutException();
+                    return request.cancellation().getAsBoolean();
+                });
             check(request, deadline);
             if (candidates.isEmpty()) return new PlanningResult(
                 PlanningStatus.NO_FEASIBLE_PLAN, emptyPlan(request), List.of());
@@ -62,9 +65,6 @@ public final class DecayPlanner {
             PlanningStatus status = best.complete() ? PlanningStatus.COMPLETE : PlanningStatus.PARTIAL;
             return new PlanningResult(status, best, candidates);
         } catch (ArcaneSolver.CalculationCancelledException ex) {
-            if (System.nanoTime() >= deadline) {
-                return new PlanningResult(PlanningStatus.TIMED_OUT, best, List.of());
-            }
             throw new PlanningCancelledException();
         } catch (PlanningCancelledException ex) {
             throw ex;
