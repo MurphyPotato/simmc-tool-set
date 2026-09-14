@@ -152,6 +152,25 @@ class ScrollDomainPlannerTest {
         assertEquals(13, result.plan().batches().getFirst().plan().materials().get("高用量单材"));
     }
 
+    @Test
+    void reducingPlanCountRemovesTailAndRedistributesCrafts() {
+        CraftPlan vector = new CraftPlan("v", Map.of("铜", 1), amounts(1, 0),
+            0, 0, 1, 1, 1, 0);
+        List<RotationBatch> resized = PlanEditor.resize(
+            List.of(new RotationBatch(vector, 2), new RotationBatch(vector, 3),
+                new RotationBatch(vector, 4)), 2);
+        assertEquals(List.of(4, 5), resized.stream().map(RotationBatch::crafts).toList());
+    }
+
+    @Test
+    void editingOnePlanKeepsOtherPlanQuantities() {
+        CraftPlan vector = new CraftPlan("v", Map.of("铜", 1), amounts(1, 0),
+            0, 0, 1, 1, 1, 0);
+        List<RotationBatch> edited = PlanEditor.withCrafts(
+            List.of(new RotationBatch(vector, 2), new RotationBatch(vector, 3)), 1, 7);
+        assertEquals(List.of(2, 7), edited.stream().map(RotationBatch::crafts).toList());
+    }
+
     private static Material material(String name, int metal, int wood) {
         return new Material(name, amounts(metal, wood), 1 + name.hashCode() & 0x7fffffff);
     }
