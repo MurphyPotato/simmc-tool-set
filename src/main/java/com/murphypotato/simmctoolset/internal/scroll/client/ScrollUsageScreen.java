@@ -18,6 +18,8 @@ public final class ScrollUsageScreen extends Screen {
     private List<String> lines = List.of();
     private TextFieldWidget mField;
     private ButtonWidget acknowledge;
+    private TextFieldWidget renameField;
+    private String selectedPreset;
     private boolean acknowledged;
     private int scroll;
 
@@ -43,6 +45,24 @@ public final class ScrollUsageScreen extends Screen {
             addDrawableChild(acknowledge);
             addDrawableChild(ButtonWidget.builder(Text.literal("保存 M 编辑"), b -> editM(player.get())).dimensions(262, 34, 110, 20).build());
         }
+        renameField = new TextFieldWidget(textRenderer, 16, 58, 150, 20, Text.literal("预设名称"));
+        renameField.setMaxLength(20);
+        renameField.setPlaceholder(Text.literal("预设名称（≤20字）"));
+        addDrawableChild(renameField);
+        addDrawableChild(ButtonWidget.builder(Text.literal("改名预设"), b -> {
+            if (selectedPreset != null && renameField != null && !renameField.getText().isBlank()) {
+                controller.renamePreset(selectedPreset, renameField.getText().strip());
+                selectedPreset = renameField.getText().strip();
+                rebuildLines();
+            }
+        }).dimensions(170, 58, 100, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("删除预设"), b -> {
+            if (selectedPreset != null) {
+                controller.deletePreset(selectedPreset);
+                selectedPreset = null;
+                rebuildLines();
+            }
+        }).dimensions(274, 58, 100, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("返回"), b -> close()).dimensions(width / 2 - 50, height - 26, 100, 20).build());
         rebuildLines();
     }
@@ -79,6 +99,12 @@ public final class ScrollUsageScreen extends Screen {
                     + (record.autoMode() ? " · 自动" : " · 手动"));
             }
             controller.usageStore().warning().ifPresent(w -> result.add("警告：" + w));
+            result.add("");
+            result.add("预设（点击名称后可改名或删除）：");
+            var presets = controller.presetStore().list();
+            if (presets.isEmpty()) result.add("暂无预设；预设保存入口将在计算结果页提供。");
+            else for (var preset : presets) result.add("· " + preset.name() + " · " + preset.recipe()
+                + " · " + preset.batches().size() + " 批");
         }
         result.add("");
         result.add("修改 M 会影响后续计划；必须勾选确认并会留下审计记录。");
@@ -99,6 +125,19 @@ public final class ScrollUsageScreen extends Screen {
         if (verticalAmount == 0) return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
         scroll = Math.max(0, Math.min(scroll + (verticalAmount > 0 ? -3 : 3), Math.max(0, lines.size() - 1)));
         return true;
+    }
+
+    @Override public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubled) {
+        if (click.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && click.y() >= 105) {
+            int row = (int) ((click.y() - 105) / 13);
+            var presets = controller.presetStore().list();
+            if (row >= 0 && row < presets.size()) {
+                selectedPreset = presets.get(row).name();
+                if (renameField != null) renameField.setText(selectedPreset);
+                return true;
+            }
+        }
+        return super.mouseClicked(click, doubled);
     }
 
     @Override public boolean keyPressed(KeyInput input) {
