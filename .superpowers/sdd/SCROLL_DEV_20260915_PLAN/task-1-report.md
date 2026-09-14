@@ -59,3 +59,18 @@ The reviewer-requested incomplete-target, explicit-exclusion, and evolving
 usage paths are covered by the focused tests. The complete gate passes
 `verifyUnitTests` 83/83. Parent-owned material-source coverage is included in
 that run but remains outside this task's commit.
+
+Fix-round regression evidence:
+
+- `ScrollDomainPlannerTest.nonlinearImpurityIsCheckedAfterDecayAtCurrentUsage`
+  covers the sole material `(金=2, 木=8)` at `U=20`; exact effective wood is
+  below 8 although display HALF_UP may show 8, and the plan is feasible.
+- `ScrollDomainPlannerTest.plannerRespectsExclusionsInputCapBudgetAndCancellation`
+  passes an explicit excluded-material set and confirms it is absent.
+- `ScrollDomainPlannerTest.incompleteManualTargetIsNotReportedFeasible`
+  confirms insufficient effective target output is not complete.
+
+Command and result:
+
+`.\gradlew.bat --no-daemon --offline verifyUnitTests` with the pinned JDK 21:
+84 tests found, 84 started, 84 successful, 0 failed.

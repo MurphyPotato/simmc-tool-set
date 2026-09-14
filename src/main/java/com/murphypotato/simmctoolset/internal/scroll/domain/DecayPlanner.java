@@ -31,7 +31,7 @@ public final class DecayPlanner {
             for (CraftPlan candidate : fallback) {
                 int capacity = maximumFeasibleRepeat(candidate, request, request.currentUsage(), deadline);
                 if (capacity > 0) best = evaluateInternal(
-                    List.of(new RotationBatch(candidate, capacity)), request.recipe(), request.materials(),
+                    List.of(new RotationBatch(candidate, Math.min(capacity, request.desiredCrafts()))), request.recipe(), request.materials(),
                     request.currentUsage(), request.materialBudget(), request.desiredCrafts());
             }
             List<CraftPlan> candidates = ArcaneSolver.findCraftPlans(
@@ -41,8 +41,7 @@ public final class DecayPlanner {
                     return request.cancellation().getAsBoolean();
                 });
             check(request, deadline);
-            candidates = expandCandidates(candidates, allowed, request, deadline);
-            candidates = mergeCandidates(fallback, candidates);
+            candidates = expandCandidates(mergeCandidates(fallback, candidates), allowed, request, deadline);
             if (candidates.isEmpty()) return new PlanningResult(
                 PlanningStatus.NO_FEASIBLE_PLAN, emptyPlan(request), List.of());
 
@@ -52,7 +51,7 @@ public final class DecayPlanner {
                 int capacity = maximumFeasibleRepeat(candidate, request, request.currentUsage(), deadline);
                 if (capacity > 0) {
                     ranked.add(new RankedPlan(candidate, capacity, finalUsage(candidate, capacity, request)));
-                    best = evaluateInternal(List.of(new RotationBatch(candidate, capacity)), request.recipe(),
+                    best = evaluateInternal(List.of(new RotationBatch(candidate, Math.min(capacity, request.desiredCrafts()))), request.recipe(),
                         request.materials(), request.currentUsage(), request.materialBudget(), request.desiredCrafts());
                 }
             }
@@ -288,7 +287,7 @@ public final class DecayPlanner {
                 int value = material.elements().get(e), required = recipe.required().get(e);
                 if (value < required || value > required + 24) target = false;
             }
-            if (!target || impurity >= ArcaneSolver.DEFAULT_IMPURITY_LIMIT) continue;
+            if (!target) continue;
             result.add(new CraftPlan("single:" + material.name(), Map.of(material.name(), 1),
                 material.elements(), impurity, 0, 1, 1, 1, 100000L + impurity * 700L));
         }
@@ -304,7 +303,8 @@ public final class DecayPlanner {
         }
         int impurity = 0;
         for (Element e : Element.values()) if (recipe.required().get(e) == 0) impurity += supplied.get(e);
-        if (impurity >= ArcaneSolver.DEFAULT_IMPURITY_LIMIT) return null;
+        // Impurity is evaluated after nonlinear decay at the evolving usage;
+        // theoretical impurity alone is not a rejection criterion.
         int total = map.values().stream().mapToInt(Integer::intValue).sum();
         int maxRepeat = map.values().stream().mapToInt(Integer::intValue).max().orElse(0);
         long score = total * 100000L + impurity * 700L;

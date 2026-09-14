@@ -83,6 +83,19 @@ class ScrollDomainPlannerTest {
         assertEquals(1, result.plannedCrafts());
     }
 
+    @Test
+    void nonlinearImpurityIsCheckedAfterDecayAtCurrentUsage() {
+        Material material = material("衰减铜", 2, 8);
+        ScrollRecipe recipe = new ScrollRecipe("一金", "主材", amounts(1, 0));
+        ScrollPlanningRequest request = new ScrollPlanningRequest(recipe, List.of(material), 1,
+            Map.of("衰减铜", 20), Map.of(), Set.of(), SearchBudget.BALANCED);
+        PlanningResult result = DecayPlanner.plan(request);
+        assertEquals(PlanningStatus.COMPLETE, result.status());
+        assertTrue(result.plan().feasible());
+        assertTrue(result.plan().batches().getFirst().effectiveElements().get(Element.WOOD)
+            .compareTo(BigDecimal.valueOf(8)) < 0);
+    }
+
     private static Material material(String name, int metal, int wood) {
         return new Material(name, amounts(metal, wood), 1 + name.hashCode() & 0x7fffffff);
     }
