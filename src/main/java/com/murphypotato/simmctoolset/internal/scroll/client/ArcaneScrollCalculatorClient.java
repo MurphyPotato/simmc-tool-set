@@ -14,11 +14,12 @@ public final class ArcaneScrollCalculatorClient {
         GameData data = GameData.load();
         SettingsStorage storage = new SettingsStorage(
             FabricLoader.getInstance().getConfigDir()
-                .resolve("simmc-arcane-scroll-calculator")
-                .resolve("settings-v1.1.1-fabric.json"),
+                .resolve("simmc-tool-set")
+                .resolve("scroll-settings.json"),
             data
         );
-        controller = new ArcaneController(data, storage);
+        controller = new ArcaneController(data, storage,
+            FabricLoader.getInstance().getConfigDir().resolve("simmc-tool-set").resolve("scroll-usage.json"));
     }
 
     public void open(MinecraftClient client, Screen parent) {

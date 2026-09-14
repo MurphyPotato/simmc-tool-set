@@ -7,6 +7,9 @@ import com.murphypotato.simmctoolset.internal.scroll.domain.Element;
 import com.murphypotato.simmctoolset.internal.scroll.domain.ElementAmounts;
 import com.murphypotato.simmctoolset.internal.scroll.domain.RotationBatch;
 import com.murphypotato.simmctoolset.internal.scroll.domain.ScrollRecipe;
+import com.murphypotato.simmctoolset.internal.scroll.domain.SearchBudget;
+import com.murphypotato.simmctoolset.internal.scroll.domain.EvaluatedPlan;
+import com.murphypotato.simmctoolset.internal.scroll.domain.UsageCommitRequest;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.input.KeyInput;
@@ -22,6 +25,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public final class CalculatorScreen extends Screen {
     private static final int MARGIN = 8;
@@ -50,6 +54,8 @@ public final class CalculatorScreen extends Screen {
     private int selectedVisibleIndex;
     private List<DisplayLine> displayLines = List.of();
     private boolean rebuilding;
+    private boolean confirmArmed;
+    private UUID transactionId;
     private String lastControllerState = "";
 
     public CalculatorScreen(ArcaneController controller) {
@@ -100,6 +106,39 @@ public final class CalculatorScreen extends Screen {
             controller.updateSettings(current);
             invalidateResult();
             clearAndInit();
+        }).build());
+        toolbar.add(ButtonWidget.builder(Text.literal("速度：" + budgetLabel(settings.searchBudget())), button -> {
+            SearchBudget[] values = SearchBudget.values();
+            SearchBudget next = values[(settings.searchBudget().ordinal() + 1) % values.length];
+            controller.updateSettings(controller.settings().withSearchBudget(next));
+            invalidateResult();
+            clearAndInit();
+        }).build());
+        toolbar.add(ButtonWidget.builder(Text.literal("使用记录"), button -> {
+            persistInputs();
+            if (client != null) client.setScreen(new ScrollUsageScreen(controller, this));
+        }).build());
+        toolbar.add(ButtonWidget.builder(Text.literal("确认使用"), button -> {
+            if (result == null || result.planning() == null || !result.planning().plan().feasible()) return;
+            if (!confirmArmed) {
+                confirmArmed = true;
+                controller.invalidate();
+                rebuildDisplayLines();
+                return;
+            }
+            controller.playerId(client).ifPresentOrElse(player -> {
+                try {
+                    if (transactionId == null) transactionId = UUID.randomUUID();
+                    UsageCommitRequest request = controller.commitRequest(player, result, true, false, transactionId);
+                    controller.commitUsage(request);
+                    transactionId = null;
+                    confirmArmed = false;
+                    result = null;
+                    rebuildDisplayLines();
+                } catch (Exception error) {
+                    controller.invalidate();
+                }
+            }, () -> controller.invalidate());
         }).build());
         toolbar.add(ButtonWidget.builder(Text.literal("使用说明"), button -> {
             if (client != null) client.setScreen(new HelpScreen(this));
@@ -178,6 +217,14 @@ public final class CalculatorScreen extends Screen {
         rebuildDisplayLines();
         lastControllerState = controller.calculating() + "|" + controller.status();
         rebuilding = false;
+    }
+
+    private static String budgetLabel(SearchBudget budget) {
+        return switch (budget) {
+            case FAST -> "快速";
+            case BALANCED -> "均衡";
+            case EXTREME -> "极致";
+        };
     }
 
     private void calculate() {
@@ -358,44 +405,29 @@ public final class CalculatorScreen extends Screen {
             displayLines = List.copyOf(lines);
             return;
         }
-        if (result.plans().isEmpty()) {
+        if (result.planning() == null || result.planning().plan().batches().isEmpty()) {
             addWrapped(lines, "当前启用材料内没有满足目标且总杂质小于 8 的方案。", UiColors.ERROR);
             displayLines = List.copyOf(lines);
             return;
         }
         addWrapped(lines, "求解耗时：" + String.format(java.util.Locale.ROOT, "%.2f ms", result.elapsedNanos() / 1_000_000.0), UiColors.MUTED);
-        for (int index = 0; index < result.plans().size(); index++) {
-            CraftPlan plan = result.plans().get(index);
-            addWrapped(lines, "方案 " + (index + 1) + " · " + plan.materialTotal() + " 件 · 杂质 " + plan.impurityTotal()
-                + " · 溢出 " + plan.targetExcessTotal() + " · 单材最高 " + plan.maxRepeat(), UiColors.ACCENT);
-            addWrapped(lines, "单个辅料：" + formatMaterials(plan.materials()), UiColors.PRIMARY);
-            addWrapped(lines, "实际供给：" + formatAmounts(plan.supplied()), UiColors.SECONDARY);
+        EvaluatedPlan evaluated = result.planning().plan();
+        addWrapped(lines, "计划：" + evaluated.plannedCrafts() + "/" + evaluated.desiredCrafts()
+            + " · M " + maxUsage(evaluated.beforeUsage()) + " → " + maxUsage(evaluated.afterUsage())
+            + " · 杂质 " + evaluated.impurity() + " · 溢出 " + evaluated.excess(), evaluated.feasible() ? UiColors.ACCENT : UiColors.WARNING);
+        for (int index = 0; index < evaluated.batches().size(); index++) {
+            var batch = evaluated.batches().get(index);
+            addWrapped(lines, "第 " + (index + 1) + " 批：" + batch.crafts() + " 次 · "
+                + formatMaterials(batch.plan().materials()) + " · " + (batch.feasible() ? "可行" : "不可行"), UiColors.PRIMARY);
         }
-        List<RotationBatch> rotation = ArcaneSolver.makeRotationSchedule(
-            result.plans(), result.quantity(), result.repeatThreshold()
-        );
-        addWrapped(lines, "轮换建议（每批最多 " + result.repeatThreshold() + " 次，本地保守输入上限 "
-            + ArcaneSolver.MAX_BATCH_INPUTS + " 个）", UiColors.ACCENT);
-        addWrapped(lines, "按轮换批次合计：" + formatMaterials(ArcaneSolver.aggregateRotationMaterials(
-            rotation, result.includeMainMaterial(), result.recipe().mainMaterial()
-        )), UiColors.PRIMARY);
-        if (!result.includeMainMaterial()) {
-            addWrapped(lines, "主材料另需：" + result.recipe().mainMaterial() + " x" + result.quantity(), UiColors.WARNING);
-        }
-        for (int index = 0; index < rotation.size(); index++) {
-            RotationBatch batch = rotation.get(index);
-            int planIndex = result.plans().indexOf(batch.plan()) + 1;
-            addWrapped(lines, "第 " + (index + 1) + " 批：方案 " + planIndex + " · " + batch.crafts()
-                + " 次 · 输入 " + ArcaneSolver.batchInputCount(batch) + "/" + ArcaneSolver.MAX_BATCH_INPUTS
-                + " · 材料：" + formatMaterials(ArcaneSolver.scaleBatchMaterials(
-                    batch, result.includeMainMaterial(), result.recipe().mainMaterial()
-                )), UiColors.SECONDARY);
-            if (!ArcaneSolver.batchFitsInputLimit(batch)) {
-                addWrapped(lines, "该方案单次制作本身超过本地保守输入上限，无法安全执行。", UiColors.ERROR);
-            }
-        }
-        addWrapped(lines, "重置机制未知；轮换仅用于降低连续使用同一材料约 64 次后衰减的风险。", UiColors.WARNING);
+        if (!result.includeMainMaterial()) addWrapped(lines, "主材料仅影响显示；实际 320 输入上限仍包含主材料。", UiColors.WARNING);
+        if (confirmArmed) addWrapped(lines, "再次点击“确认使用”以记录实际消耗（事务可安全重试）。", UiColors.ERROR);
+        addWrapped(lines, "验证使用未取整的衰减值；界面显示“约”值可能仍低于目标。", UiColors.MUTED);
         displayLines = List.copyOf(lines);
+    }
+
+    private static int maxUsage(Map<String, Integer> usage) {
+        return usage.values().stream().mapToInt(Integer::intValue).max().orElse(0);
     }
 
     private void addWrapped(List<DisplayLine> lines, String value, int color) {
