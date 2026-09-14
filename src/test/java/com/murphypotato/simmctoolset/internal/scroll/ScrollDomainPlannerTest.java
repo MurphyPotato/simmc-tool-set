@@ -72,6 +72,35 @@ class ScrollDomainPlannerTest {
     }
 
     @Test
+    void excludedOnlySourceCannotProduceAPlanOrManualFeasibility() {
+        Material excluded = material("禁用", 2, 0);
+        ScrollRecipe recipe = new ScrollRecipe("一金", "主材", amounts(1, 0));
+        ScrollPlanningRequest request = new ScrollPlanningRequest(recipe, List.of(excluded), 1,
+            Map.of(), Map.of(), Set.of("禁用"), SearchBudget.FAST);
+        PlanningResult result = DecayPlanner.plan(request);
+        assertEquals(PlanningStatus.NO_FEASIBLE_PLAN, result.status());
+        CraftPlan vector = new CraftPlan("excluded", Map.of("禁用", 1), amounts(2, 0),
+            0, 0, 1, 1, 1, 0);
+        EvaluatedPlan manual = DecayPlanner.evaluate(List.of(new RotationBatch(vector, 1)),
+            recipe, List.of(excluded), Map.of(), Map.of(), Set.of("禁用"));
+        assertFalse(manual.feasible());
+        assertEquals(1, manual.extraMaterials().get("禁用"));
+    }
+
+    @Test
+    void nonlinearCapacityIsNotArtificiallyLimitedToSixtyFour() {
+        Material strong = material("高纯", 2, 0);
+        ScrollRecipe recipe = new ScrollRecipe("百金", "主材", amounts(1, 0));
+        ScrollPlanningRequest request = new ScrollPlanningRequest(recipe, List.of(strong), 100,
+            Map.of(), Map.of(), Set.of(), SearchBudget.BALANCED);
+        PlanningResult result = DecayPlanner.plan(request);
+        assertEquals(PlanningStatus.COMPLETE, result.status());
+        assertEquals(1, result.plan().batches().size());
+        assertEquals(100, result.plan().batches().getFirst().crafts());
+        assertTrue(result.plan().batches().getFirst().crafts() > 64);
+    }
+
+    @Test
     void incompleteManualTargetIsNotReportedFeasible() {
         Material weak = material("弱", 1, 0);
         ScrollRecipe recipe = new ScrollRecipe("六金", "主材", amounts(6, 0));
