@@ -96,6 +96,19 @@ class ScrollDomainPlannerTest {
             .compareTo(BigDecimal.valueOf(8)) < 0);
     }
 
+    @Test
+    void highUsageCanSwitchToAnAdditionalRawMaterial() {
+        Material exhausted = material("高用量", 2, 0);
+        Material fresh = material("新材料", 2, 0);
+        ScrollRecipe recipe = new ScrollRecipe("一金", "主材", amounts(1, 0));
+        ScrollPlanningRequest request = new ScrollPlanningRequest(recipe,
+            List.of(exhausted, fresh), 1, Map.of("高用量", 100), Map.of(),
+            Set.of(), SearchBudget.BALANCED);
+        PlanningResult result = DecayPlanner.plan(request);
+        assertEquals(PlanningStatus.COMPLETE, result.status());
+        assertTrue(result.plan().batches().getFirst().plan().materials().containsKey("新材料"));
+    }
+
     private static Material material(String name, int metal, int wood) {
         return new Material(name, amounts(metal, wood), 1 + name.hashCode() & 0x7fffffff);
     }
