@@ -7,6 +7,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.murphypotato.simmctoolset.internal.scroll.domain.GameData;
+import com.murphypotato.simmctoolset.internal.scroll.domain.SearchBudget;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -64,7 +65,8 @@ public final class SettingsStorage {
                 selectedRecipe,
                 requiredInt(root, "quantity"),
                 requiredBoolean(root, "includeMainMaterial"),
-                requiredInt(root, "repeatThreshold")
+                requiredInt(root, "repeatThreshold"),
+                root.has("searchBudget") ? SearchBudget.valueOf(root.get("searchBudget").getAsString()) : SearchBudget.BALANCED
             );
         } catch (Exception error) {
             protectCorruptFile();
@@ -82,6 +84,7 @@ public final class SettingsStorage {
         root.addProperty("quantity", settings.quantity());
         root.addProperty("includeMainMaterial", settings.includeMainMaterial());
         root.addProperty("repeatThreshold", settings.repeatThreshold());
+        root.addProperty("searchBudget", settings.searchBudget().name());
         writeAtomically(GSON.toJson(root) + System.lineSeparator());
     }
 

@@ -5,6 +5,7 @@ import com.murphypotato.simmctoolset.internal.scroll.domain.CraftPlan;
 import com.murphypotato.simmctoolset.internal.scroll.domain.Element;
 import com.murphypotato.simmctoolset.internal.scroll.domain.ElementAmounts;
 import com.murphypotato.simmctoolset.internal.scroll.domain.Material;
+import com.murphypotato.simmctoolset.internal.scroll.domain.MaterialDecay;
 import com.murphypotato.simmctoolset.internal.scroll.domain.RotationBatch;
 import com.murphypotato.simmctoolset.internal.scroll.domain.ScrollRecipe;
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ArcaneSolverTest {
+    @Test
+    void decayUsesCumulativeDifferenceWithoutEarlyRounding() {
+        double first = MaterialDecay.incremental(3, 0, 3);
+        double second = MaterialDecay.incremental(3, 3, 5);
+        assertEquals(3 * (MaterialDecay.cumulativeFactor(3) - MaterialDecay.cumulativeFactor(0)), first, 1e-9);
+        assertEquals(3 * (MaterialDecay.cumulativeFactor(8) - MaterialDecay.cumulativeFactor(3)), second, 1e-9);
+    }
     @Test
     void largeRequestsAreSplitByTheServerInputLimit() {
         CraftPlan plan = plan(Map.of("辅料", 6));

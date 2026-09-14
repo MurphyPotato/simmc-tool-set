@@ -96,6 +96,11 @@ claiming reset timing is unknown or that decay starts at M=64.
 Tests must exercise UI controls in the isolated client at multiple window sizes,
 including automatic disabled manual controls, manual counts/reset, confirmation,
 history entry, M acknowledgement checkbox, presets and parent/Esc restoration.
+Explain once that validation uses unrounded numbers (an displayed approximate 8
+can still be below 8). The main-material toggle affects display only, not actual
+320-input accounting or the confirmed record of consumed core items. Keep actual
+consumption derivation separate from display aggregation and from unknown-element
+evaluation, especially for forced preset confirmations.
 
 ## Task 4: Materials, verification and delivery
 
