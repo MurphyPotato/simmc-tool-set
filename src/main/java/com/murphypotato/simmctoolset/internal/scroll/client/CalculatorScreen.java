@@ -6,6 +6,7 @@ import com.murphypotato.simmctoolset.internal.scroll.domain.CraftPlan;
 import com.murphypotato.simmctoolset.internal.scroll.domain.Element;
 import com.murphypotato.simmctoolset.internal.scroll.domain.ElementAmounts;
 import com.murphypotato.simmctoolset.internal.scroll.domain.RotationBatch;
+import com.murphypotato.simmctoolset.internal.scroll.domain.PlanEditor;
 import com.murphypotato.simmctoolset.internal.scroll.domain.ScrollRecipe;
 import com.murphypotato.simmctoolset.internal.scroll.domain.SearchBudget;
 import com.murphypotato.simmctoolset.internal.scroll.domain.EvaluatedPlan;
@@ -56,6 +57,9 @@ public final class CalculatorScreen extends Screen {
     private boolean rebuilding;
     private boolean confirmArmed;
     private UUID transactionId;
+    private boolean manualMode;
+    private List<RotationBatch> editedBatches = List.of();
+    private List<RotationBatch> defaultBatches = List.of();
     private String lastControllerState = "";
 
     public CalculatorScreen(ArcaneController controller) {
@@ -112,6 +116,19 @@ public final class CalculatorScreen extends Screen {
             controller.updateSettings(controller.settings().withSearchBudget(next));
             invalidateResult();
             clearAndInit();
+        }).build());
+        toolbar.add(ButtonWidget.builder(Text.literal(manualMode ? "模式：手动" : "模式：自动"), button -> {
+            manualMode = !manualMode;
+            if (!manualMode) editedBatches = defaultBatches;
+            rebuildDisplayLines();
+            clearAndInit();
+        }).build());
+        toolbar.add(ButtonWidget.builder(Text.literal("重置方案"), button -> {
+            if (manualMode && !defaultBatches.isEmpty()) {
+                editedBatches = defaultBatches;
+                rebuildDisplayLines();
+                clearAndInit();
+            }
         }).build());
         toolbar.add(ButtonWidget.builder(Text.literal("使用记录"), button -> {
             persistInputs();
@@ -231,6 +248,8 @@ public final class CalculatorScreen extends Screen {
         ArcaneSettings next = readInputSettings();
         controller.updateSettings(next);
         result = null;
+        defaultBatches = List.of();
+        editedBatches = List.of();
         resultScroll = 0;
         rebuildDisplayLines();
         if (client != null) controller.calculate(client, completed -> {
@@ -405,12 +424,19 @@ public final class CalculatorScreen extends Screen {
             displayLines = List.copyOf(lines);
             return;
         }
+        if (result.planning() != null && !result.planning().plan().batches().isEmpty()
+            && defaultBatches.isEmpty()) {
+            defaultBatches = result.planning().plan().batches().stream()
+                .map(batch -> new RotationBatch(batch.plan(), batch.crafts())).toList();
+            editedBatches = defaultBatches;
+        }
         if (result.planning() == null || result.planning().plan().batches().isEmpty()) {
             addWrapped(lines, "当前启用材料内没有满足目标且总杂质小于 8 的方案。", UiColors.ERROR);
             displayLines = List.copyOf(lines);
             return;
         }
         addWrapped(lines, "求解耗时：" + String.format(java.util.Locale.ROOT, "%.2f ms", result.elapsedNanos() / 1_000_000.0), UiColors.MUTED);
+        addWrapped(lines, "当前模式：" + (manualMode ? "手动（修改需重新评估）" : "自动（默认方案已冻结）"), UiColors.ACCENT);
         EvaluatedPlan evaluated = result.planning().plan();
         addWrapped(lines, "计划：" + evaluated.plannedCrafts() + "/" + evaluated.desiredCrafts()
             + " · M " + maxUsage(evaluated.beforeUsage()) + " → " + maxUsage(evaluated.afterUsage())
