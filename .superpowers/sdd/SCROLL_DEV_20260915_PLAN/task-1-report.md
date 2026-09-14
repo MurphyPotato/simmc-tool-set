@@ -77,4 +77,4 @@ Fix-round regression evidence:
 Command and result:
 
 `.\gradlew.bat --no-daemon --offline verifyUnitTests` with the pinned JDK 21:
-85 tests found, 85 started, 85 successful, 0 failed.
+86 tests found, 86 started, 86 successful, 0 failed.

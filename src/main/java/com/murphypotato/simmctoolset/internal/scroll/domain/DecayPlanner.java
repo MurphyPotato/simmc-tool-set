@@ -56,6 +56,7 @@ public final class DecayPlanner {
                 }
             }
             ranked.sort(Comparator.comparingInt(RankedPlan::capacity).reversed()
+                .thenComparingInt(a -> a.plan().materialTotal())
                 .thenComparing((a, b) -> Integer.compare(b.finalUsage(), a.finalUsage()))
                 .thenComparing(r -> r.plan().id()));
             Map<String, Integer> usage = new LinkedHashMap<>(request.currentUsage());
@@ -63,7 +64,7 @@ public final class DecayPlanner {
             int remaining = request.desiredCrafts();
             while (remaining > 0 && !ranked.isEmpty()) {
                 check(request, deadline);
-                RankedPlan rankedPlan = choosePlan(ranked, request, usage, deadline);
+                RankedPlan rankedPlan = choosePlan(ranked, request, usage, remaining, deadline);
                 int capacity = maximumFeasibleRepeat(rankedPlan.plan(), request, usage, deadline);
                 if (capacity <= 0) {
                     ranked.remove(rankedPlan);
@@ -235,13 +236,17 @@ public final class DecayPlanner {
         return best;
     }
     private static RankedPlan choosePlan(List<RankedPlan> ranked, ScrollPlanningRequest request,
-                                         Map<String, Integer> usage, long deadline) {
+                                         Map<String, Integer> usage, int remaining, long deadline) {
         RankedPlan best = ranked.getFirst();
         int bestCapacity = maximumFeasibleRepeat(best.plan(), request, usage, deadline);
         for (RankedPlan candidate : ranked) {
             check(request, deadline);
             int capacity = maximumFeasibleRepeat(candidate.plan(), request, usage, deadline);
-            if (capacity > bestCapacity || (capacity == bestCapacity
+            if ((capacity >= remaining && bestCapacity < remaining)
+                || (capacity >= remaining && bestCapacity >= remaining
+                    && candidate.plan().materialTotal() < best.plan().materialTotal())
+                || (capacity > bestCapacity && bestCapacity < remaining)
+                || (capacity == bestCapacity
                 && candidate.plan().materialTotal() < best.plan().materialTotal())) {
                 best = candidate;
                 bestCapacity = capacity;
