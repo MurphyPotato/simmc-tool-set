@@ -13,7 +13,7 @@ public final class MaterialDecay {
 
     private MaterialDecay() {}
 
-    /** The server's cumulative curve. The polynomial is intentionally not clamped. */
+    /** The user-supplied local cumulative model. The polynomial is not clamped. */
     public static double cumulativeFactor(double m) {
         return cumulativeFactor(BigDecimal.valueOf(m)).doubleValue();
     }

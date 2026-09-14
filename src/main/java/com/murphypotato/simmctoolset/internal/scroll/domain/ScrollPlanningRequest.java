@@ -2,6 +2,7 @@ package com.murphypotato.simmctoolset.internal.scroll.domain;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 
 /** Immutable input to the nonlinear multi-batch planner. */
@@ -11,6 +12,7 @@ public record ScrollPlanningRequest(
     int desiredCrafts,
     Map<String, Integer> currentUsage,
     Map<String, Integer> materialBudget,
+    Set<String> excludedMaterials,
     SearchBudget budget,
     BooleanSupplier cancellation
 ) {
@@ -20,6 +22,7 @@ public record ScrollPlanningRequest(
         if (desiredCrafts < 0) throw new IllegalArgumentException("目标制作数量不能为负数");
         currentUsage = immutableNonNegative(currentUsage, "当前用量");
         materialBudget = immutableNonNegative(materialBudget, "材料预算");
+        excludedMaterials = Set.copyOf(excludedMaterials == null ? Set.of() : excludedMaterials);
         budget = budget == null ? SearchBudget.BALANCED : budget;
         cancellation = cancellation == null ? () -> false : cancellation;
     }
@@ -28,14 +31,22 @@ public record ScrollPlanningRequest(
         ScrollRecipe recipe, java.util.List<Material> materials, int desiredCrafts,
         Map<String, Integer> currentUsage, SearchBudget budget
     ) {
-        this(recipe, materials, desiredCrafts, currentUsage, Map.of(), budget, () -> false);
+        this(recipe, materials, desiredCrafts, currentUsage, Map.of(), Set.of(), budget, () -> false);
     }
 
     public ScrollPlanningRequest(
         ScrollRecipe recipe, java.util.List<Material> materials, int desiredCrafts,
         Map<String, Integer> currentUsage, Map<String, Integer> materialBudget, SearchBudget budget
     ) {
-        this(recipe, materials, desiredCrafts, currentUsage, materialBudget, budget, () -> false);
+        this(recipe, materials, desiredCrafts, currentUsage, materialBudget, Set.of(), budget, () -> false);
+    }
+
+    public ScrollPlanningRequest(
+        ScrollRecipe recipe, java.util.List<Material> materials, int desiredCrafts,
+        Map<String, Integer> currentUsage, Map<String, Integer> materialBudget,
+        Set<String> excludedMaterials, SearchBudget budget
+    ) {
+        this(recipe, materials, desiredCrafts, currentUsage, materialBudget, excludedMaterials, budget, () -> false);
     }
 
     private static Map<String, Integer> immutableNonNegative(Map<String, Integer> values, String label) {

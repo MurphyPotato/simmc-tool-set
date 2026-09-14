@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -57,7 +58,7 @@ class ScrollDomainPlannerTest {
         Material excluded = material("不要", 0, 10);
         ScrollRecipe recipe = new ScrollRecipe("两金", "主材", amounts(2, 0));
         ScrollPlanningRequest request = new ScrollPlanningRequest(recipe, List.of(good, excluded),
-            4, Map.of(), Map.of("好", 4), SearchBudget.FAST);
+            4, Map.of(), Map.of("好", 4), Set.of("不要"), SearchBudget.FAST);
         PlanningResult result = DecayPlanner.plan(request);
         assertEquals(PlanningStatus.COMPLETE, result.status());
         assertTrue(result.plan().batches().stream().noneMatch(b -> b.plan().materials().containsKey("不要")));
@@ -66,8 +67,20 @@ class ScrollDomainPlannerTest {
 
         AtomicBoolean cancelled = new AtomicBoolean(true);
         ScrollPlanningRequest cancelledRequest = new ScrollPlanningRequest(recipe, List.of(good),
-            4, Map.of(), Map.of(), SearchBudget.BALANCED, cancelled::get);
+            4, Map.of(), Map.of(), Set.of(), SearchBudget.BALANCED, cancelled::get);
         assertThrows(DecayPlanner.PlanningCancelledException.class, () -> DecayPlanner.plan(cancelledRequest));
+    }
+
+    @Test
+    void incompleteManualTargetIsNotReportedFeasible() {
+        Material weak = material("弱", 1, 0);
+        ScrollRecipe recipe = new ScrollRecipe("六金", "主材", amounts(6, 0));
+        CraftPlan vector = new CraftPlan("weak", Map.of("弱", 1), amounts(1, 0),
+            0, 0, 1, 1, 1, 0);
+        EvaluatedPlan result = DecayPlanner.evaluate(List.of(new RotationBatch(vector, 1)),
+            recipe, List.of(weak), Map.of());
+        assertFalse(result.feasible());
+        assertEquals(1, result.plannedCrafts());
     }
 
     private static Material material(String name, int metal, int wood) {

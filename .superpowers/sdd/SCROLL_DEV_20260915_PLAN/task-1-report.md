@@ -45,10 +45,17 @@ cancellation behavior.
 ## Limitations / concerns
 
 The legacy `ArcaneSolver` remains the fixed-vector generator and retains its
-existing beam/candidate heuristics. `DecayPlanner` checks its own deadline at
-candidate expansion, ordering, and capacity evaluation, and returns a
-best-so-far plan once evaluation has begun; a timeout raised inside the legacy
-solver before a candidate is materialized necessarily has an empty candidate
-list. Controller integration should use the typed evaluator and preserve the
-ordered batch list; it should not infer nonlinear values from rounded display
-strings.
+existing beam/candidate heuristics. The fix round adds explicit exclusion
+filtering, evolving-usage candidate expansion, actual material-map input
+accounting, unrounded impurity and target-excess checks, and final-portfolio
+ordering with sequential re-evaluation. A one-material fallback is evaluated
+before legacy expansion so a timeout can retain a useful best-so-far result.
+Controller integration should use the typed evaluator and preserve the ordered
+batch list; it should not infer nonlinear values from rounded display strings.
+
+## Fix round evidence
+
+The reviewer-requested incomplete-target, explicit-exclusion, and evolving
+usage paths are covered by the focused tests. The complete gate passes
+`verifyUnitTests` 83/83. Parent-owned material-source coverage is included in
+that run but remains outside this task's commit.
