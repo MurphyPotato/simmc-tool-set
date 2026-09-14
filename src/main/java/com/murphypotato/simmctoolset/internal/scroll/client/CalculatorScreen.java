@@ -80,7 +80,6 @@ public final class CalculatorScreen extends Screen {
         thresholdDraft = Integer.toString(settings.repeatThreshold());
 
         int columns = width >= 700 ? 5 : width >= 430 ? 4 : 3;
-        int toolbarRows = (5 + columns - 1) / columns;
         int toolbarY = 22;
         int buttonWidth = Math.max(46, (width - MARGIN * 2 - (columns - 1) * 4) / columns);
         List<ButtonWidget> toolbar = new ArrayList<>();
@@ -146,6 +145,7 @@ public final class CalculatorScreen extends Screen {
         toolbar.add(ButtonWidget.builder(Text.literal("关于 / 隐私"), button -> {
             if (client != null) client.setScreen(new AboutScreen(this));
         }).build());
+        int toolbarRows = (toolbar.size() + columns - 1) / columns;
         for (int index = 0; index < toolbar.size(); index++) {
             int row = index / columns;
             int column = index % columns;
