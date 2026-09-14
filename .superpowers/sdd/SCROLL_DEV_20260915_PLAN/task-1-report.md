@@ -1,6 +1,6 @@
 # Task 1 report — nonlinear scroll domain
 
-Date: 2026-09-15 (Asia/Hong_Kong)
+Date: 2026-09-14 (Asia/Hong_Kong; developer-authoritative project date)
 
 ## Scope
 
@@ -69,8 +69,12 @@ Fix-round regression evidence:
   passes an explicit excluded-material set and confirms it is absent.
 - `ScrollDomainPlannerTest.incompleteManualTargetIsNotReportedFeasible`
   confirms insufficient effective target output is not complete.
+- `ScrollDomainPlannerTest.highUsageExpandsOneVectorToTwoRawInputs` covers
+  `M=100`, target 金=2, and a sole 金=2 material: one raw input is below
+  target while two raw inputs are sufficient, so nonlinear expansion selects
+  the two-input vector.
 
 Command and result:
 
 `.\gradlew.bat --no-daemon --offline verifyUnitTests` with the pinned JDK 21:
-84 tests found, 84 started, 84 successful, 0 failed.
+85 tests found, 85 started, 85 successful, 0 failed.

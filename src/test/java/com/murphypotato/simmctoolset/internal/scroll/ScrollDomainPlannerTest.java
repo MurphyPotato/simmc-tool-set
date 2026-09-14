@@ -109,6 +109,17 @@ class ScrollDomainPlannerTest {
         assertTrue(result.plan().batches().getFirst().plan().materials().containsKey("新材料"));
     }
 
+    @Test
+    void highUsageExpandsOneVectorToTwoRawInputs() {
+        Material material = material("高用量单材", 2, 0);
+        ScrollRecipe recipe = new ScrollRecipe("两金", "主材", amounts(2, 0));
+        ScrollPlanningRequest request = new ScrollPlanningRequest(recipe, List.of(material), 1,
+            Map.of("高用量单材", 100), Map.of(), Set.of(), SearchBudget.BALANCED);
+        PlanningResult result = DecayPlanner.plan(request);
+        assertEquals(PlanningStatus.COMPLETE, result.status());
+        assertEquals(2, result.plan().batches().getFirst().plan().materials().get("高用量单材"));
+    }
+
     private static Material material(String name, int metal, int wood) {
         return new Material(name, amounts(metal, wood), 1 + name.hashCode() & 0x7fffffff);
     }
