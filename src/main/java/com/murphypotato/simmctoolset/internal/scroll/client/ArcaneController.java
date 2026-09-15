@@ -14,6 +14,7 @@ import com.murphypotato.simmctoolset.internal.scroll.domain.ScrollPlanningReques
 import com.murphypotato.simmctoolset.internal.scroll.domain.PlanningResult;
 import com.murphypotato.simmctoolset.internal.scroll.domain.UsageCommitRequest;
 import com.murphypotato.simmctoolset.internal.scroll.domain.UsagePlanInput;
+import com.murphypotato.simmctoolset.internal.scroll.domain.EvaluatedPlan;
 import net.minecraft.client.MinecraftClient;
 
 import java.io.IOException;
@@ -40,6 +41,7 @@ public final class ArcaneController implements AutoCloseable {
     private volatile Future<?> running;
     private volatile boolean calculating;
     private volatile String status = "就绪";
+    private final Map<UUID, com.murphypotato.simmctoolset.internal.scroll.domain.TemporaryPlanUsage> temporary = new java.util.HashMap<>();
 
     public ArcaneController(GameData data, SettingsStorage storage) {
         this(data, storage, storage.file().resolveSibling("scroll-usage.json"));
@@ -99,6 +101,50 @@ public final class ArcaneController implements AutoCloseable {
         catch (IOException | RuntimeException error) { status = "预设改名失败：" + safeMessage(error); }
     }
 
+    /** Re-evaluates a preset against the current player's daily M without saving. */
+    public synchronized EvaluatedPlan evaluatePreset(UUID playerId, PresetPlan preset) {
+        if (playerId == null || preset == null) throw new IllegalArgumentException("预设上下文无效");
+        ScrollRecipe recipe = data.recipe(preset.recipe());
+        var usage = usageStore.snapshot(playerId);
+        List<Material> materials = data.materials().stream()
+            .filter(material -> !settings.excludedMaterials().contains(material.name())).toList();
+        return com.murphypotato.simmctoolset.internal.scroll.domain.DecayPlanner.evaluate(
+            preset.batches(), recipe, materials, usage.totals(), Map.of(), settings.excludedMaterials());
+    }
+
+    public synchronized EvaluatedPlan evaluateBatches(UUID playerId, String recipeName, List<com.murphypotato.simmctoolset.internal.scroll.domain.RotationBatch> batches) {
+        if (playerId == null || recipeName == null || batches == null) throw new IllegalArgumentException("方案上下文无效");
+        ScrollRecipe recipe = data.recipe(recipeName);
+        var usage = usageStore.snapshot(playerId);
+        List<Material> materials = data.materials().stream()
+            .filter(material -> !settings.excludedMaterials().contains(material.name())).toList();
+        return com.murphypotato.simmctoolset.internal.scroll.domain.DecayPlanner.evaluate(
+            batches, recipe, materials, usage.totals(), Map.of(), settings.excludedMaterials());
+    }
+
+    public synchronized ScrollUsageStore.CommitResult commitPreset(UUID playerId, PresetPlan preset, UUID transactionId)
+        throws IOException {
+        return commitPreset(playerId, preset, transactionId, false);
+    }
+
+    public synchronized ScrollUsageStore.CommitResult commitPreset(UUID playerId, PresetPlan preset, UUID transactionId,
+                                                                     boolean allowInfeasible)
+        throws IOException {
+        EvaluatedPlan evaluated = evaluatePreset(playerId, preset);
+        if (!evaluated.feasible() && !allowInfeasible) throw new IllegalArgumentException("当前 M 下预设不可行");
+        var snapshot = usageStore.snapshot(playerId);
+        var inputs = evaluated.batches().stream()
+            .map(b -> new UsagePlanInput(b.crafts(), b.plan().materials())).toList();
+        Map<String,Integer> actual = new java.util.LinkedHashMap<>();
+        evaluated.batches().forEach(b -> b.plan().materials().forEach((name, amount) ->
+            actual.merge(name, Math.multiplyExact(amount, b.crafts()), Math::addExact)));
+        int after = evaluated.afterUsage().values().stream().mapToInt(Integer::intValue)
+            .max().orElse(snapshot.currentM());
+        return commitUsage(new UsageCommitRequest(transactionId, playerId, snapshot.beijingDate(),
+            snapshot.revision(), preset.recipe(), inputs, evaluated.plannedCrafts(), actual,
+            snapshot.currentM(), after, false, false));
+    }
+
     public Optional<UUID> playerId(MinecraftClient client) {
         return client != null && client.player != null ? Optional.of(client.player.getUuid()) : Optional.empty();
     }
@@ -106,17 +152,43 @@ public final class ArcaneController implements AutoCloseable {
     /** Commits only user-confirmed material usage; previews never call this. */
     public synchronized ScrollUsageStore.CommitResult commitUsage(UsageCommitRequest request) throws IOException {
         ScrollUsageStore.CommitResult result = usageStore.commit(request);
+        temporary.remove(request.playerId());
         status = result.duplicate() ? "使用记录已保存（重复确认已忽略）" : "使用记录已保存";
         return result;
     }
 
+    public synchronized void setTemporaryUsage(UUID playerId, Map<String, Integer> usage) {
+        if (playerId == null) return;
+        temporary.computeIfAbsent(playerId, com.murphypotato.simmctoolset.internal.scroll.domain.TemporaryPlanUsage::new)
+            .replace(usage);
+    }
+
+    public synchronized Map<String,Integer> temporaryUsage(UUID playerId) {
+        var value = temporary.get(playerId);
+        return value == null ? Map.of() : value.usage();
+    }
+
     public synchronized void updateSettings(ArcaneSettings next) {
+        if (next == null) return;
+        if (!next.selectedRecipe().equals(settings.selectedRecipe())
+            || !next.excludedMaterials().equals(settings.excludedMaterials())
+            || next.quantity() != settings.quantity()) {
+            temporary.clear();
+        }
         settings = next;
         try {
             storage.save(next);
         } catch (IOException error) {
             status = "设置保存失败：" + safeMessage(error);
         }
+    }
+
+    public synchronized String presetEvaluationMessage(UUID playerId, PresetPlan preset) {
+        EvaluatedPlan plan = evaluatePreset(playerId, preset);
+        if (plan.feasible()) return "预设在当前 M 下可行";
+        return "预设当前不可行：制作 " + plan.plannedCrafts() + "/" + plan.desiredCrafts()
+            + "，杂质 " + plan.impurity() + "，溢出 " + plan.excess()
+            + "。当前 M 变化后可能需要更多材料或产生衰减。";
     }
 
     public synchronized void calculate(MinecraftClient client, Consumer<CalculationResult> onResult) {
@@ -188,14 +260,32 @@ public final class ArcaneController implements AutoCloseable {
             snapshot.currentM(), afterM, autoMode, modified);
     }
 
+    public UsageCommitRequest commitRequest(UUID playerId, CalculationResult result, EvaluatedPlan evaluated,
+                                            boolean autoMode, boolean modified, UUID transactionId) {
+        if (evaluated == null) throw new IllegalArgumentException("缺少评估方案");
+        CalculationResult base = result;
+        var inputs = new ArrayList<UsagePlanInput>();
+        evaluated.batches().forEach(batch -> inputs.add(new UsagePlanInput(batch.crafts(), batch.plan().materials())));
+        Map<String, Integer> actual = new java.util.LinkedHashMap<>();
+        for (var batch : evaluated.batches()) batch.plan().materials().forEach((name, amount) ->
+            actual.merge(name, Math.multiplyExact(amount, batch.crafts()), Math::addExact));
+        var snapshot = usageStore.snapshot(playerId);
+        int afterM = evaluated.afterUsage().values().stream().mapToInt(Integer::intValue).max().orElse(snapshot.currentM());
+        return new UsageCommitRequest(transactionId, playerId, snapshot.beijingDate(), snapshot.revision(),
+            base.recipe().name(), inputs, evaluated.plannedCrafts(), actual,
+            snapshot.currentM(), afterM, autoMode, modified);
+    }
+
     public synchronized void invalidate() {
         cancelLocked("输入已变化，请重新计算");
         generation.incrementAndGet();
+        temporary.clear();
     }
 
     public synchronized void cancel() {
         cancelLocked("计算已取消");
         generation.incrementAndGet();
+        temporary.clear();
     }
 
     private void cancelLocked(String nextStatus) {

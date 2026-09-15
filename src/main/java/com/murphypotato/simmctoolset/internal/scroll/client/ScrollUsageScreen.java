@@ -21,6 +21,8 @@ public final class ScrollUsageScreen extends Screen {
     private TextFieldWidget renameField;
     private String selectedPreset;
     private boolean acknowledged;
+    private boolean presetArmed;
+    private String presetMessage = "";
     private int scroll;
 
     public ScrollUsageScreen(ArcaneController controller, Screen parent) {
@@ -63,8 +65,31 @@ public final class ScrollUsageScreen extends Screen {
                 rebuildLines();
             }
         }).dimensions(274, 58, 100, 20).build());
+        addDrawableChild(ButtonWidget.builder(Text.literal("确认使用预设"), b -> useSelectedPreset(player))
+            .dimensions(378, 58, 110, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("返回"), b -> close()).dimensions(width / 2 - 50, height - 26, 100, 20).build());
         rebuildLines();
+    }
+
+    private void useSelectedPreset(java.util.Optional<java.util.UUID> player) {
+        if (selectedPreset == null || player.isEmpty()) return;
+        var preset = controller.presetStore().list().stream()
+            .filter(p -> p.name().equals(selectedPreset)).findFirst().orElse(null);
+        if (preset == null) return;
+        if (!presetArmed) {
+            presetArmed = true;
+            presetMessage = controller.presetEvaluationMessage(player.get(), preset);
+            rebuildLines();
+            return;
+        }
+        try {
+            controller.commitPreset(player.get(), preset, java.util.UUID.randomUUID(), true);
+            presetArmed = false;
+            presetMessage = "预设已按当前 M 保存到使用记录";
+            rebuildLines();
+        } catch (RuntimeException | java.io.IOException error) {
+            rebuildLines();
+        }
     }
 
     private void editM(java.util.UUID player) {
@@ -89,6 +114,11 @@ public final class ScrollUsageScreen extends Screen {
         } else {
             var snapshot = controller.usageStore().snapshot(client.player.getUuid());
             result.add("当天累计材料 M（北京时间）：" + snapshot.currentM());
+            if (!snapshot.totals().isEmpty()) {
+                snapshot.totals().forEach((material, amount) -> result.add("  · " + material + "：M=" + amount));
+            }
+            var temporary = controller.temporaryUsage(client.player.getUuid());
+            if (!temporary.isEmpty()) result.add("临时未保存用量：" + temporary);
             result.add("记录版本：" + snapshot.revision() + " · 本地客户端模型，仅供参考");
             result.add("");
             List<UsageRecord> history = controller.usageStore().history(client.player.getUuid());
@@ -101,6 +131,8 @@ public final class ScrollUsageScreen extends Screen {
             controller.usageStore().warning().ifPresent(w -> result.add("警告：" + w));
             result.add("");
             result.add("预设（点击名称后可改名或删除）：");
+            if (!presetMessage.isBlank()) result.add(presetMessage);
+            if (presetArmed) result.add("再次点击“确认使用预设”以提交；将按当前 M 重新计算并写入记录。");
             var presets = controller.presetStore().list();
             if (presets.isEmpty()) result.add("暂无预设；预设保存入口将在计算结果页提供。");
             else for (var preset : presets) result.add("· " + preset.name() + " · " + preset.recipe()

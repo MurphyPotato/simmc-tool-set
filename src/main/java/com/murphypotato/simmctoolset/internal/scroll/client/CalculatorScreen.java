@@ -125,13 +125,15 @@ public final class CalculatorScreen extends Screen {
             rebuildDisplayLines();
             clearAndInit();
         }).build());
-        toolbar.add(ButtonWidget.builder(Text.literal("重置方案"), button -> {
+        ButtonWidget resetPlanButton = ButtonWidget.builder(Text.literal("重置方案"), button -> {
             if (manualMode && !defaultBatches.isEmpty()) {
                 editedBatches = defaultBatches;
                 rebuildDisplayLines();
                 clearAndInit();
             }
-        }).build());
+        }).build();
+        resetPlanButton.active = manualMode && !defaultBatches.isEmpty();
+        toolbar.add(resetPlanButton);
         toolbar.add(ButtonWidget.builder(Text.literal("使用记录"), button -> {
             persistInputs();
             if (client != null) client.setScreen(new ScrollUsageScreen(controller, this));
@@ -147,7 +149,15 @@ public final class CalculatorScreen extends Screen {
             controller.playerId(client).ifPresentOrElse(player -> {
                 try {
                     if (transactionId == null) transactionId = UUID.randomUUID();
-                    UsageCommitRequest request = controller.commitRequest(player, result, true, false, transactionId);
+                    EvaluatedPlan evaluated = currentEvaluatedPlan(player);
+                    if (evaluated == null || !evaluated.feasible()
+                        || evaluated.plannedCrafts() != evaluated.desiredCrafts()) {
+                        confirmArmed = false;
+                        rebuildDisplayLines();
+                        return;
+                    }
+                    UsageCommitRequest request = controller.commitRequest(player, result, evaluated,
+                        !manualMode, manualMode, transactionId);
                     controller.commitUsage(request);
                     transactionId = null;
                     confirmArmed = false;
@@ -240,6 +250,23 @@ public final class CalculatorScreen extends Screen {
             resultWidth = Math.max(100, width - resultX - MARGIN);
             resultHeight = Math.max(24, height - resultY - MARGIN);
         }
+        if (manualMode && !editedBatches.isEmpty()) {
+            int y = resultY + 4;
+            for (int i = 0; i < editedBatches.size() && y < resultY + resultHeight - 20; i++, y += 22) {
+                final int index = i;
+                ButtonWidget remove = ButtonWidget.builder(Text.literal("删"), b -> removeBatch(index))
+                    .dimensions(resultX + Math.max(0, resultWidth - 66), y - 3, 20, 18).build();
+                ButtonWidget decrement = ButtonWidget.builder(Text.literal("−"), b -> editBatch(index, -1))
+                    .dimensions(resultX + Math.max(0, resultWidth - 44), y - 3, 20, 18).build();
+                ButtonWidget increment = ButtonWidget.builder(Text.literal("+"), b -> editBatch(index, 1))
+                    .dimensions(resultX + Math.max(0, resultWidth - 22), y - 3, 20, 18).build();
+                remove.active = editedBatches.size() > 1;
+                decrement.active = editedBatches.get(index).crafts() > 1;
+                addDrawableChild(remove);
+                addDrawableChild(decrement);
+                addDrawableChild(increment);
+            }
+        }
         rebuildDisplayLines();
         lastControllerState = controller.calculating() + "|" + controller.status();
         rebuilding = false;
@@ -263,6 +290,13 @@ public final class CalculatorScreen extends Screen {
         rebuildDisplayLines();
         if (client != null) controller.calculate(client, completed -> {
             result = completed;
+            controller.playerId(client).ifPresent(player -> {
+                Map<String,Integer> preview = new LinkedHashMap<>();
+                completed.planning().plan().batches().forEach(batch ->
+                    batch.plan().materials().forEach((name, amount) ->
+                        preview.merge(name, amount * batch.crafts(), Integer::sum)));
+                controller.setTemporaryUsage(player, preview);
+            });
             resultScroll = 0;
             rebuildDisplayLines();
             clearAndInit();
@@ -284,6 +318,45 @@ public final class CalculatorScreen extends Screen {
         } catch (RuntimeException error) {
             controller.invalidate();
         }
+    }
+
+    private void editBatch(int index, int delta) {
+        if (!manualMode || editedBatches.isEmpty()) return;
+        try {
+            RotationBatch batch = editedBatches.get(index);
+            int next = Math.max(1, Math.addExact(batch.crafts(), delta));
+            editedBatches = PlanEditor.withCrafts(editedBatches, index, next);
+            confirmArmed = false;
+            rebuildDisplayLines();
+            clearAndInit();
+        } catch (RuntimeException ignored) {
+            controller.invalidate();
+        }
+    }
+
+    private void removeBatch(int index) {
+        if (!manualMode || editedBatches.size() <= 1 || index < 0 || index >= editedBatches.size()) return;
+        int removed = editedBatches.get(index).crafts();
+        List<RotationBatch> kept = new ArrayList<>(editedBatches);
+        kept.remove(index);
+        int each = removed / kept.size();
+        int remainder = removed % kept.size();
+        for (int i = 0; i < kept.size(); i++) {
+            RotationBatch b = kept.get(i);
+            kept.set(i, new RotationBatch(b.plan(), b.crafts() + each + (i < remainder ? 1 : 0)));
+        }
+        editedBatches = List.copyOf(kept);
+        confirmArmed = false;
+        rebuildDisplayLines();
+        clearAndInit();
+    }
+
+    private EvaluatedPlan currentEvaluatedPlan(UUID player) {
+        if (result == null || result.planning() == null) return null;
+        List<RotationBatch> batches = manualMode && !editedBatches.isEmpty()
+            ? editedBatches : result.planning().plan().batches().stream()
+                .map(batch -> new RotationBatch(batch.plan(), batch.crafts())).toList();
+        return controller.evaluateBatches(player, result.recipe().name(), batches);
     }
 
     private ArcaneSettings readInputSettings() {
@@ -462,10 +535,17 @@ public final class CalculatorScreen extends Screen {
         }
         addWrapped(lines, "求解耗时：" + String.format(java.util.Locale.ROOT, "%.2f ms", result.elapsedNanos() / 1_000_000.0), UiColors.MUTED);
         addWrapped(lines, "当前模式：" + (manualMode ? "手动（修改需重新评估）" : "自动（默认方案已冻结）"), UiColors.ACCENT);
-        EvaluatedPlan evaluated = result.planning().plan();
+        if (manualMode) addWrapped(lines, "手动修改可能增加衰减或使方案不可行；确认使用前请检查总制作数。", UiColors.WARNING);
+        EvaluatedPlan evaluated = controller.playerId(client)
+            .map(this::currentEvaluatedPlan).orElse(result.planning().plan());
+        if (evaluated == null) evaluated = result.planning().plan();
         addWrapped(lines, "计划：" + evaluated.plannedCrafts() + "/" + evaluated.desiredCrafts()
             + " · M " + maxUsage(evaluated.beforeUsage()) + " → " + maxUsage(evaluated.afterUsage())
             + " · 杂质 " + evaluated.impurity() + " · 溢出 " + evaluated.excess(), evaluated.feasible() ? UiColors.ACCENT : UiColors.WARNING);
+        if (evaluated.plannedCrafts() != evaluated.desiredCrafts()) {
+            addWrapped(lines, "总制作数不匹配：当前 " + evaluated.plannedCrafts()
+                + "，目标 " + evaluated.desiredCrafts() + "；不能确认使用。", UiColors.ERROR);
+        }
         for (int index = 0; index < evaluated.batches().size(); index++) {
             var batch = evaluated.batches().get(index);
             addWrapped(lines, "第 " + (index + 1) + " 批：" + batch.crafts() + " 次 · "
