@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.ArrayList;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.LocalDate;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -114,13 +115,25 @@ public final class ArcaneController implements AutoCloseable {
     }
 
     public synchronized EvaluatedPlan evaluateBatches(UUID playerId, String recipeName, List<com.murphypotato.simmctoolset.internal.scroll.domain.RotationBatch> batches) {
+        return evaluateBatches(playerId, recipeName, batches, true);
+    }
+
+    /** Evaluates against only committed daily M; used for the current preview itself. */
+    public synchronized EvaluatedPlan evaluateCommittedBatches(UUID playerId, String recipeName,
+                                                                 List<com.murphypotato.simmctoolset.internal.scroll.domain.RotationBatch> batches) {
+        return evaluateBatches(playerId, recipeName, batches, false);
+    }
+
+    private EvaluatedPlan evaluateBatches(UUID playerId, String recipeName,
+                                          List<com.murphypotato.simmctoolset.internal.scroll.domain.RotationBatch> batches,
+                                          boolean includeTemporary) {
         if (playerId == null || recipeName == null || batches == null) throw new IllegalArgumentException("方案上下文无效");
         ScrollRecipe recipe = data.recipe(recipeName);
-        var usage = usageStore.snapshot(playerId);
+        var usage = includeTemporary ? planningUsage(playerId) : usageStore.snapshot(playerId).totals();
         List<Material> materials = data.materials().stream()
             .filter(material -> !settings.excludedMaterials().contains(material.name())).toList();
         return com.murphypotato.simmctoolset.internal.scroll.domain.DecayPlanner.evaluate(
-            batches, recipe, materials, usage.totals(), Map.of(), settings.excludedMaterials());
+            batches, recipe, materials, usage, Map.of(), settings.excludedMaterials());
     }
 
     public synchronized ScrollUsageStore.CommitResult commitPreset(UUID playerId, PresetPlan preset, UUID transactionId)
@@ -143,7 +156,7 @@ public final class ArcaneController implements AutoCloseable {
             .max().orElse(snapshot.currentM());
         return commitUsage(new UsageCommitRequest(transactionId, playerId, snapshot.beijingDate(),
             snapshot.revision(), preset.recipe(), inputs, evaluated.plannedCrafts(), actual,
-            snapshot.currentM(), after, false, false));
+            snapshot.currentM(), after, false, false, !evaluated.feasible()));
     }
 
     public Optional<UUID> playerId(MinecraftClient client) {
@@ -160,12 +173,23 @@ public final class ArcaneController implements AutoCloseable {
 
     public synchronized void setTemporaryUsage(UUID playerId, Map<String, Integer> usage) {
         if (playerId == null) return;
-        temporary.computeIfAbsent(playerId, com.murphypotato.simmctoolset.internal.scroll.domain.TemporaryPlanUsage::new)
-            .replace(usage);
+        var snapshot = usageStore.snapshot(playerId);
+        var preview = temporary.computeIfAbsent(playerId,
+            com.murphypotato.simmctoolset.internal.scroll.domain.TemporaryPlanUsage::new);
+        preview.replace(usage, snapshot.beijingDate(), snapshot.revision());
+        if (preview.usage().isEmpty()) temporary.remove(playerId);
     }
 
     public synchronized Map<String,Integer> temporaryUsage(UUID playerId) {
         var value = temporary.get(playerId);
+        if (value != null) {
+            var snapshot = usageStore.snapshot(playerId);
+            if (!value.matches(snapshot.beijingDate(), snapshot.revision())) {
+                value.clear();
+                temporary.remove(playerId);
+                return Map.of();
+            }
+        }
         return value == null ? Map.of() : value.usage();
     }
 
@@ -174,6 +198,12 @@ public final class ArcaneController implements AutoCloseable {
         if (playerId == null) return result;
         result.putAll(usageStore.snapshot(playerId).totals());
         temporaryUsage(playerId).forEach((name, amount) -> result.merge(name, amount, Math::addExact));
+        return Map.copyOf(result);
+    }
+
+    private Map<String, Integer> committedAfterUsage(UUID playerId, Map<String, Integer> actual) {
+        var result = new java.util.LinkedHashMap<>(usageStore.snapshot(playerId).totals());
+        actual.forEach((name, amount) -> result.merge(name, amount, Math::addExact));
         return Map.copyOf(result);
     }
 
@@ -278,10 +308,11 @@ public final class ArcaneController implements AutoCloseable {
                 actual.merge(name, Math.multiplyExact(amount, batch.crafts()), Math::addExact));
         }
         var snapshot = usageStore.snapshot(playerId);
-        int afterM = evaluated.afterUsage().values().stream().mapToInt(Integer::intValue).max().orElse(snapshot.currentM());
+        int afterM = committedAfterUsage(playerId, actual).values().stream()
+            .mapToInt(Integer::intValue).max().orElse(snapshot.currentM());
         return new UsageCommitRequest(transactionId, playerId, snapshot.beijingDate(), snapshot.revision(),
             result.recipe().name(), inputs, evaluated.plannedCrafts(), actual,
-            snapshot.currentM(), afterM, autoMode, modified);
+            snapshot.currentM(), afterM, autoMode, modified, false);
     }
 
     public UsageCommitRequest commitRequest(UUID playerId, CalculationResult result, EvaluatedPlan evaluated,
@@ -294,10 +325,11 @@ public final class ArcaneController implements AutoCloseable {
         for (var batch : evaluated.batches()) batch.plan().materials().forEach((name, amount) ->
             actual.merge(name, Math.multiplyExact(amount, batch.crafts()), Math::addExact));
         var snapshot = usageStore.snapshot(playerId);
-        int afterM = evaluated.afterUsage().values().stream().mapToInt(Integer::intValue).max().orElse(snapshot.currentM());
+        int afterM = committedAfterUsage(playerId, actual).values().stream()
+            .mapToInt(Integer::intValue).max().orElse(snapshot.currentM());
         return new UsageCommitRequest(transactionId, playerId, snapshot.beijingDate(), snapshot.revision(),
             base.recipe().name(), inputs, evaluated.plannedCrafts(), actual,
-            snapshot.currentM(), afterM, autoMode, modified);
+            snapshot.currentM(), afterM, autoMode, modified, false);
     }
 
     public synchronized void invalidate() {

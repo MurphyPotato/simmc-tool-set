@@ -44,6 +44,7 @@ public final class CalculatorScreen extends Screen {
     private TextFieldWidget quantityField;
     private TextFieldWidget thresholdField;
     private TextFieldWidget presetNameField;
+    private TextFieldWidget batchCountField;
     private int recipeX;
     private int recipeY;
     private int recipeWidth;
@@ -62,6 +63,8 @@ public final class CalculatorScreen extends Screen {
     private boolean manualMode;
     private List<RotationBatch> editedBatches = List.of();
     private List<RotationBatch> defaultBatches = List.of();
+    private final java.util.Set<Integer> savedBatchIndexes = new java.util.HashSet<>();
+    private String batchCountMessage = "";
     private String lastControllerState = "";
 
     public CalculatorScreen(ArcaneController controller) {
@@ -121,13 +124,19 @@ public final class CalculatorScreen extends Screen {
         }).build());
         toolbar.add(ButtonWidget.builder(Text.literal(manualMode ? "模式：手动" : "模式：自动"), button -> {
             manualMode = !manualMode;
-            if (!manualMode) editedBatches = defaultBatches;
+            if (!manualMode) {
+                editedBatches = defaultBatches;
+                savedBatchIndexes.clear();
+                batchCountMessage = "";
+            }
             rebuildDisplayLines();
             clearAndInit();
         }).build());
         ButtonWidget resetPlanButton = ButtonWidget.builder(Text.literal("重置方案"), button -> {
             if (manualMode && !defaultBatches.isEmpty()) {
                 editedBatches = defaultBatches;
+                savedBatchIndexes.clear();
+                batchCountMessage = "";
                 rebuildDisplayLines();
                 clearAndInit();
             }
@@ -250,21 +259,45 @@ public final class CalculatorScreen extends Screen {
             resultWidth = Math.max(100, width - resultX - MARGIN);
             resultHeight = Math.max(24, height - resultY - MARGIN);
         }
-        if (manualMode && !editedBatches.isEmpty()) {
-            int y = resultY + 4;
-            for (int i = 0; i < editedBatches.size() && y < resultY + resultHeight - 20; i++, y += 22) {
+        List<RotationBatch> visibleBatches = currentBatches();
+        if (!visibleBatches.isEmpty()) {
+            int countFieldX = resultX + 5;
+            batchCountField = new TextFieldWidget(textRenderer, countFieldX, resultY + 3, 42, 18, Text.literal("方案数"));
+            batchCountField.setMaxLength(3);
+            batchCountField.setTextPredicate(value -> value.isEmpty() || value.matches("[0-9]{1,3}"));
+            batchCountField.setText(Integer.toString(visibleBatches.size()));
+            batchCountField.setPlaceholder(Text.literal("方案数"));
+            batchCountField.setEditable(manualMode);
+            batchCountField.setChangedListener(value -> {
+                if (!rebuilding) batchCountMessage = "";
+            });
+            addDrawableChild(batchCountField);
+            ButtonWidget applyBatchCount = ButtonWidget.builder(Text.literal("应用方案数"), button -> applyBatchCount())
+                .dimensions(countFieldX + 46, resultY + 3, 64, 18).build();
+            applyBatchCount.active = manualMode;
+            addDrawableChild(applyBatchCount);
+
+            int y = resultY + 25;
+            for (int i = 0; i < visibleBatches.size() && y < resultY + resultHeight - 20; i++, y += 22) {
                 final int index = i;
-                ButtonWidget remove = ButtonWidget.builder(Text.literal("删"), b -> removeBatch(index))
-                    .dimensions(resultX + Math.max(0, resultWidth - 66), y - 3, 20, 18).build();
-                ButtonWidget decrement = ButtonWidget.builder(Text.literal("−"), b -> editBatch(index, -1))
-                    .dimensions(resultX + Math.max(0, resultWidth - 44), y - 3, 20, 18).build();
-                ButtonWidget increment = ButtonWidget.builder(Text.literal("+"), b -> editBatch(index, 1))
-                    .dimensions(resultX + Math.max(0, resultWidth - 22), y - 3, 20, 18).build();
-                remove.active = editedBatches.size() > 1;
-                decrement.active = editedBatches.get(index).crafts() > 1;
-                addDrawableChild(remove);
-                addDrawableChild(decrement);
-                addDrawableChild(increment);
+                int controlsRight = resultX + resultWidth - 4;
+                ButtonWidget save = ButtonWidget.builder(Text.literal("存" + (index + 1)), b -> saveBatch(index))
+                    .dimensions(Math.max(resultX + 5, controlsRight - 40), y - 3, 38, 18).build();
+                save.active = !savedBatchIndexes.contains(index);
+                addDrawableChild(save);
+                if (manualMode) {
+                    ButtonWidget remove = ButtonWidget.builder(Text.literal("删"), b -> removeBatch(index))
+                        .dimensions(Math.max(resultX + 5, controlsRight - 106), y - 3, 20, 18).build();
+                    ButtonWidget decrement = ButtonWidget.builder(Text.literal("−"), b -> editBatch(index, -1))
+                        .dimensions(Math.max(resultX + 5, controlsRight - 84), y - 3, 20, 18).build();
+                    ButtonWidget increment = ButtonWidget.builder(Text.literal("+"), b -> editBatch(index, 1))
+                        .dimensions(Math.max(resultX + 5, controlsRight - 62), y - 3, 20, 18).build();
+                    remove.active = visibleBatches.size() > 1;
+                    decrement.active = visibleBatches.get(index).crafts() > 1;
+                    addDrawableChild(remove);
+                    addDrawableChild(decrement);
+                    addDrawableChild(increment);
+                }
             }
         }
         rebuildDisplayLines();
@@ -286,10 +319,14 @@ public final class CalculatorScreen extends Screen {
         result = null;
         defaultBatches = List.of();
         editedBatches = List.of();
+        savedBatchIndexes.clear();
+        batchCountMessage = "";
         resultScroll = 0;
         rebuildDisplayLines();
         if (client != null) controller.calculate(client, completed -> {
             result = completed;
+            savedBatchIndexes.clear();
+            batchCountMessage = "";
             controller.playerId(client).ifPresent(player -> {
                 Map<String,Integer> preview = new LinkedHashMap<>();
                 completed.planning().plan().batches().forEach(batch ->
@@ -326,6 +363,8 @@ public final class CalculatorScreen extends Screen {
             RotationBatch batch = editedBatches.get(index);
             int next = Math.max(1, Math.addExact(batch.crafts(), delta));
             editedBatches = PlanEditor.withCrafts(editedBatches, index, next);
+            savedBatchIndexes.clear();
+            batchCountMessage = "";
             refreshTemporaryUsage();
             confirmArmed = false;
             rebuildDisplayLines();
@@ -347,6 +386,8 @@ public final class CalculatorScreen extends Screen {
             kept.set(i, new RotationBatch(b.plan(), b.crafts() + each + (i < remainder ? 1 : 0)));
         }
         editedBatches = List.copyOf(kept);
+        savedBatchIndexes.clear();
+        batchCountMessage = "";
         refreshTemporaryUsage();
         confirmArmed = false;
         rebuildDisplayLines();
@@ -358,17 +399,85 @@ public final class CalculatorScreen extends Screen {
         List<RotationBatch> batches = manualMode && !editedBatches.isEmpty()
             ? editedBatches : result.planning().plan().batches().stream()
                 .map(batch -> new RotationBatch(batch.plan(), batch.crafts())).toList();
-        return controller.evaluateBatches(player, result.recipe().name(), batches);
+        return controller.evaluateCommittedBatches(player, result.recipe().name(), batches);
+    }
+
+    private List<RotationBatch> currentBatches() {
+        if (result == null || result.planning() == null) return List.of();
+        if (manualMode && !editedBatches.isEmpty()) return editedBatches;
+        if (!defaultBatches.isEmpty()) return defaultBatches;
+        return result.planning().plan().batches().stream()
+            .map(batch -> new RotationBatch(batch.plan(), batch.crafts())).toList();
+    }
+
+    private void applyBatchCount() {
+        if (!manualMode || defaultBatches.isEmpty() || batchCountField == null) return;
+        int requested = parseClamped(batchCountField.getText(), 1, 999);
+        if (requested > defaultBatches.size()) {
+            editedBatches = defaultBatches;
+            batchCountField.setText(Integer.toString(defaultBatches.size()));
+            batchCountMessage = "方案数不能超过自动方案数，已保持 " + defaultBatches.size() + " 批。";
+        } else if (requested < defaultBatches.size()) {
+            try {
+                editedBatches = PlanEditor.resize(defaultBatches, requested);
+                batchCountMessage = "已从末尾移除多余方案，并将其制作数均分到保留方案。";
+            } catch (RuntimeException error) {
+                batchCountMessage = "方案数修改失败：" + error.getMessage();
+                editedBatches = defaultBatches;
+            }
+        } else {
+            editedBatches = defaultBatches;
+            batchCountMessage = "方案数未改变。";
+        }
+        savedBatchIndexes.clear();
+        refreshTemporaryUsage();
+        confirmArmed = false;
+        rebuildDisplayLines();
+        clearAndInit();
+    }
+
+    private void saveBatch(int index) {
+        List<RotationBatch> batches = currentBatches();
+        if (client == null || result == null || index < 0 || index >= batches.size()
+            || savedBatchIndexes.contains(index)) return;
+        controller.playerId(client).ifPresentOrElse(player -> {
+            try {
+                RotationBatch batch = batches.get(index);
+                EvaluatedPlan evaluated = controller.evaluateCommittedBatches(player, result.recipe().name(), List.of(batch));
+                if (!evaluated.feasible() || evaluated.plannedCrafts() != batch.crafts()) {
+                    batchCountMessage = "第 " + (index + 1) + " 批当前不可行，未保存到当日记录。";
+                    rebuildDisplayLines();
+                    return;
+                }
+                UsageCommitRequest request = controller.commitRequest(
+                    player, result, evaluated, false, manualMode, UUID.randomUUID()
+                );
+                controller.commitUsage(request);
+                savedBatchIndexes.add(index);
+                batchCountMessage = "第 " + (index + 1) + " 批已保存到当日记录；其余批次仍为临时方案。";
+                refreshTemporaryUsage();
+                confirmArmed = false;
+                rebuildDisplayLines();
+                clearAndInit();
+            } catch (Exception error) {
+                batchCountMessage = "第 " + (index + 1) + " 批保存失败：" + error.getMessage();
+                controller.invalidate();
+                rebuildDisplayLines();
+            }
+        }, () -> batchCountMessage = "当前没有可用玩家身份，无法保存批次。");
     }
 
     private void refreshTemporaryUsage() {
         if (client == null || result == null) return;
         controller.playerId(client).ifPresent(player -> {
             Map<String,Integer> preview = new LinkedHashMap<>();
-            List<RotationBatch> batches = manualMode && !editedBatches.isEmpty()
-                ? editedBatches : defaultBatches;
-            batches.forEach(batch -> batch.plan().materials().forEach((name, amount) ->
-                preview.merge(name, amount * batch.crafts(), Integer::sum)));
+            List<RotationBatch> batches = currentBatches();
+            for (int index = 0; index < batches.size(); index++) {
+                RotationBatch batch = batches.get(index);
+                if (savedBatchIndexes.contains(index)) continue;
+                batch.plan().materials().forEach((name, amount) ->
+                    preview.merge(name, amount * batch.crafts(), Integer::sum));
+            }
             controller.setTemporaryUsage(player, preview);
         });
     }

@@ -111,6 +111,8 @@ public final class ScrollUsageScreen extends Screen {
 
     private void rebuildLines() {
         List<String> result = new ArrayList<>();
+        presetStartLine = -1;
+        presetCount = 0;
         if (client == null || client.player == null) {
             result.add("连接玩家后才能读取 UUID 隔离的使用记录。");
         } else {
@@ -133,14 +135,30 @@ public final class ScrollUsageScreen extends Screen {
             controller.usageStore().warning().ifPresent(w -> result.add("警告：" + w));
             result.add("");
             result.add("预设（点击名称后可改名或删除）：");
-            presetStartLine = result.size();
             if (!presetMessage.isBlank()) result.add(presetMessage);
             if (presetArmed) result.add("再次点击“确认使用预设”以提交；将按当前 M 重新计算并写入记录。");
             var presets = controller.presetStore().list();
             presetCount = presets.size();
+            // Keep the clickable row origin after all optional message lines.
+            // This makes selection stable when evaluation warnings are shown.
+            presetStartLine = result.size();
             if (presets.isEmpty()) result.add("暂无预设；预设保存入口将在计算结果页提供。");
-            else for (var preset : presets) result.add("· " + preset.name() + " · " + preset.recipe()
-                + " · " + preset.batches().size() + " 批");
+            else for (var preset : presets) {
+                result.add("· " + preset.name() + " · " + preset.recipe()
+                    + " · " + preset.batches().size() + " 批 · 共 " + preset.totalCrafts() + " 次");
+            }
+            if (selectedPreset != null) {
+                var selected = presets.stream().filter(p -> p.name().equals(selectedPreset)).findFirst().orElse(null);
+                if (selected != null) {
+                    result.add("已选预设：以下为已保存顺序和批次数量；确认使用时会按当前 M 重新评估：");
+                    for (int index = 0; index < selected.batches().size(); index++) {
+                        var batch = selected.batches().get(index);
+                        result.add("  " + (index + 1) + ". " + batch.crafts() + " 次 · "
+                            + batch.plan().materials());
+                    }
+                    result.add("总目标制作数：" + selected.totalCrafts() + " 次。");
+                }
+            }
         }
         result.add("");
         result.add("修改 M 会影响后续计划；必须勾选确认并会留下审计记录。");
@@ -169,8 +187,14 @@ public final class ScrollUsageScreen extends Screen {
             int row = line - presetStartLine;
             var presets = controller.presetStore().list();
             if (row >= 0 && row < presetCount && line >= presetStartLine && line < presetStartLine + presetCount) {
-                selectedPreset = presets.get(row).name();
+                String nextPreset = presets.get(row).name();
+                if (!nextPreset.equals(selectedPreset)) {
+                    presetArmed = false;
+                    presetMessage = "";
+                }
+                selectedPreset = nextPreset;
                 if (renameField != null) renameField.setText(selectedPreset);
+                rebuildLines();
                 return true;
             }
         }

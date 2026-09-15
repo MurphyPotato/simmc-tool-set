@@ -9,7 +9,16 @@ import java.util.UUID;
 public record UsageRecord(UUID transactionId, UUID playerId, LocalDate beijingDate, Instant timestamp,
         String recipe, List<UsagePlanInput> orderedPlanInputs, int requestedCrafts,
         Map<String, Integer> actualMaterialUsage, int beforeM, int afterM,
+        boolean autoMode, boolean modified, boolean acknowledgedInfeasible) {
+    public UsageRecord(
+        UUID transactionId, UUID playerId, LocalDate beijingDate, Instant timestamp,
+        String recipe, List<UsagePlanInput> orderedPlanInputs, int requestedCrafts,
+        Map<String, Integer> actualMaterialUsage, int beforeM, int afterM,
         boolean autoMode, boolean modified) {
+        this(transactionId, playerId, beijingDate, timestamp, recipe, orderedPlanInputs,
+            requestedCrafts, actualMaterialUsage, beforeM, afterM, autoMode, modified, false);
+    }
+
     public UsageRecord {
         if (transactionId == null || playerId == null || beijingDate == null || timestamp == null) throw new IllegalArgumentException("记录身份不完整");
         orderedPlanInputs = List.copyOf(orderedPlanInputs == null ? List.of() : orderedPlanInputs);

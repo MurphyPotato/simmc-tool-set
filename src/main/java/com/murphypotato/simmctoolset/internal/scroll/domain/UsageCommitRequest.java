@@ -9,7 +9,16 @@ public record UsageCommitRequest(
         UUID transactionId, UUID playerId, LocalDate expectedDate, long expectedRevision,
         String recipe, List<UsagePlanInput> orderedPlanInputs, int requestedCrafts,
         Map<String, Integer> actualMaterialUsage, int beforeM, int afterM,
+        boolean autoMode, boolean modified, boolean acknowledgedInfeasible) {
+    public UsageCommitRequest(
+        UUID transactionId, UUID playerId, LocalDate expectedDate, long expectedRevision,
+        String recipe, List<UsagePlanInput> orderedPlanInputs, int requestedCrafts,
+        Map<String, Integer> actualMaterialUsage, int beforeM, int afterM,
         boolean autoMode, boolean modified) {
+        this(transactionId, playerId, expectedDate, expectedRevision, recipe, orderedPlanInputs,
+            requestedCrafts, actualMaterialUsage, beforeM, afterM, autoMode, modified, false);
+    }
+
     public UsageCommitRequest {
         if (transactionId == null || playerId == null || expectedDate == null) throw new IllegalArgumentException("事务身份不完整");
         if (expectedRevision < 0 || recipe == null || recipe.isBlank() || requestedCrafts < 0) throw new IllegalArgumentException("事务参数无效");
