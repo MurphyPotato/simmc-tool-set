@@ -561,6 +561,15 @@ public final class CalculatorScreen extends Screen {
             + " · 杂质 " + evaluated.impurity() + " · 溢出 " + evaluated.excess(), evaluated.feasible() ? UiColors.ACCENT : UiColors.WARNING);
         addWrapped(lines, "理论元素：" + formatAmounts(evaluated.theoreticalElements())
             + " · 衰减后元素：" + formatEffectiveAmounts(evaluated.effectiveElements()), UiColors.SECONDARY);
+        final EvaluatedPlan displayPlan = evaluated;
+        final String displayRecipe = result.recipe().name();
+        boolean noDecay = controller.playerId(client)
+            .map(player -> controller.noDecayForNextCraft(player, displayPlan, displayRecipe))
+            .orElse(false);
+        addWrapped(lines, noDecay
+            ? "无衰减：按当前累计 M，再增加一个目标卷轴无需额外补料。"
+            : "提示：再增加一个目标卷轴将需要重新评估材料，当前方案可能已进入衰减。"
+            , noDecay ? UiColors.ACCENT : UiColors.WARNING);
         if (evaluated.hasExtraMaterials()) {
             addWrapped(lines, "预计额外材料：" + formatMaterials(evaluated.extraMaterials()), UiColors.WARNING);
         }

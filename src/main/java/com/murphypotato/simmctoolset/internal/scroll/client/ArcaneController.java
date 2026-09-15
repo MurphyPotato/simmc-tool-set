@@ -15,6 +15,7 @@ import com.murphypotato.simmctoolset.internal.scroll.domain.PlanningResult;
 import com.murphypotato.simmctoolset.internal.scroll.domain.UsageCommitRequest;
 import com.murphypotato.simmctoolset.internal.scroll.domain.UsagePlanInput;
 import com.murphypotato.simmctoolset.internal.scroll.domain.EvaluatedPlan;
+import com.murphypotato.simmctoolset.internal.scroll.domain.RotationBatch;
 import net.minecraft.client.MinecraftClient;
 
 import java.io.IOException;
@@ -197,6 +198,17 @@ public final class ArcaneController implements AutoCloseable {
         return "预设当前不可行：制作 " + plan.plannedCrafts() + "/" + plan.desiredCrafts()
             + "，杂质 " + plan.impurity() + "，溢出 " + plan.excess()
             + "。当前 M 变化后可能需要更多材料或产生衰减。";
+    }
+
+    /** Checks the plan's operational no-extra-material boundary for one more craft. */
+    public synchronized boolean noDecayForNextCraft(UUID playerId, EvaluatedPlan plan, String recipeName) {
+        if (playerId == null || plan == null || plan.batches().isEmpty()) return false;
+        List<RotationBatch> batches = new ArrayList<>();
+        for (var batch : plan.batches()) batches.add(new RotationBatch(batch.plan(), batch.crafts()));
+        int last = batches.size() - 1;
+        RotationBatch tail = batches.get(last);
+        batches.set(last, new RotationBatch(tail.plan(), Math.addExact(tail.crafts(), 1)));
+        return evaluateBatches(playerId, recipeName, batches).feasible();
     }
 
     public synchronized void calculate(MinecraftClient client, Consumer<CalculationResult> onResult) {
