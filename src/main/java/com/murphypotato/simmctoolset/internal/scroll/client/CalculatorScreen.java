@@ -326,6 +326,7 @@ public final class CalculatorScreen extends Screen {
             RotationBatch batch = editedBatches.get(index);
             int next = Math.max(1, Math.addExact(batch.crafts(), delta));
             editedBatches = PlanEditor.withCrafts(editedBatches, index, next);
+            refreshTemporaryUsage();
             confirmArmed = false;
             rebuildDisplayLines();
             clearAndInit();
@@ -346,6 +347,7 @@ public final class CalculatorScreen extends Screen {
             kept.set(i, new RotationBatch(b.plan(), b.crafts() + each + (i < remainder ? 1 : 0)));
         }
         editedBatches = List.copyOf(kept);
+        refreshTemporaryUsage();
         confirmArmed = false;
         rebuildDisplayLines();
         clearAndInit();
@@ -357,6 +359,18 @@ public final class CalculatorScreen extends Screen {
             ? editedBatches : result.planning().plan().batches().stream()
                 .map(batch -> new RotationBatch(batch.plan(), batch.crafts())).toList();
         return controller.evaluateBatches(player, result.recipe().name(), batches);
+    }
+
+    private void refreshTemporaryUsage() {
+        if (client == null || result == null) return;
+        controller.playerId(client).ifPresent(player -> {
+            Map<String,Integer> preview = new LinkedHashMap<>();
+            List<RotationBatch> batches = manualMode && !editedBatches.isEmpty()
+                ? editedBatches : defaultBatches;
+            batches.forEach(batch -> batch.plan().materials().forEach((name, amount) ->
+                preview.merge(name, amount * batch.crafts(), Integer::sum)));
+            controller.setTemporaryUsage(player, preview);
+        });
     }
 
     private ArcaneSettings readInputSettings() {
@@ -534,6 +548,9 @@ public final class CalculatorScreen extends Screen {
             return;
         }
         addWrapped(lines, "求解耗时：" + String.format(java.util.Locale.ROOT, "%.2f ms", result.elapsedNanos() / 1_000_000.0), UiColors.MUTED);
+        if (result.timedOut()) {
+            addWrapped(lines, "已达到“" + budgetLabel(settings.searchBudget()) + "”搜索预算，以下为预算内当前最佳方案（不保证全局最优）。", UiColors.WARNING);
+        }
         addWrapped(lines, "当前模式：" + (manualMode ? "手动（修改需重新评估）" : "自动（默认方案已冻结）"), UiColors.ACCENT);
         if (manualMode) addWrapped(lines, "手动修改可能增加衰减或使方案不可行；确认使用前请检查总制作数。", UiColors.WARNING);
         EvaluatedPlan evaluated = controller.playerId(client)
@@ -542,6 +559,11 @@ public final class CalculatorScreen extends Screen {
         addWrapped(lines, "计划：" + evaluated.plannedCrafts() + "/" + evaluated.desiredCrafts()
             + " · M " + maxUsage(evaluated.beforeUsage()) + " → " + maxUsage(evaluated.afterUsage())
             + " · 杂质 " + evaluated.impurity() + " · 溢出 " + evaluated.excess(), evaluated.feasible() ? UiColors.ACCENT : UiColors.WARNING);
+        addWrapped(lines, "理论元素：" + formatAmounts(evaluated.theoreticalElements())
+            + " · 衰减后元素：" + formatEffectiveAmounts(evaluated.effectiveElements()), UiColors.SECONDARY);
+        if (evaluated.hasExtraMaterials()) {
+            addWrapped(lines, "预计额外材料：" + formatMaterials(evaluated.extraMaterials()), UiColors.WARNING);
+        }
         if (evaluated.plannedCrafts() != evaluated.desiredCrafts()) {
             addWrapped(lines, "总制作数不匹配：当前 " + evaluated.plannedCrafts()
                 + "，目标 " + evaluated.desiredCrafts() + "；不能确认使用。", UiColors.ERROR);
@@ -559,6 +581,17 @@ public final class CalculatorScreen extends Screen {
 
     private static int maxUsage(Map<String, Integer> usage) {
         return usage.values().stream().mapToInt(Integer::intValue).max().orElse(0);
+    }
+
+    private static String formatEffectiveAmounts(Map<Element, java.math.BigDecimal> values) {
+        List<String> parts = new ArrayList<>();
+        for (Element element : Element.values()) {
+            java.math.BigDecimal value = values.getOrDefault(element, java.math.BigDecimal.ZERO);
+            if (value.signum() != 0) {
+                parts.add(element.name() + "≈" + value.setScale(0, java.math.RoundingMode.HALF_UP).toPlainString());
+            }
+        }
+        return parts.isEmpty() ? "无" : String.join("、", parts);
     }
 
     private void addWrapped(List<DisplayLine> lines, String value, int color) {

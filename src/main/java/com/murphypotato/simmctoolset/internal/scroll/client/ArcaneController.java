@@ -168,6 +168,14 @@ public final class ArcaneController implements AutoCloseable {
         return value == null ? Map.of() : value.usage();
     }
 
+    public synchronized Map<String,Integer> planningUsage(UUID playerId) {
+        var result = new java.util.LinkedHashMap<String,Integer>();
+        if (playerId == null) return result;
+        result.putAll(usageStore.snapshot(playerId).totals());
+        temporaryUsage(playerId).forEach((name, amount) -> result.merge(name, amount, Math::addExact));
+        return Map.copyOf(result);
+    }
+
     public synchronized void updateSettings(ArcaneSettings next) {
         if (next == null) return;
         if (!next.selectedRecipe().equals(settings.selectedRecipe())
@@ -208,7 +216,7 @@ public final class ArcaneController implements AutoCloseable {
         running = executor.submit(() -> {
             long started = System.nanoTime();
             try {
-                Map<String, Integer> currentUsage = playerId == null ? Map.of() : usageStore.snapshot(playerId).totals();
+                Map<String, Integer> currentUsage = playerId == null ? Map.of() : planningUsage(playerId);
                 ScrollPlanningRequest request = new ScrollPlanningRequest(
                     recipe, enabled, snapshot.quantity(), currentUsage, Map.of(),
                     snapshot.excludedMaterials(), snapshot.searchBudget(), () -> generation.get() != token

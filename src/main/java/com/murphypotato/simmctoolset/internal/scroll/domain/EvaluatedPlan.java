@@ -39,6 +39,11 @@ public record EvaluatedPlan(
     public boolean complete() { return plannedCrafts == desiredCrafts && feasible; }
     public boolean hasExtraMaterials() { return !extraMaterials.isEmpty(); }
 
+    /** Highest cumulative material usage reached by this schedule. */
+    public int maximumFinalUsage() {
+        return afterUsage.values().stream().mapToInt(Integer::intValue).max().orElse(0);
+    }
+
     private static Map<Element, BigDecimal> immutableElements(Map<Element, BigDecimal> values) {
         Map<Element, BigDecimal> copy = new LinkedHashMap<>();
         for (Element element : Element.values()) copy.put(element, values == null ? BigDecimal.ZERO : values.getOrDefault(element, BigDecimal.ZERO));

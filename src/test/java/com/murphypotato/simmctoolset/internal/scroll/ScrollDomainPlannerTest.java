@@ -34,6 +34,20 @@ class ScrollDomainPlannerTest {
         assertThrows(IllegalArgumentException.class, () -> MaterialDecay.incremental(1, -1, 1));
         assertThrows(IllegalArgumentException.class, () -> MaterialDecay.incremental(1, 1, -1));
         assertTrue(MaterialDecay.incremental(1, 0, 1) > 0);
+        assertEquals("", MaterialDecay.usageWarning(64));
+        assertTrue(MaterialDecay.usageWarning(196).contains("下降"));
+        assertTrue(MaterialDecay.isExtremeUsage(256));
+    }
+
+    @Test
+    void evaluatedPlanExposesMaximumUsage() {
+        Material ore = material("铜", 1, 0);
+        ScrollRecipe recipe = new ScrollRecipe("一金", "主材", amounts(1, 0));
+        CraftPlan vector = new CraftPlan("铜", Map.of("铜", 1), amounts(1, 0),
+            0, 0, 1, 1, 1, 0);
+        EvaluatedPlan plan = DecayPlanner.evaluate(List.of(new RotationBatch(vector, 2)),
+            recipe, List.of(ore), Map.of("铜", 64));
+        assertEquals(66, plan.maximumFinalUsage());
     }
 
     @Test
@@ -146,10 +160,9 @@ class ScrollDomainPlannerTest {
             Map.of("高用量单材", 100), Map.of(), Set.of(), SearchBudget.BALANCED);
         PlanningResult result = DecayPlanner.plan(request);
         assertEquals(PlanningStatus.COMPLETE, result.status());
-        // At U=100 the polynomial's marginal contribution is below one
-        // theoretical unit; the effective solver therefore needs thirteen
-        // raw inputs to reach two effective metal units.
-        assertEquals(13, result.plan().batches().getFirst().plan().materials().get("高用量单材"));
+        // At U=100, two raw inputs already provide just over two effective
+        // units under the exact nonlinear differential formula.
+        assertEquals(2, result.plan().batches().getFirst().plan().materials().get("高用量单材"));
     }
 
     @Test

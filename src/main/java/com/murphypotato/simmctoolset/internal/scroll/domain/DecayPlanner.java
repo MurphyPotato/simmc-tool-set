@@ -385,6 +385,9 @@ public final class DecayPlanner {
             return candidate.plannedCrafts() > current.plannedCrafts() ? candidate : current;
         }
         if (candidate.feasible() != current.feasible()) return candidate.feasible() ? candidate : current;
+        if (candidate.maximumFinalUsage() != current.maximumFinalUsage()) {
+            return candidate.maximumFinalUsage() < current.maximumFinalUsage() ? candidate : current;
+        }
         return candidate.efficiency().compareTo(current.efficiency()) > 0 ? candidate : current;
     }
     private static EvaluatedPlan emptyPlan(ScrollPlanningRequest request) {

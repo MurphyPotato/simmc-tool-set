@@ -24,6 +24,8 @@ public final class ScrollUsageScreen extends Screen {
     private boolean presetArmed;
     private String presetMessage = "";
     private int scroll;
+    private int presetStartLine = -1;
+    private int presetCount;
 
     public ScrollUsageScreen(ArcaneController controller, Screen parent) {
         super(Text.literal("卷轴使用记录"));
@@ -131,9 +133,11 @@ public final class ScrollUsageScreen extends Screen {
             controller.usageStore().warning().ifPresent(w -> result.add("警告：" + w));
             result.add("");
             result.add("预设（点击名称后可改名或删除）：");
+            presetStartLine = result.size();
             if (!presetMessage.isBlank()) result.add(presetMessage);
             if (presetArmed) result.add("再次点击“确认使用预设”以提交；将按当前 M 重新计算并写入记录。");
             var presets = controller.presetStore().list();
+            presetCount = presets.size();
             if (presets.isEmpty()) result.add("暂无预设；预设保存入口将在计算结果页提供。");
             else for (var preset : presets) result.add("· " + preset.name() + " · " + preset.recipe()
                 + " · " + preset.batches().size() + " 批");
@@ -160,10 +164,11 @@ public final class ScrollUsageScreen extends Screen {
     }
 
     @Override public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubled) {
-        if (click.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT && click.y() >= 105) {
-            int row = (int) ((click.y() - 105) / 13);
+        if (click.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            int line = scroll + (int) ((click.y() - 62) / 13);
+            int row = line - presetStartLine;
             var presets = controller.presetStore().list();
-            if (row >= 0 && row < presets.size()) {
+            if (row >= 0 && row < presetCount && line >= presetStartLine && line < presetStartLine + presetCount) {
                 selectedPreset = presets.get(row).name();
                 if (renameField != null) renameField.setText(selectedPreset);
                 return true;
