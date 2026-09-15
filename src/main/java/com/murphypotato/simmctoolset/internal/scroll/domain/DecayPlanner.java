@@ -46,9 +46,9 @@ public final class DecayPlanner {
                         request.desiredCrafts(), request.excludedMaterials()));
                 }
             }
-            ranked.sort(Comparator.comparingInt(RankedPlan::capacity).reversed()
+            ranked.sort(Comparator.comparingInt(RankedPlan::finalUsage)
+                .thenComparing(Comparator.comparingInt(RankedPlan::capacity).reversed())
                 .thenComparingInt(a -> a.plan().materialTotal())
-                .thenComparing((a, b) -> Integer.compare(b.finalUsage(), a.finalUsage()))
                 .thenComparing(r -> r.plan().id()));
             Map<String, Integer> usage = new LinkedHashMap<>(request.currentUsage());
             List<RotationBatch> batches = new ArrayList<>();
@@ -251,12 +251,13 @@ public final class DecayPlanner {
         for (RankedPlan candidate : ranked) {
             check(request, deadline);
             int capacity = maximumFeasibleRepeat(candidate.plan(), request, usage, deadline);
+            boolean lowerUsage = candidate.finalUsage() < best.finalUsage()
+                || (candidate.finalUsage() == best.finalUsage()
+                    && candidate.plan().materialTotal() < best.plan().materialTotal());
             if ((capacity >= remaining && bestCapacity < remaining)
-                || (capacity >= remaining && bestCapacity >= remaining
-                    && candidate.plan().materialTotal() < best.plan().materialTotal())
+                || (capacity >= remaining && bestCapacity >= remaining && lowerUsage)
                 || (capacity > bestCapacity && bestCapacity < remaining)
-                || (capacity == bestCapacity
-                && candidate.plan().materialTotal() < best.plan().materialTotal())) {
+                || (capacity == bestCapacity && lowerUsage)) {
                 best = candidate;
                 bestCapacity = capacity;
             }

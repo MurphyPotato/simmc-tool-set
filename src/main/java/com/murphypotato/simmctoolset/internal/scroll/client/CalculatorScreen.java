@@ -561,6 +561,10 @@ public final class CalculatorScreen extends Screen {
             + " · 杂质 " + evaluated.impurity() + " · 溢出 " + evaluated.excess(), evaluated.feasible() ? UiColors.ACCENT : UiColors.WARNING);
         addWrapped(lines, "理论元素：" + formatAmounts(evaluated.theoreticalElements())
             + " · 衰减后元素：" + formatEffectiveAmounts(evaluated.effectiveElements()), UiColors.SECONDARY);
+        evaluated.afterUsage().forEach((material, amount) -> {
+            String warning = com.murphypotato.simmctoolset.internal.scroll.domain.MaterialDecay.usageWarning(amount);
+            if (!warning.isBlank()) addWrapped(lines, "材料 " + material + "：" + warning, UiColors.WARNING);
+        });
         final EvaluatedPlan displayPlan = evaluated;
         final String displayRecipe = result.recipe().name();
         boolean noDecay = controller.playerId(client)
@@ -597,7 +601,7 @@ public final class CalculatorScreen extends Screen {
         for (Element element : Element.values()) {
             java.math.BigDecimal value = values.getOrDefault(element, java.math.BigDecimal.ZERO);
             if (value.signum() != 0) {
-                parts.add(element.name() + "≈" + value.setScale(0, java.math.RoundingMode.HALF_UP).toPlainString());
+                parts.add(element.label() + "约" + value.setScale(0, java.math.RoundingMode.HALF_UP).toPlainString());
             }
         }
         return parts.isEmpty() ? "无" : String.join("、", parts);

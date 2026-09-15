@@ -106,11 +106,11 @@ public final class ArcaneController implements AutoCloseable {
     public synchronized EvaluatedPlan evaluatePreset(UUID playerId, PresetPlan preset) {
         if (playerId == null || preset == null) throw new IllegalArgumentException("预设上下文无效");
         ScrollRecipe recipe = data.recipe(preset.recipe());
-        var usage = usageStore.snapshot(playerId);
+        var usage = planningUsage(playerId);
         List<Material> materials = data.materials().stream()
             .filter(material -> !settings.excludedMaterials().contains(material.name())).toList();
         return com.murphypotato.simmctoolset.internal.scroll.domain.DecayPlanner.evaluate(
-            preset.batches(), recipe, materials, usage.totals(), Map.of(), settings.excludedMaterials());
+            preset.batches(), recipe, materials, usage, Map.of(), settings.excludedMaterials());
     }
 
     public synchronized EvaluatedPlan evaluateBatches(UUID playerId, String recipeName, List<com.murphypotato.simmctoolset.internal.scroll.domain.RotationBatch> batches) {
@@ -208,7 +208,11 @@ public final class ArcaneController implements AutoCloseable {
         int last = batches.size() - 1;
         RotationBatch tail = batches.get(last);
         batches.set(last, new RotationBatch(tail.plan(), Math.addExact(tail.crafts(), 1)));
-        return evaluateBatches(playerId, recipeName, batches).feasible();
+        ScrollRecipe recipe = data.recipe(recipeName);
+        List<Material> materials = data.materials().stream()
+            .filter(material -> !settings.excludedMaterials().contains(material.name())).toList();
+        return com.murphypotato.simmctoolset.internal.scroll.domain.DecayPlanner.evaluate(
+            batches, recipe, materials, planningUsage(playerId), Map.of(), settings.excludedMaterials()).feasible();
     }
 
     public synchronized void calculate(MinecraftClient client, Consumer<CalculationResult> onResult) {
