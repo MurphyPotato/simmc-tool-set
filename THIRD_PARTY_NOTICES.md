@@ -25,6 +25,5 @@ relicense the components listed below.
 - Simes market, valuation, balance, and automatic-message components are
   excluded. Migrated source is attributed here and in the applicable
   source-file headers.
-- The permission and source-availability terms remain subject to the written
-  authorization from 7imes; the original Simes license text is retained with
+- The original Simes license text is retained with
   the project materials for attribution and audit.
