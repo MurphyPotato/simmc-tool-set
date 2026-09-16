@@ -14,9 +14,12 @@ public final class DecayPlanner {
     private DecayPlanner() {}
 
     public static PlanningResult plan(ScrollPlanningRequest request) {
-        long deadline = System.nanoTime() + request.budget().nanos();
-        EvaluatedPlan best = emptyPlan(request);
-        List<CraftPlan> discovered = List.of();
+        return plan(request, System::nanoTime);
+    }
+
+    static PlanningResult plan(ScrollPlanningRequest request, java.util.function.LongSupplier clock) {
+        Deadline deadline = new Deadline(clock, clock.getAsLong(), request.budget().nanos());
+        SearchProgress progress = new SearchProgress(emptyPlan(request));
         try {
             check(request, deadline);
             if (request.desiredCrafts() == 0) {
@@ -24,64 +27,73 @@ public final class DecayPlanner {
                     request.currentUsage(), request.materialBudget());
                 return new PlanningResult(PlanningStatus.COMPLETE, empty, List.of());
             }
-            List<Material> allowed = request.materials().stream()
-                .filter(m -> !request.recipe().mainMaterial().equals(m.name()))
-                .filter(m -> !request.excludedMaterials().contains(m.name()))
-                .filter(m -> !request.materialBudget().containsKey(m.name()) || request.materialBudget().get(m.name()) > 0)
-                .toList();
-            List<CraftPlan> candidates = nonlinearCandidates(allowed, request, deadline);
-            discovered = candidates;
-            if (candidates.isEmpty()) return new PlanningResult(
-                PlanningStatus.NO_FEASIBLE_PLAN, emptyPlan(request), List.of());
-
-            List<RankedPlan> ranked = new ArrayList<>();
-            for (CraftPlan candidate : candidates) {
-                check(request, deadline);
-                int capacity = maximumFeasibleRepeat(candidate, request, request.currentUsage(), deadline);
-                if (capacity > 0) {
-                    ranked.add(new RankedPlan(candidate, capacity, finalUsage(candidate, capacity, request)));
-                    best = betterPlan(best, evaluateInternal(List.of(new RotationBatch(candidate,
-                        Math.min(capacity, request.desiredCrafts()))), request.recipe(),
-                        request.materials(), request.currentUsage(), request.materialBudget(),
-                        request.desiredCrafts(), request.excludedMaterials()));
-                }
-            }
-            ranked.sort(Comparator.comparingInt(RankedPlan::finalUsage)
-                .thenComparing(Comparator.comparingInt(RankedPlan::capacity).reversed())
-                .thenComparingInt(a -> a.plan().materialTotal())
-                .thenComparing(r -> r.plan().id()));
             Map<String, Integer> usage = new LinkedHashMap<>(request.currentUsage());
             List<RotationBatch> batches = new ArrayList<>();
             int remaining = request.desiredCrafts();
-            while (remaining > 0 && !ranked.isEmpty()) {
+            while (remaining > 0) {
                 check(request, deadline);
-                RankedPlan rankedPlan = choosePlan(ranked, request, usage, remaining, deadline);
-                int capacity = maximumFeasibleRepeat(rankedPlan.plan(), request, usage, deadline);
-                if (capacity <= 0) {
-                    ranked.remove(rankedPlan);
-                    continue;
+                Map<String, Integer> available = new LinkedHashMap<>();
+                for (var entry : request.materialBudget().entrySet()) {
+                    int used = usage.getOrDefault(entry.getKey(), 0)
+                        - request.currentUsage().getOrDefault(entry.getKey(), 0);
+                    available.put(entry.getKey(), Math.max(0, entry.getValue() - used));
                 }
-                int crafts = Math.min(remaining, capacity);
-                batches.add(new RotationBatch(rankedPlan.plan(), crafts));
-                EvaluatedBatch evaluated = evaluateBatch(rankedPlan.plan(), crafts, request.recipe(),
-                    request.materials(), usage, request.excludedMaterials());
-                usage = new LinkedHashMap<>(evaluated.afterUsage());
-                remaining -= crafts;
-                best = betterPlan(best, evaluateInternal(batches, request.recipe(), request.materials(),
-                    request.currentUsage(), request.materialBudget(), request.desiredCrafts(),
-                    request.excludedMaterials()));
+                ScrollPlanningRequest stage = new ScrollPlanningRequest(request.recipe(), request.materials(),
+                    remaining, usage, available, request.excludedMaterials(), request.budget(), request.cancellation());
+                IncrementalCandidateSearch.Outcome outcome = IncrementalCandidateSearch.search(stage,
+                    () -> check(request, deadline), candidate -> {
+                        progress.discovered.add(candidate);
+                        List<RotationBatch> tentative = new ArrayList<>(batches);
+                        tentative.add(new RotationBatch(candidate, 1));
+                        progress.best = betterPlan(progress.best, evaluateInternal(tentative, request.recipe(),
+                            request.materials(), request.currentUsage(), request.materialBudget(),
+                            request.desiredCrafts(), request.excludedMaterials()));
+                    }, candidate -> {
+                        // Closest candidate is diagnostic only, never an executable
+                        // batch or a contribution to temporary/recorded M.
+                        if (batches.isEmpty()) progress.closest = candidate;
+                    });
+                if (outcome.candidates().isEmpty()) {
+                    progress.explanation = outcome.explanation();
+                    PlanningStatus status = !batches.isEmpty() ? PlanningStatus.PARTIAL
+                        : outcome.exhaustive() ? PlanningStatus.NO_FEASIBLE_PLAN : PlanningStatus.SEARCH_LIMIT_REACHED;
+                    return progress.result(status);
+                }
+                CraftPlan selected = null;
+                int selectedCrafts = 0;
+                EvaluatedPlan selectedPortfolio = null;
+                for (CraftPlan candidate : outcome.candidates()) {
+                    check(request, deadline);
+                    int crafts = maximumFeasibleRepeat(candidate, stage, usage, deadline);
+                    if (crafts <= 0) continue;
+                    List<RotationBatch> tentative = new ArrayList<>(batches);
+                    tentative.add(new RotationBatch(candidate, crafts));
+                    EvaluatedPlan evaluated = evaluateInternal(tentative, request.recipe(), request.materials(),
+                        request.currentUsage(), request.materialBudget(), request.desiredCrafts(), request.excludedMaterials());
+                    progress.best = betterPlan(progress.best, evaluated);
+                    if (selectedPortfolio == null || betterPlan(selectedPortfolio, evaluated) == evaluated) {
+                        selected = candidate;
+                        selectedCrafts = crafts;
+                        selectedPortfolio = evaluated;
+                    }
+                }
+                if (selected == null) return progress.result(PlanningStatus.SEARCH_LIMIT_REACHED);
+                batches.add(new RotationBatch(selected, selectedCrafts));
+                usage = new LinkedHashMap<>(selectedPortfolio.afterUsage());
+                remaining -= selectedCrafts;
             }
+            check(request, deadline);
             List<RotationBatch> ordered = orderByFinalPortfolio(batches, request.currentUsage());
             EvaluatedPlan orderedPlan = evaluateInternal(ordered, request.recipe(), request.materials(),
                 request.currentUsage(), request.materialBudget(), request.desiredCrafts(),
                 request.excludedMaterials());
-            best = betterPlan(best, orderedPlan);
-            PlanningStatus status = best.complete() ? PlanningStatus.COMPLETE : PlanningStatus.PARTIAL;
-            return new PlanningResult(status, best, candidates);
+            // Never sacrifice feasibility just to reorder the visible batches.
+            if (orderedPlan.complete()) progress.best = orderedPlan;
+            return progress.result(progress.best.complete() ? PlanningStatus.COMPLETE : PlanningStatus.PARTIAL);
         } catch (PlanningCancelledException ex) {
             throw ex;
         } catch (PlanningTimeoutException ex) {
-            return new PlanningResult(PlanningStatus.TIMED_OUT, best, discovered);
+            return progress.result(PlanningStatus.TIMED_OUT);
         }
     }
 
@@ -200,8 +212,9 @@ public final class DecayPlanner {
                 continue;
             }
             int used = after.getOrDefault(entry.getKey(), 0);
+            BigDecimal factor = MaterialDecay.incremental(BigDecimal.ONE, used, amount);
             for (Element e : Element.values()) effective.put(e, effective.get(e).add(
-                MaterialDecay.incremental(BigDecimal.valueOf(material.elements().get(e)), used, amount),
+                factor.multiply(BigDecimal.valueOf(material.elements().get(e)), MaterialDecay.MATH_CONTEXT),
                 MaterialDecay.MATH_CONTEXT));
             theoretical = theoretical.plus(scale(material.elements(), amount));
             after.put(entry.getKey(), Math.addExact(used, amount));
@@ -229,142 +242,36 @@ public final class DecayPlanner {
     }
 
     private static int maximumFeasibleRepeat(CraftPlan plan, ScrollPlanningRequest request,
-                                             Map<String, Integer> usage, long deadline) {
+                                             Map<String, Integer> usage, Deadline deadline) {
         int perCraftInputs = actualInputCount(plan, 1);
         int cap = perCraftInputs <= 0 || perCraftInputs > ArcaneSolver.MAX_BATCH_INPUTS ? 0
             : ArcaneSolver.MAX_BATCH_INPUTS / perCraftInputs;
-        int best = 0;
-        for (int n = 1; n <= cap; n++) {
+        cap = Math.min(cap, request.desiredCrafts());
+        if (cap == 0) return 0;
+        EvaluatedBatch first = evaluateBatch(plan, 1, request.recipe(), request.materials(), usage,
+            request.excludedMaterials());
+        if (!first.feasible() || !withinBudget(usage, first.afterUsage(), request.materialBudget())) return 0;
+        // For a fixed nonnegative material vector c, each element per craft is
+        // sum(a*c*(1.0618608 - .0054307*U - .00271535*c*n)).
+        // It decreases linearly in n. Starting with feasible n=1, impurity and
+        // excess upper bounds stay satisfied; target lower bounds/input budgets
+        // give a feasible prefix. Binary search therefore cannot skip a hole.
+        int best = 1;
+        while (best < cap) {
             check(request, deadline);
+            int n = best + (cap - best + 1) / 2;
             EvaluatedBatch batch = evaluateBatch(plan, n, request.recipe(), request.materials(), usage,
                 request.excludedMaterials());
-            if (batch.feasible() && meetsRecipe(batch.effectiveElements(), request.recipe(), n)
+            if (batch.feasible()
                 && withinBudget(usage, batch.afterUsage(), request.materialBudget())) best = n;
-            else break;
+            else cap = n - 1;
         }
         return best;
-    }
-    private static RankedPlan choosePlan(List<RankedPlan> ranked, ScrollPlanningRequest request,
-                                         Map<String, Integer> usage, int remaining, long deadline) {
-        RankedPlan best = ranked.getFirst();
-        int bestCapacity = maximumFeasibleRepeat(best.plan(), request, usage, deadline);
-        for (RankedPlan candidate : ranked) {
-            check(request, deadline);
-            int capacity = maximumFeasibleRepeat(candidate.plan(), request, usage, deadline);
-            boolean lowerUsage = candidate.finalUsage() < best.finalUsage()
-                || (candidate.finalUsage() == best.finalUsage()
-                    && candidate.plan().materialTotal() < best.plan().materialTotal());
-            if ((capacity >= remaining && bestCapacity < remaining)
-                || (capacity >= remaining && bestCapacity >= remaining && lowerUsage)
-                || (capacity > bestCapacity && bestCapacity < remaining)
-                || (capacity == bestCapacity && lowerUsage)) {
-                best = candidate;
-                bestCapacity = capacity;
-            }
-        }
-        return best;
-    }
-    /**
-     * Builds vectors using the same nonlinear evaluator used for execution.
-     * Material names are added in sorted input order, which bounds permutations
-     * while still allowing arbitrary repeat counts (up to the 320-input cap).
-     */
-    private static List<CraftPlan> nonlinearCandidates(List<Material> materials,
-                                                       ScrollPlanningRequest request,
-                                                       long deadline) {
-        int width = Math.max(1, request.budget().beamWidth());
-        Map<String, CraftPlan> unique = new LinkedHashMap<>();
-        List<BeamState> frontier = new ArrayList<>(List.of(new BeamState(null, 0)));
-        List<CraftPlan> finals = new ArrayList<>();
-        int maxDepth = ArcaneSolver.MAX_BATCH_INPUTS - 1;
-        for (int depth = 0; depth < maxDepth && !frontier.isEmpty(); depth++) {
-            List<BeamState> next = new ArrayList<>();
-            for (BeamState state : frontier) {
-                check(request, deadline);
-                for (int index = state.lastIndex(); index < materials.size(); index++) {
-                    Material material = materials.get(index);
-                    CraftPlan plan = augment(state.plan(), material, request.recipe());
-                    if (plan == null || !nonlinearPartialIsValid(plan, request, deadline)) continue;
-                    if (unique.putIfAbsent(plan.id(), plan) == null) {
-                        if (isFeasibleSingle(plan, request)) finals.add(plan);
-                        next.add(new BeamState(plan, index));
-                    }
-                }
-            }
-            next.sort(Comparator.comparingLong(state -> nonlinearRank(state.plan(), request)));
-            frontier = next.subList(0, Math.min(width, next.size()));
-            if (finals.size() >= width) break;
-        }
-        finals.sort(Comparator.comparingLong(CraftPlan::score).thenComparing(CraftPlan::id));
-        return List.copyOf(finals);
-    }
-
-    private static boolean nonlinearPartialIsValid(CraftPlan plan, ScrollPlanningRequest request,
-                                                   long deadline) {
-        if (actualInputCount(plan, 1) > ArcaneSolver.MAX_BATCH_INPUTS) return false;
-        EvaluatedBatch evaluated = evaluateBatch(plan, 1, request.recipe(), request.materials(),
-            request.currentUsage(), request.excludedMaterials());
-        check(request, deadline);
-        if (!evaluated.extraMaterials().isEmpty()) return false;
-        BigDecimal impurity = BigDecimal.ZERO;
-        for (Element element : Element.values()) {
-            if (request.recipe().required().get(element) == 0) {
-                impurity = impurity.add(evaluated.effectiveElements().get(element),
-                    MaterialDecay.MATH_CONTEXT);
-            } else if (evaluated.effectiveElements().get(element).compareTo(
-                BigDecimal.valueOf(request.recipe().required().get(element) + 24L)) > 0) {
-                return false;
-            }
-        }
-        return impurity.compareTo(BigDecimal.valueOf(ArcaneSolver.DEFAULT_IMPURITY_LIMIT)) < 0;
-    }
-
-    private static boolean isFeasibleSingle(CraftPlan plan, ScrollPlanningRequest request) {
-        EvaluatedBatch evaluated = evaluateBatch(plan, 1, request.recipe(), request.materials(),
-            request.currentUsage(), request.excludedMaterials());
-        return evaluated.feasible();
-    }
-
-    private static long nonlinearRank(CraftPlan plan, ScrollPlanningRequest request) {
-        EvaluatedBatch evaluated = evaluateBatch(plan, 1, request.recipe(), request.materials(),
-            request.currentUsage(), request.excludedMaterials());
-        long shortage = 0;
-        for (Element element : Element.values()) {
-            BigDecimal required = BigDecimal.valueOf(request.recipe().required().get(element));
-            BigDecimal value = evaluated.effectiveElements().get(element);
-            if (value.compareTo(required) < 0) shortage += required.subtract(value).max(BigDecimal.ZERO).longValue();
-        }
-        return shortage * 100_000L + plan.materialTotal() * 1_000L + plan.score();
-    }
-
-    private static CraftPlan augment(CraftPlan seed, Material material, ScrollRecipe recipe) {
-        Map<String, Integer> map = new LinkedHashMap<>(seed == null ? Map.of() : seed.materials());
-        map.merge(material.name(), 1, Math::addExact);
-        ElementAmounts supplied = (seed == null ? ElementAmounts.zero() : seed.supplied()).plus(material.elements());
-        for (Element e : Element.values()) {
-            int required = recipe.required().get(e);
-            if (recipe.required().get(e) > 0 && supplied.get(e) > required + 24) return null;
-        }
-        int impurity = 0;
-        for (Element e : Element.values()) if (recipe.required().get(e) == 0) impurity += supplied.get(e);
-        // Impurity is evaluated after nonlinear decay at the evolving usage;
-        // theoretical impurity alone is not a rejection criterion.
-        int total = map.values().stream().mapToInt(Integer::intValue).sum();
-        int maxRepeat = map.values().stream().mapToInt(Integer::intValue).max().orElse(0);
-        long score = total * 100000L + impurity * 700L;
-        return new CraftPlan((seed == null ? "" : seed.id() + "+") + material.name(), map, supplied, impurity, 0,
-            total, maxRepeat, map.size(), score);
     }
     private static boolean meetsRecipe(Map<Element, BigDecimal> effective, ScrollRecipe recipe, int crafts) {
         for (Element e : Element.values()) if (effective.get(e).compareTo(
             BigDecimal.valueOf((long) recipe.required().get(e) * crafts)) < 0) return false;
         return true;
-    }
-    private static int finalUsage(CraftPlan plan, int crafts, ScrollPlanningRequest request) {
-        int maximum = 0;
-        for (Map.Entry<String, Integer> e : plan.materials().entrySet()) maximum = Math.max(maximum,
-            request.currentUsage().getOrDefault(e.getKey(), 0) + e.getValue() * crafts);
-        return maximum;
     }
     private static List<RotationBatch> orderByFinalPortfolio(List<RotationBatch> batches,
                                                               Map<String, Integer> initialUsage) {
@@ -381,15 +288,26 @@ public final class DecayPlanner {
     private static EvaluatedPlan betterPlan(EvaluatedPlan current, EvaluatedPlan candidate) {
         if (candidate == null) return current;
         if (current == null) return candidate;
+        if (candidate.feasible() != current.feasible()) return candidate.feasible() ? candidate : current;
         if (candidate.complete() != current.complete()) return candidate.complete() ? candidate : current;
         if (candidate.plannedCrafts() != current.plannedCrafts()) {
             return candidate.plannedCrafts() > current.plannedCrafts() ? candidate : current;
         }
-        if (candidate.feasible() != current.feasible()) return candidate.feasible() ? candidate : current;
-        if (candidate.maximumFinalUsage() != current.maximumFinalUsage()) {
-            return candidate.maximumFinalUsage() < current.maximumFinalUsage() ? candidate : current;
+        int candidateM = involvedMaximumUsage(candidate), currentM = involvedMaximumUsage(current);
+        if (candidateM != currentM) {
+            return candidateM < currentM ? candidate : current;
         }
-        return candidate.efficiency().compareTo(current.efficiency()) > 0 ? candidate : current;
+        long candidateInputs = materialInputs(candidate), currentInputs = materialInputs(current);
+        if (candidateInputs != currentInputs) return candidateInputs < currentInputs ? candidate : current;
+        if (candidate.impurity() != current.impurity()) return candidate.impurity() < current.impurity() ? candidate : current;
+        return candidate.excess() < current.excess() ? candidate : current;
+    }
+    private static int involvedMaximumUsage(EvaluatedPlan plan) {
+        return plan.batches().stream().flatMap(batch -> batch.plan().materials().keySet().stream())
+            .mapToInt(name -> plan.afterUsage().getOrDefault(name, 0)).max().orElse(0);
+    }
+    private static long materialInputs(EvaluatedPlan plan) {
+        return plan.batches().stream().mapToLong(batch -> (long) batch.plan().materialTotal() * batch.crafts()).sum();
     }
     private static EvaluatedPlan emptyPlan(ScrollPlanningRequest request) {
         return new EvaluatedPlan(request.desiredCrafts(), 0, List.of(), request.currentUsage(),
@@ -454,12 +372,21 @@ public final class DecayPlanner {
         }
         return true;
     }
-    private static void check(ScrollPlanningRequest request, long deadline) {
+    private static void check(ScrollPlanningRequest request, Deadline deadline) {
         if (request.cancellation().getAsBoolean() || Thread.currentThread().isInterrupted()) throw new PlanningCancelledException();
-        if (System.nanoTime() >= deadline) throw new PlanningTimeoutException();
+        if (deadline.clock().getAsLong() - deadline.started() >= deadline.budget()) throw new PlanningTimeoutException();
     }
-    private record RankedPlan(CraftPlan plan, int capacity, int finalUsage) {}
-    private record BeamState(CraftPlan plan, int lastIndex) {}
+    private record Deadline(java.util.function.LongSupplier clock, long started, long budget) {}
+    private static final class SearchProgress {
+        private EvaluatedPlan best;
+        private CraftPlan closest;
+        private String explanation = "";
+        private final List<CraftPlan> discovered = new ArrayList<>();
+        private SearchProgress(EvaluatedPlan best) { this.best = best; }
+        private PlanningResult result(PlanningStatus status) {
+            return new PlanningResult(status, best, discovered, closest, explanation);
+        }
+    }
     public static final class PlanningCancelledException extends RuntimeException {}
     private static final class PlanningTimeoutException extends RuntimeException {}
 }

@@ -38,11 +38,9 @@ public final class CalculatorScreen extends Screen {
     private final Screen parent;
     private String query = "";
     private String quantityDraft;
-    private String thresholdDraft;
     private CalculationResult result;
     private TextFieldWidget searchField;
     private TextFieldWidget quantityField;
-    private TextFieldWidget thresholdField;
     private TextFieldWidget presetNameField;
     private TextFieldWidget batchCountField;
     private int recipeX;
@@ -77,7 +75,6 @@ public final class CalculatorScreen extends Screen {
         this.parent = parent;
         ArcaneSettings settings = controller.settings();
         quantityDraft = Integer.toString(settings.quantity());
-        thresholdDraft = Integer.toString(settings.repeatThreshold());
     }
 
     @Override
@@ -86,7 +83,6 @@ public final class CalculatorScreen extends Screen {
         rebuilding = true;
         ArcaneSettings settings = controller.settings();
         quantityDraft = Integer.toString(settings.quantity());
-        thresholdDraft = Integer.toString(settings.repeatThreshold());
 
         int columns = width >= 700 ? 5 : width >= 430 ? 4 : 3;
         int toolbarY = 22;
@@ -107,11 +103,10 @@ public final class CalculatorScreen extends Screen {
             if (client != null) client.setScreen(new MaterialExclusionScreen(controller, this));
         }).build());
         toolbar.add(ButtonWidget.builder(Text.literal("主材料：" + (settings.includeMainMaterial() ? "计入" : "不计")), button -> {
-            ArcaneSettings current = readInputSettings().withInputs(
-                parseClamped(quantityDraft, 1, 9999), !controller.settings().includeMainMaterial(),
-                parseClamped(thresholdDraft, 1, 999)
-            );
-            controller.updateSettings(current);
+            ArcaneSettings current = readInputSettings();
+            controller.updateSettings(current.withInputs(
+                current.quantity(), !current.includeMainMaterial(), current.repeatThreshold()
+            ));
             invalidateResult();
             clearAndInit();
         }).build());
@@ -149,6 +144,7 @@ public final class CalculatorScreen extends Screen {
         }).build());
         toolbar.add(ButtonWidget.builder(Text.literal("确认使用"), button -> {
             if (result == null || result.planning() == null || !result.planning().plan().feasible()) return;
+            if (!manualMode && !result.planning().plan().complete()) return;
             if (!confirmArmed) {
                 confirmArmed = true;
                 controller.invalidate();
@@ -194,8 +190,7 @@ public final class CalculatorScreen extends Screen {
 
         int fieldsY = toolbarY + toolbarRows * 23 + 11;
         int quantityWidth = 62;
-        int thresholdWidth = 62;
-        int searchWidth = Math.max(92, width - MARGIN * 2 - quantityWidth - thresholdWidth - 8);
+        int searchWidth = Math.max(92, width - MARGIN * 2 - quantityWidth - 4);
         searchField = new TextFieldWidget(textRenderer, MARGIN, fieldsY, searchWidth, 20, Text.literal("卷轴搜索"));
         searchField.setMaxLength(80);
         searchField.setPlaceholder(Text.literal("卷轴搜索"));
@@ -219,18 +214,6 @@ public final class CalculatorScreen extends Screen {
         });
         addDrawableChild(quantityField);
 
-        thresholdField = new TextFieldWidget(
-            textRenderer, MARGIN + searchWidth + quantityWidth + 8, fieldsY, thresholdWidth, 20, Text.literal("轮换阈值")
-        );
-        thresholdField.setMaxLength(3);
-        thresholdField.setTextPredicate(value -> value.isEmpty() || value.matches("[0-9]{1,3}"));
-        thresholdField.setText(thresholdDraft);
-        thresholdField.setChangedListener(value -> {
-            thresholdDraft = value;
-            if (!rebuilding) invalidateResult();
-        });
-        addDrawableChild(thresholdField);
-
         presetNameField = new TextFieldWidget(textRenderer, MARGIN, fieldsY + 23, 132, 20, Text.literal("预设名称"));
         presetNameField.setMaxLength(20);
         presetNameField.setPlaceholder(Text.literal("预设名称（≤20字）"));
@@ -238,13 +221,15 @@ public final class CalculatorScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.literal("保存当前预设"), button -> savePreset())
             .dimensions(MARGIN + 136, fieldsY + 23, 100, 20).build());
 
-        int contentTop = fieldsY + 49;
+        List<RotationBatch> visibleBatches = currentBatches();
+        boolean separateCountRow = !visibleBatches.isEmpty() && width < 380;
+        int contentTop = fieldsY + 49 + (separateCountRow ? 23 : 0);
         boolean narrow = width < 520;
         if (narrow) {
             recipeX = MARGIN;
             recipeY = contentTop;
             recipeWidth = width - MARGIN * 2;
-            recipeHeight = Math.max(52, Math.min(100, (height - contentTop) / 3));
+            recipeHeight = Math.max(ROW_HEIGHT, Math.min(100, (height - contentTop) / 3));
             resultX = MARGIN;
             resultY = recipeY + recipeHeight + 5;
             resultWidth = width - MARGIN * 2;
@@ -259,10 +244,10 @@ public final class CalculatorScreen extends Screen {
             resultWidth = Math.max(100, width - resultX - MARGIN);
             resultHeight = Math.max(24, height - resultY - MARGIN);
         }
-        List<RotationBatch> visibleBatches = currentBatches();
         if (!visibleBatches.isEmpty()) {
-            int countFieldX = resultX + 5;
-            batchCountField = new TextFieldWidget(textRenderer, countFieldX, resultY + 3, 42, 18, Text.literal("方案数"));
+            int countFieldX = separateCountRow ? MARGIN : MARGIN + 244;
+            int countFieldY = fieldsY + (separateCountRow ? 46 : 23);
+            batchCountField = new TextFieldWidget(textRenderer, countFieldX, countFieldY, 42, 18, Text.literal("方案数"));
             batchCountField.setMaxLength(3);
             batchCountField.setTextPredicate(value -> value.isEmpty() || value.matches("[0-9]{1,3}"));
             batchCountField.setText(Integer.toString(visibleBatches.size()));
@@ -273,12 +258,12 @@ public final class CalculatorScreen extends Screen {
             });
             addDrawableChild(batchCountField);
             ButtonWidget applyBatchCount = ButtonWidget.builder(Text.literal("应用方案数"), button -> applyBatchCount())
-                .dimensions(countFieldX + 46, resultY + 3, 64, 18).build();
+                .dimensions(countFieldX + 46, countFieldY, 64, 18).build();
             applyBatchCount.active = manualMode;
             addDrawableChild(applyBatchCount);
 
-            int y = resultY + 25;
-            for (int i = 0; i < visibleBatches.size() && y < resultY + resultHeight - 20; i++, y += 22) {
+            int y = resultY + 4;
+            for (int i = 0; i < visibleBatches.size() && y < resultY + resultHeight - 32; i++, y += 22) {
                 final int index = i;
                 int controlsRight = resultX + resultWidth - 4;
                 ButtonWidget save = ButtonWidget.builder(Text.literal("存" + (index + 1)), b -> saveBatch(index))
@@ -487,7 +472,7 @@ public final class CalculatorScreen extends Screen {
         return current.withInputs(
             parseClamped(quantityDraft, 1, 9999),
             current.includeMainMaterial(),
-            parseClamped(thresholdDraft, 1, 999)
+            current.repeatThreshold()
         );
     }
 
@@ -516,7 +501,6 @@ public final class CalculatorScreen extends Screen {
         context.drawTextWithShadow(textRenderer, textRenderer.trimToWidth(title.getString(), Math.max(80, width - 16)), MARGIN, 8, UiColors.PRIMARY);
         context.drawTextWithShadow(textRenderer, "卷轴", searchField.getX() + 2, searchField.getY() - 9, UiColors.MUTED);
         context.drawTextWithShadow(textRenderer, "数量", quantityField.getX() + 2, quantityField.getY() - 9, UiColors.MUTED);
-        context.drawTextWithShadow(textRenderer, "阈值", thresholdField.getX() + 2, thresholdField.getY() - 9, UiColors.MUTED);
         renderRecipeList(context);
         renderResults(context);
         super.render(context, mouseX, mouseY, delta);
@@ -652,13 +636,32 @@ public final class CalculatorScreen extends Screen {
             editedBatches = defaultBatches;
         }
         if (result.planning() == null || result.planning().plan().batches().isEmpty()) {
-            addWrapped(lines, "当前启用材料内没有满足目标且总杂质小于 8 的方案。", UiColors.ERROR);
+            boolean proved = result.planning() != null
+                && result.planning().status() == com.murphypotato.simmctoolset.internal.scroll.domain.PlanningStatus.NO_FEASIBLE_PLAN;
+            addWrapped(lines, proved ? "当前约束下无法生成可执行方案。"
+                : "当前预算/搜索范围内未找到可执行方案，不能据此认定无解。", UiColors.ERROR);
+            if (result.planning() != null && !result.planning().explanation().isBlank()) {
+                addWrapped(lines, result.planning().explanation(), UiColors.WARNING);
+            }
+            if (result.planning() != null && result.planning().closestCandidate() != null) {
+                CraftPlan closest = result.planning().closestCandidate();
+                EvaluatedPlan preview = com.murphypotato.simmctoolset.internal.scroll.domain.DecayPlanner.evaluate(
+                    List.of(new RotationBatch(closest, 1)), selected, controller.data().materials(),
+                    result.planning().plan().beforeUsage());
+                addWrapped(lines, "最接近候选（仅诊断，不可确认使用）：" + closest.materials(), UiColors.WARNING);
+                addWrapped(lines, "候选元素：" + formatEffectiveAmounts(preview.effectiveElements()), UiColors.SECONDARY);
+            }
+            addWrapped(lines, "自动搜索不利用负边际元素抵消杂质；异常累计 M 请到使用记录中核对。", UiColors.MUTED);
             displayLines = List.copyOf(lines);
             return;
         }
         addWrapped(lines, "求解耗时：" + String.format(java.util.Locale.ROOT, "%.2f ms", result.elapsedNanos() / 1_000_000.0), UiColors.MUTED);
         if (result.timedOut()) {
             addWrapped(lines, "已达到“" + budgetLabel(settings.searchBudget()) + "”搜索预算，以下为预算内当前最佳方案（不保证全局最优）。", UiColors.WARNING);
+        }
+        if (!result.planning().plan().complete()) {
+            addWrapped(lines, "仅找到 " + result.planning().plan().plannedCrafts() + "/"
+                + result.quantity() + " 个目标卷轴；自动确认已禁用，可在手动模式检查已找到批次。", UiColors.WARNING);
         }
         addWrapped(lines, "当前模式：" + (manualMode ? "手动（修改需重新评估）" : "自动（默认方案已冻结）"), UiColors.ACCENT);
         if (manualMode) addWrapped(lines, "手动修改可能增加衰减或使方案不可行；确认使用前请检查总制作数。", UiColors.WARNING);
@@ -717,7 +720,8 @@ public final class CalculatorScreen extends Screen {
     }
 
     private void addWrapped(List<DisplayLine> lines, String value, int color) {
-        int maxWidth = Math.max(80, resultWidth - 12);
+        int controlsWidth = currentBatches().isEmpty() ? 0 : manualMode ? 112 : 44;
+        int maxWidth = Math.max(80, resultWidth - 12 - controlsWidth);
         for (OrderedText text : textRenderer.wrapLines(Text.literal(value), maxWidth)) lines.add(new DisplayLine(text, color));
         lines.add(new DisplayLine(Text.literal(" ").asOrderedText(), color));
     }
