@@ -91,6 +91,16 @@ public final class ToolSetScreen extends Screen {
             case ACCESSORY -> addDrawableChild(ButtonWidget.builder(Text.literal("打开饰品配装工具"),
                     button -> ToolSetClient.openAccessory(client, this))
                     .dimensions(x, y, Math.min(220, width), 20).build());
+            case OVERVIEW -> {
+                int buttonWidth = Math.min(150, Math.max(100, (width - 8) / 2));
+                addDrawableChild(ButtonWidget.builder(Text.literal("致谢"),
+                        button -> client.setScreen(new AcknowledgementsScreen(this)))
+                    .dimensions(x, y, buttonWidth, 20).build());
+                addDrawableChild(ButtonWidget.builder(Text.literal("问题反馈"),
+                        button -> net.minecraft.util.Util.getOperatingSystem()
+                            .open("https://github.com/MurphyPotato/simmc-tool-set/issues"))
+                    .dimensions(x + buttonWidth + 8, y, buttonWidth, 20).build());
+            }
             case ARCANE_HUD -> {
                 addDrawableChild(toggle(x, y, width, "奥术 HUD", ToolSetSettings.arcaneHudEnabled(),
                         SimesFeatureController::setArcaneEnabled));

@@ -10,14 +10,14 @@ import net.minecraft.util.Util;
 import java.util.List;
 
 public final class AccessoryAboutScreen extends Screen {
-    public static final String ISSUES_URL = "https://github.com/MurphyPotato/simmc-travel-hunter-accessory-tool/issues";
+    public static final String ISSUES_URL = "https://github.com/MurphyPotato/simmc-tool-set/issues";
     private static final List<String> STATEMENTS = List.of(
         "MurphyPotato 制作的非官方玩家工具，与 simMC、Mojang、Microsoft 无官方关联。",
         "模组不收集、上传或向作者传输个人信息、物品数据、服务器地址、玩家名或 UUID。",
         "模组不包含网络请求、遥测或服务端入口，只读取客户端当前可见物品的名称与 tooltip。",
         "本地文件保存结构化饰品名称/词条、白名单图标组件和可选容器坐标；不保存完整 NBT、自定义名称组件、Lore 或 tooltip。",
         "容器坐标默认开启；服务器范围只保存本机随机盐生成的哈希，可在本页关闭或清除。",
-        "点击“提交问题”会交给系统默认浏览器打开 GitHub；是否发送内容由玩家自行决定。"
+        "点击“问题反馈”会交给系统默认浏览器打开 GitHub；是否发送内容由玩家自行决定。"
     );
 
     private final ClientAccessoryController controller;
@@ -45,7 +45,7 @@ public final class AccessoryAboutScreen extends Screen {
         int y = height - 28;
         addDrawableChild(ButtonWidget.builder(Text.literal("返回工具"), button -> close())
             .dimensions(width / 2 - 104, y, 100, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("提交问题"), button ->
+        addDrawableChild(ButtonWidget.builder(Text.literal("问题反馈"), button ->
             Util.getOperatingSystem().open(ISSUES_URL)
         ).dimensions(width / 2 + 4, y, 100, 20).build());
     }
@@ -54,7 +54,7 @@ public final class AccessoryAboutScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         context.fill(0, 0, width, height, UiColors.BACKGROUND);
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 12, UiColors.PRIMARY);
-        context.drawCenteredTextWithShadow(textRenderer, "v6 Fabric · Minecraft 1.21.8", width / 2, 28, UiColors.MUTED);
+        context.drawCenteredTextWithShadow(textRenderer, "版本：3.0.0-fabric · Minecraft 1.21.11 · 仅客户端", width / 2, 28, UiColors.MUTED);
         int maxWidth = Math.max(120, width - 40);
         int y = 52;
         for (String statement : STATEMENTS) {
