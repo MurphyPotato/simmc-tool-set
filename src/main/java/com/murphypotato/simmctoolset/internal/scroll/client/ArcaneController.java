@@ -273,9 +273,13 @@ public final class ArcaneController implements AutoCloseable {
                 client.execute(() -> {
                     if (generation.get() != token) return;
                     calculating = false;
-                    status = planning.plan().complete() ? "完成：" + planning.plan().batches().size() + " 个批次"
+                    status = planning.plan().complete()
+                        ? (planning.status() == com.murphypotato.simmctoolset.internal.scroll.domain.PlanningStatus.TIMED_OUT
+                            ? "达到时间预算，已保留完整可行方案" : "完成：" + planning.plan().batches().size() + " 个批次")
                         : planning.status() == com.murphypotato.simmctoolset.internal.scroll.domain.PlanningStatus.TIMED_OUT
-                        ? "达到时间预算，已返回当前最佳方案" : "未找到完整可行方案";
+                            ? (planning.plan().batches().isEmpty() ? "预算内未找到可执行方案（未证明无解）"
+                                : "达到时间预算，已保留部分可执行批次")
+                            : "未找到完整可行方案（当前搜索范围）";
                     onResult.accept(new CalculationResult(
                         recipe, plans, snapshot.quantity(), snapshot.includeMainMaterial(), snapshot.repeatThreshold(), elapsed, planning
                     ));

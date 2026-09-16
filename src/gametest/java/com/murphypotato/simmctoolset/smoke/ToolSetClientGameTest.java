@@ -41,6 +41,7 @@ public final class ToolSetClientGameTest implements FabricClientGameTest {
                 context.getInput().pressKey(GLFW.GLFW_KEY_ESCAPE);
                 context.runOnClient(client -> require(client.currentScreen == title, "Tool lost its parent"));
             }
+            ScrollSearchClientChecks.run(context, title, prefix);
             context.setScreen(() -> new SimesArcaneHudSettingsScreen(title));
             checkAndCapture(context, prefix + "-simes-settings");
             context.setScreen(() -> new SimesHudLayoutScreen(title));
