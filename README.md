@@ -89,6 +89,18 @@
 
 如需要原功能，请去simmc官方kook 规则帮助与资源下载 频道，下载 simmc-map-addon 模组。
 
+## 致谢
+
+- 奥数卷轴计算模块中，所使用的核心计算过程和基础数据均基于玩家社区对奥数卷轴合成模式的自发探索。
+  - 感谢玩家 PeterPG_ 贡献了对于《元素衰减机制》的研究，并提供了完整计算公式。同时TA也在本模块迭代期间参与了对于本模块实际采用的 “元素衰减机制” 的核验工作。
+  - 感谢玩家 JeanBH 贡献了对于《物品-元素含量对照表》的研究，并提供了完整表格。同时TA也在本模块迭代期间参与了对于本模块实际采用的《物品-元素含量对照表》的核验工作。
+
+- 本模组 奥术HUD 模块和 发酵与厨具 模块原先均移植自玩家 7imes 的模组 Simes Mod。当前 Simmc tool set mod 中，基于 Simes 原有模块进行了优化，修复了原版对应模块在使用过程中的一些bug，并且增加了一些功能。
+  在此感谢玩家 7imes 对于修改 Simes Mod 的许可与授权。
+
+- 本模组制作过程中得到了很多玩家的帮助。感谢以下玩家在本模组测试过程中提出的宝贵意见和建议：
+    Fei_Ge56 Gulanan INTIMES kwpog MingXue_ SnMeow WolfSoul2024 Yanweny （以上排名不分先后）。
+
 ## 许可
 
 原创代码和文档使用 [MIT License](LICENSE)；第三方来源和授权见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
