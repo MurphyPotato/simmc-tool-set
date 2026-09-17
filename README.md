@@ -4,12 +4,12 @@
 
 ## 当前版本
 
-- **正式版 v1.2.0**：基于 1.1.9-dev.20260915.1，包含卷轴衰减计算与方案规划、社区致谢页、统一问题反馈入口，以及奥术 HUD、饰品配装、发酵与厨具和诊断模块。
+- **正式版 v1.2.1**：基于 1.2.0，修复卷轴计算在全材料搜索下容易返回无方案的问题，移除无效阈值输入，并保留卷轴衰减计算、方案规划、社区致谢页、统一问题反馈入口，以及奥术 HUD、饰品配装、发酵与厨具和诊断模块。
 - **历史稳定版 v1.1.8**：升级到 Minecraft 1.21.11，并移除网页地图/Xaero 模块。
 
 ## 下载
 
-- [v1.2.0 正式版](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.2.0-fabric-mc1.21.11)
+- [v1.2.1 正式版](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.2.1-fabric-mc1.21.11)
 - [v1.1.8 稳定版](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.8-fabric-mc1.21.11)
 
 ## 主要功能
