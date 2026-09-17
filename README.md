@@ -12,6 +12,32 @@
 - [v1.2.1 正式版](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.2.1-fabric-mc1.21.11)
 - [v1.1.8 稳定版](https://github.com/MurphyPotato/simmc-tool-set/releases/tag/v1.1.8-fabric-mc1.21.11)
 
+## 主要更新内容
+
+- 模块页面截图见下方主要功能介绍。
+
+- mod新版本已经发布在 Curse Forge，欢迎下载使用。
+  - [simmc-tool-set Curse Forge](https://www.curseforge.com/minecraft/mc-mods/simmc-tool-set) 
+
+- 已跟随服务器适配 Minecraft 1.21.11。
+
+- 修复了成吨的bug：
+  - 修复了奥术HUD mana 条闪烁的bug；
+  - 基于社区玩家的《元素衰减机制》研究优化了卷轴计算器的准确度，现在能更加准确地给出合成方案了；
+  - 修复了某些情况下发酵桶悬浮提示的计数错乱的bug；
+  - 修复了某些情况下发酵桶悬浮提示无法用烹饪时钟校准的bug；
+  - 移除了BUG巨多的网页地图模块，现在该功能由服务器网页地图addon提供；
+  - 修复了非常多的UI错乱，文字错误，无用说明等等问题。
+
+- 本地化记录（御三锅）煎锅、蒸锅、煮锅的放入物品，以高亮发光区别显示当前烹饪状态：
+  - 不发光：啥都没放
+  - 红光：你菜变碳了
+  - 蓝光：放入材料但还没开始烹饪
+  - 黄光：正在烹饪
+  - 绿光：烹饪完成
+
+- 添加了致谢内容。
+
 ## 主要功能
 
 - **奥术 HUD**：显示奥术冷却、吟唱/持续状态、公共冷却和法杖 Mana。
