@@ -42,7 +42,8 @@
 
 - 支持组合方案，自定义合成方案，从历史记录收藏常用合成方案
 
-![卷轴计算](docs/screenshots/scroll-calculator.png)
+<img width="2557" height="1347" alt="image" src="https://github.com/user-attachments/assets/1cb29894-e3f3-4371-bb2c-16c2c1f87bb4" />
+
 
 ### 饰品配装
 
