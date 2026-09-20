@@ -37,7 +37,8 @@ public final class SimesFeatureController {
             active = SimesServerGate.isTarget(client);
             SimesArcaneHud.reset();
             SimesBrewingCookwareHud.reset();
-            DiagnosticLog.info("Simes features active=" + active + " server=" + SimesServerGate.TARGET_HOST);
+            DiagnosticLog.info("Simes features active=" + active
+                    + " servers=" + SimesServerGate.TARGET_SERVER_LABEL);
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> reset());
     }
@@ -76,13 +77,13 @@ public final class SimesFeatureController {
 
     public static String arcaneStatus() {
         if (FabricLoader.getInstance().isModLoaded("simes")) return "检测到外置 Simes，已由外置版接管";
-        if (!active()) return "未连接目标服务器 play.simmc.cn";
+        if (!active()) return "未连接目标服务器 " + SimesServerGate.TARGET_SERVER_LABEL;
         return ToolSetSettings.arcaneHudEnabled() ? "已激活，等待服务器奥术状态" : "已连接但已关闭";
     }
 
     public static String brewingStatus() {
         if (FabricLoader.getInstance().isModLoaded("simes")) return "检测到外置 Simes，已由外置版接管";
-        if (!active()) return "未连接目标服务器 play.simmc.cn";
+        if (!active()) return "未连接目标服务器 " + SimesServerGate.TARGET_SERVER_LABEL;
         return "已激活；发酵=" + (ToolSetSettings.fermentationEnabled() ? "开" : "关")
                 + "，厨具=" + (ToolSetSettings.cookwareEnabled() ? "开" : "关")
                 + "；" + SimesBrewingCookwareHud.statusSummary();

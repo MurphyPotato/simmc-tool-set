@@ -12,6 +12,10 @@ import java.util.Locale;
  */
 public final class SimesServerGate {
     public static final String TARGET_HOST = "play.simmc.cn";
+    public static final String TARGET_BACKUP_HOST = "110.42.44.191";
+    public static final int TARGET_BACKUP_PORT = 7777;
+    public static final String TARGET_SERVER_LABEL =
+            TARGET_HOST + " 或 " + TARGET_BACKUP_HOST + ":" + TARGET_BACKUP_PORT;
 
     private SimesServerGate() {
     }
@@ -27,9 +31,17 @@ public final class SimesServerGate {
         String value = address.trim().toLowerCase(Locale.ROOT);
         int slash = value.indexOf('/');
         if (slash >= 0) value = value.substring(0, slash);
-        int colon = value.lastIndexOf(':');
-        if (colon > 0 && value.indexOf(':') == colon) value = value.substring(0, colon);
         while (value.endsWith(".")) value = value.substring(0, value.length() - 1);
+
+        int colon = value.lastIndexOf(':');
+        if (colon > 0 && value.indexOf(':') == colon) {
+            String host = value.substring(0, colon);
+            String port = value.substring(colon + 1);
+            if (TARGET_BACKUP_HOST.equals(host)) {
+                return Integer.toString(TARGET_BACKUP_PORT).equals(port);
+            }
+            return TARGET_HOST.equals(host);
+        }
         return TARGET_HOST.equals(value);
     }
 }
