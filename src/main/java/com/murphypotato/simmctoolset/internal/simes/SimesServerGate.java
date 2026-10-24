@@ -14,8 +14,10 @@ public final class SimesServerGate {
     public static final String TARGET_HOST = "play.simmc.cn";
     public static final String TARGET_BACKUP_HOST = "110.42.44.191";
     public static final int TARGET_BACKUP_PORT = 7777;
+    public static final String TARGET_MIRROR_HOST = "simmc.silkysoftware.com";
     public static final String TARGET_SERVER_LABEL =
-            TARGET_HOST + " 或 " + TARGET_BACKUP_HOST + ":" + TARGET_BACKUP_PORT;
+            TARGET_HOST + "、" + TARGET_BACKUP_HOST + ":" + TARGET_BACKUP_PORT
+                    + " 或 " + TARGET_MIRROR_HOST;
 
     private SimesServerGate() {
     }
@@ -40,8 +42,8 @@ public final class SimesServerGate {
             if (TARGET_BACKUP_HOST.equals(host)) {
                 return Integer.toString(TARGET_BACKUP_PORT).equals(port);
             }
-            return TARGET_HOST.equals(host);
+            return TARGET_HOST.equals(host) || TARGET_MIRROR_HOST.equals(host);
         }
-        return TARGET_HOST.equals(value);
+        return TARGET_HOST.equals(value) || TARGET_MIRROR_HOST.equals(value);
     }
 }

@@ -14,6 +14,12 @@ final class SimesServerGateTest {
     }
 
     @Test
+    void acceptsTheConfiguredMirrorHostnameWithAndWithoutPort() {
+        assertTrue(SimesServerGate.isTargetAddress("simmc.silkysoftware.com"));
+        assertTrue(SimesServerGate.isTargetAddress("SIMMC.SILKYSOFTWARE.COM:25565"));
+    }
+
+    @Test
     void acceptsOnlyTheConfiguredBackupAddressAndPort() {
         assertTrue(SimesServerGate.isTargetAddress("110.42.44.191:7777"));
         assertTrue(SimesServerGate.isTargetAddress("110.42.44.191:7777."));
